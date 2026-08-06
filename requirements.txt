@@ -1,0 +1,16 @@
+# Projeto Harbor - dependencias
+# Ja presentes no ambiente (listadas para reprodutibilidade):
+pandas
+numpy
+scikit-learn
+sqlalchemy
+psycopg2-binary
+streamlit
+requests
+fastapi
+uvicorn
+
+# Peças que faltavam (bloqueadas por rede na sessao anterior):
+sentence-transformers   # RAG neural - modelo E5
+chromadb                # banco vetorial para RAG
+mcp                     # SDK oficial do Model Context Protocol

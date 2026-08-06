@@ -1,0 +1,635 @@
+<title>Harbor — Dados de Manufatura da Internet</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-raised: #ffffff;
+  --ink: #111111;
+  --ink-soft: #333333;
+  --ink-faint: #666666;
+  --line: #cccccc;
+  --accent: #a6186b;          /* Cerise magenta */
+  --accent-soft: #f7d9ea;
+  --accent2: #f5642d;         /* Cerise laranja-coral */
+  --good: #2f7a52;
+  --good-soft: #dcefe2;
+  --bad: #a83f38;
+  --bad-soft: #f7e0de;
+  --mono-bg: #f2f2f2;
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  scroll-snap-type: y proximity;
+  overflow-x: hidden;
+}
+
+.slide {
+  min-height: 100vh;
+  scroll-snap-align: start;
+  padding: 4.5rem 6vw 3.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  background: #ffffff;
+}
+
+.slide-index {
+  position: absolute;
+  top: 2rem;
+  right: 6vw;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.08em;
+}
+
+.eyebrow {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.9rem;
+  font-weight: bold;
+}
+
+h1 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: bold;
+  font-size: clamp(2.2rem, 4.2vw, 3.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin: 0 0 1rem;
+  color: var(--ink);
+}
+
+h2 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: bold;
+  font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+  line-height: 1.1;
+  margin: 0 0 1.4rem;
+  max-width: 34ch;
+  color: var(--ink);
+}
+
+h3 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: bold;
+  font-size: 1rem;
+  margin: 0 0 0.6rem;
+  color: var(--ink-soft);
+}
+
+p { max-width: 62ch; color: var(--ink-soft); margin: 0 0 0.8rem; }
+p.lede { font-size: 1.15rem; color: var(--ink); max-width: 58ch; }
+
+code, .mono { font-family: "Courier New", Courier, monospace; font-size: 0.88em; }
+
+.tag {
+  display: inline-block;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 3px;
+  background: var(--mono-bg);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}
+
+/* Title slide */
+#s0 {
+  justify-content: space-between;
+  background: #ffffff;
+}
+#s0 .top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+#s0 .stamp { font-family: Arial, Helvetica, sans-serif; font-size: 0.78rem; color: var(--ink-faint); text-align: right; line-height: 1.6; }
+#s0 .title-block { max-width: 900px; }
+#s0 .subtitle { font-size: 1.25rem; color: var(--ink-soft); max-width: 46ch; }
+#s0 .footer-row {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  border-top: 1px solid var(--line); padding-top: 1.5rem;
+}
+#s0 .footer-row .who { font-size: 0.95rem; }
+#s0 .footer-row .who b { font-family: Arial, Helvetica, sans-serif; font-weight: bold; }
+#s0 .stack-list { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; max-width: 420px; }
+
+/* Approach slide */
+.approach-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+.approach-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1.4rem 1.5rem;
+}
+.approach-card .k { font-family: Arial, Helvetica, sans-serif; font-size: 0.72rem; letter-spacing: 0.06em; color: var(--accent); text-transform: uppercase; margin-bottom: 0.5rem; display:block; font-weight: bold; }
+.approach-card p { font-size: 0.92rem; margin: 0; }
+
+/* Pipeline slides */
+.pipeline-head { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+.pipeline-head .num { font-family: Arial, Helvetica, sans-serif; font-size: 1.1rem; color: var(--ink-faint); }
+.pipeline-body { display: grid; grid-template-columns: 1.1fr 1fr; gap: 3rem; align-items: start; margin-top: 1.5rem; }
+.pipeline-col h3 { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; color: var(--ink-faint); }
+
+.stat-row { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.2rem 0; }
+.stat-tile {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem 1.3rem;
+  min-width: 150px;
+}
+.stat-tile .label { font-size: 0.72rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; }
+.stat-tile .value { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 1.9rem; font-variant-numeric: tabular-nums; line-height: 1; }
+.stat-tile .value.good { color: var(--good); }
+.stat-tile .value.bad { color: var(--bad); }
+.stat-tile .delta { font-family: Arial, Helvetica, sans-serif; font-size: 0.78rem; margin-top: 0.3rem; }
+.stat-tile .delta.good { color: var(--good); }
+.stat-tile .delta.bad { color: var(--bad); }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+th, td { text-align: left; padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--line); }
+th { font-family: Arial, Helvetica, sans-serif; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-faint); font-weight: bold; }
+td.num { font-family: Arial, Helvetica, sans-serif; text-align: right; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-raised); }
+
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.9rem 1.1rem;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+}
+.callout.insight { border-left-color: var(--ink-faint); background: var(--mono-bg); }
+.callout b { color: var(--ink); }
+
+.pill { display: inline-flex; align-items: center; gap: 0.4rem; font-family: Arial, Helvetica, sans-serif; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 999px; }
+.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.neutral { background: var(--mono-bg); color: var(--ink-soft); }
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Architecture slide */
+.arch-flow { display: flex; align-items: stretch; gap: 0; margin: 2rem 0; flex-wrap: wrap; }
+.arch-step {
+  flex: 1; min-width: 190px;
+  background: var(--bg-raised); border: 1px solid var(--line); border-radius: 8px;
+  padding: 1.2rem 1.3rem; position: relative;
+}
+.arch-step .layer-num { font-family: Arial, Helvetica, sans-serif; font-size: 0.7rem; color: var(--accent); margin-bottom: 0.4rem; font-weight: bold; }
+.arch-step h4 { margin: 0 0 0.4rem; font-family: Arial, Helvetica, sans-serif; font-size: 1.05rem; font-weight: bold; }
+.arch-step p { font-size: 0.82rem; margin: 0; }
+.arch-arrow { display: flex; align-items: center; justify-content: center; padding: 0 0.6rem; color: var(--ink-faint); font-size: 1.3rem; }
+
+.credit-line { font-size: 0.85rem; color: var(--ink-faint); margin-top: 1.2rem; font-style: italic; }
+
+/* Infra slide */
+.infra-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 1.5rem; }
+.infra-card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 8px; padding: 1.1rem 1.2rem; }
+.infra-card .icon-label { font-family: Arial, Helvetica, sans-serif; font-size: 0.7rem; color: var(--accent); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.04em; font-weight: bold; }
+.infra-card h4 { font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 1.05rem; margin: 0 0 0.4rem; }
+.infra-card p { font-size: 0.82rem; margin: 0 0 0.5rem; }
+.infra-card .addr { font-family: Arial, Helvetica, sans-serif; font-size: 0.75rem; color: var(--ink-faint); }
+
+/* Next steps */
+.steps-list { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.5rem; max-width: 720px; }
+.step-item { display: flex; gap: 1rem; align-items: baseline; padding-bottom: 0.9rem; border-bottom: 1px solid var(--line); }
+.step-item .step-n { font-family: Arial, Helvetica, sans-serif; color: var(--ink-faint); font-size: 0.85rem; min-width: 1.5rem; }
+.step-item p { margin: 0; font-size: 0.95rem; color: var(--ink); }
+.step-item.done .step-n { color: var(--good); font-weight: bold; }
+.step-item.done p strong { color: var(--good); }
+
+/* Explanatory slide: texto corrido + diagrama de fluxo (padrao Yan/CERISE) */
+.expl-body { margin-top: 0.8rem; max-width: 68ch; }
+.expl-body p { font-size: 1rem; }
+.expl-body .objetivo { font-size: 1rem; color: var(--ink); margin-bottom: 1rem; }
+.expl-body .objetivo b { color: var(--accent); }
+
+.flow-diagram { display: flex; align-items: stretch; gap: 0.6rem; margin: 1.8rem 0; flex-wrap: wrap; row-gap: 1.2rem; }
+.flow-diagram.vertical { flex-direction: column; align-items: flex-start; }
+.flow-box {
+  background: var(--bg-raised); border: 1px solid var(--line); border-radius: 8px;
+  padding: 0.9rem 1rem; font-size: 0.8rem; color: var(--ink);
+  flex: 1 1 140px; min-width: 130px; max-width: 190px; text-align: center;
+}
+.flow-box code { display: block; margin-bottom: 0.2rem; }
+.flow-arrow { display: flex; align-items: center; justify-content: center; padding: 0 0.3rem; color: var(--ink-faint); font-size: 1.2rem; flex: 0 0 auto; }
+.flow-diagram.vertical .flow-arrow { padding: 0.3rem 0; transform: rotate(90deg); }
+
+.callout.example {
+  border-left-color: var(--accent2); background: var(--mono-bg);
+  font-family: "Courier New", Courier, monospace; font-size: 0.82rem; white-space: pre-wrap;
+}
+
+@media (max-width: 860px) {
+  .flow-diagram { flex-direction: column; align-items: flex-start; }
+  .flow-arrow { transform: rotate(90deg); padding: 0.3rem 0; }
+  .approach-grid { grid-template-columns: 1fr; }
+  .pipeline-body { grid-template-columns: 1fr; gap: 1.5rem; }
+  .infra-grid { grid-template-columns: repeat(2, 1fr); }
+  #s0 .top-row { flex-direction: column; gap: 1rem; }
+  #s0 .stamp { text-align: left; }
+}
+</style>
+
+<!-- ============ SLIDE 0 — TITLE ============ -->
+<section class="slide" id="s0">
+  <div class="top-row">
+    <div class="title-block">
+      <p class="eyebrow">CERISE · UFG — Projeto FINEP-HarboR</p>
+      <h1>Dados de Manufatura da Internet</h1>
+      <p class="subtitle">Quatro pipelines de diagnóstico industrial construídos sobre datasets públicos, com detecção de anomalia validada e arquitetura híbrida de decisão.</p>
+    </div>
+    <div class="stamp">Reunião CERISE<br>07 · 07 · 2026</div>
+  </div>
+  <div class="footer-row">
+    <div class="who">Apresentado por <b>Yan Santos Leite</b><br>Bolsista FUNAPE — Multimodal LLM, N8N, Claude Cowork</div>
+    <div class="stack-list">
+      <span class="tag">pandas</span>
+      <span class="tag">scikit-learn</span>
+      <span class="tag">Ollama (local)</span>
+      <span class="tag">FastAPI</span>
+      <span class="tag">N8N</span>
+      <span class="tag">PostgreSQL</span>
+      <span class="tag">Streamlit</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SLIDE 1 — INFRA / DEMO ============ -->
+<section class="slide" id="s1">
+  <span class="slide-index">01 / 12</span>
+  <p class="eyebrow">Do pipeline ao produto</p>
+  <h2>Infraestrutura rodando, não só notebooks</h2>
+  <p class="objetivo"><b>Por que infraestrutura rodando, e não só notebooks de análise?</b> Os 4 pipelines (OEE, Legacy Sensor, manufatura discreta, CNC) já foram entregues e apresentados. A partir deles, o foco desta atualização é o chatbot: expor os mesmos dados como serviço demonstrável e usável por qualquer pessoa da equipe, não só reproduzível por quem sabe rodar Python.</p>
+  <div class="infra-grid">
+    <div class="infra-card">
+      <div class="icon-label">Dashboard</div>
+      <h4>Streamlit</h4>
+      <p>4 abas com os resultados + um chatbot especialista por dataset, rodando em Ollama local.</p>
+      <div class="addr">localhost:8501</div>
+    </div>
+    <div class="infra-card">
+      <div class="icon-label">API</div>
+      <h4>FastAPI</h4>
+      <p>Endpoint <code>/diagnostico</code> expondo a arquitetura de diagnóstico em 3 camadas via REST, com Swagger.</p>
+      <div class="addr">localhost:8000/docs</div>
+    </div>
+    <div class="infra-card">
+      <div class="icon-label">Automação</div>
+      <h4>N8N</h4>
+      <p>Workflow webhook → diagnóstico automático, mesmo padrão do projeto de teleoperação de robô.</p>
+      <div class="addr">localhost:5678</div>
+    </div>
+    <div class="infra-card">
+      <div class="icon-label">RAG híbrido</div>
+      <h4>Manual técnico</h4>
+      <p>Busca por <strong>significado</strong> (embeddings E5 + ChromaDB) combinada com busca por <strong>palavra exata</strong> (TF-IDF) sobre a documentação do equipamento (dado Tipo A), citando fonte.</p>
+      <div class="addr">rag/rag_hibrido.py</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SLIDE 7 — CONCEITOS EM PALAVRAS SIMPLES ============ -->
+<section class="slide" id="s13">
+  <span class="slide-index">02 / 12</span>
+  <p class="eyebrow">Para entender de primeira</p>
+  <h2>Os dois conceitos, em palavras simples</h2>
+  <p class="lede">Antes do detalhe técnico: o que cada peça do chatbot faz, com uma analogia do dia a dia.</p>
+  <div class="approach-grid" style="grid-template-columns: repeat(2, 1fr);">
+    <div class="approach-card">
+      <span class="k">RAG + Embeddings</span>
+      <p><strong>Em palavras simples:</strong> o chatbot <em>consulta o manual</em> antes de responder, em vez de chutar de memória. Embeddings transformam texto em números que capturam <em>significado</em> — então "está muito quente" fica perto de "temperatura elevada", mesmo sem repetir a palavra.</p>
+    </div>
+    <div class="approach-card">
+      <span class="k">NL-to-SQL</span>
+      <p><strong>Em palavras simples:</strong> você pergunta em português e o sistema <em>escreve a consulta ao banco sozinho</em>. Se a consulta falha, ele lê o erro e tenta de novo — como um estagiário que corrige a própria query.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SLIDE 8 — RAG HIBRIDO ============ -->
+<section class="slide" id="s2">
+  <span class="slide-index">03 / 12</span>
+  <p class="eyebrow">Como o chatbot consulta o manual</p>
+  <h2>RAG híbrido com Hybrid Search</h2>
+  <div class="expl-body">
+    <p class="objetivo"><b>Por que RAG, e não só perguntar direto ao LLM?</b> Um LLM sozinho responde "de memória" — ele nunca leu o manual técnico específico do equipamento do Harbor, e se perguntado sobre ele, inventa uma resposta plausível em vez de admitir que não sabe (alucinação por falta de contexto). RAG resolve isso invertendo o fluxo: primeiro busca o trecho certo do manual, depois pede ao LLM para responder <em>só com base nesse trecho</em>, citando a fonte.</p>
+    <p class="objetivo"><b>Por que hybrid search (semântico + lexical), e não só um dos dois?</b> Testado e medido: busca puramente semântica (embeddings) erra siglas e códigos exatos do manual (ex: "StopGroup", nomes de sensor) porque prioriza sinônimo sobre correspondência literal; busca puramente lexical (palavra-chave) erra paráfrases (ex: "está muito quente" não bate com "temperatura elevada" no texto). Combinar os dois cobre as duas falhas ao mesmo tempo — nenhum método sozinho resolvia as golden questions completas no harness.</p>
+    <p>O chunking corta o manual por seção — em vez de corte cego de caracteres, o que evita separar um título do seu conteúdo — e um harness de avaliação automatizado valida o resultado. Princípio central de todo o chatbot: a resposta só é aceita depois de checada contra o contexto real, nunca gerada às cegas.</p>
+    <p style="margin-top: 0.8rem;">➡️ <b>Hybrid Search (embeddings + TF-IDF):</b> a técnica de recuperação usada dentro dessa arquitetura — a peça que combina busca por significado com busca por palavra exata antes do reranking.</p>
+  </div>
+
+  <div class="flow-diagram">
+    <div class="flow-box"><code>pergunta</code>embeddings multilingual-e5-small (denso)</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box"><code>TF-IDF</code>busca lexical (siglas/códigos exatos)</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box"><code>ChromaDB</code>hybrid search</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box"><code>Cross-Encoder</code>reranking</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">resposta + verificação anti-alucinação</div>
+  </div>
+
+  <div class="table-wrap" style="margin-top: 1rem;">
+    <table>
+      <thead><tr><th>Parâmetro</th><th>Valor</th><th>Descrição</th></tr></thead>
+      <tbody>
+        <tr><td><code>model</code></td><td class="num">llama3.2:3b</td><td>3B parâmetros, executado localmente via Ollama.</td></tr>
+        <tr><td><code>temperature</code></td><td class="num">0.2</td><td>Baixa deliberadamente — respostas que citam números do contexto pedem baixa variância, não criatividade.</td></tr>
+        <tr><td><code>k (chunks)</code></td><td class="num">3</td><td>Chunks finais após hybrid search + rerank.</td></tr>
+        <tr><td><code>k_candidatos</code></td><td class="num">10</td><td>Candidatos avaliados pelo Cross-Encoder antes do corte final.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout" style="margin-top: 1rem;">
+    <b>E se o documento fosse muito maior (ex: um PDF de centenas de páginas)?</b> A arquitetura atual (E5 + TF-IDF + ChromaDB + rerank) continua valendo — o que muda são os parâmetros e uma peça do meio, não o desenho todo:
+    <br><br>
+    <b>1. O corte em pedaços (chunking) mudaria de estratégia.</b> Hoje cortamos por seção do manual (cada "## título" vira um pedaço) — funciona bem porque os documentos são curtos (5 manuais, a maioria com 1200-3600 caracteres) e têm títulos organizados. Num documento de centenas de páginas, um estudo da NVIDIA (2025) mostrou que cortar por <em>página física</em> costuma funcionar melhor que cortar por seção — a estratégia certa depende do tamanho do documento, não existe uma única resposta "correta" para todos os casos.
+    <br><br>
+    <b>2. A busca por palavra exata (TF-IDF) precisaria de mais "vocabulário".</b> Hoje ela reconhece até 2.000 palavras diferentes — suficiente para 5 manuais curtos. Um documento grande, com vocabulário técnico mais amplo, exigiria aumentar esse limite.
+    <br><br>
+    <b>3. O banco de vetores (ChromaDB) e o modelo de reranking continuam os mesmos.</b> Essas duas peças já são feitas para escalar — o ChromaDB indexa milhares de pedaços sem problema, e o Cross-Encoder só reordena os poucos candidatos finais (10), não o documento inteiro. Não seria preciso trocar nenhum dos dois.
+  </div>
+  <p style="margin-top: 1rem; font-size: 0.78rem; color:var(--ink-faint)">Os datasets do Kaggle e do Zenodo não têm documentação técnica. Por isso os 5 manuais consultados pelo RAG foram escritos pelo próprio projeto: a estrutura de cada manual segue o README do dataset (colunas, unidades, contexto), e os limiares (valores de referência) e achados (conclusões) citados vêm de dado real do projeto, nunca são inventados.</p>
+</section>
+
+<!-- ============ SLIDE 9 — RAG: RESULTADOS ============ -->
+<section class="slide" id="s3">
+  <span class="slide-index">04 / 12</span>
+  <p class="eyebrow">RAG híbrido — resultados</p>
+  <h2>O sistema busca o trecho certo? Testamos de dois jeitos</h2>
+  <div class="expl-body">
+    <p class="objetivo">O RAG busca o trecho certo do manual antes de responder, mas como saber se essa busca de fato funciona? Duas métricas respondem a essa pergunta. O <b>Recall@5</b> verifica se a resposta certa apareceu entre os cinco primeiros resultados da busca. O <b>MRR</b> é mais exigente: não basta aparecer, importa também em que posição, e o valor 1.0 indica que o trecho certo veio sempre em primeiro lugar.</p>
+    <p class="objetivo">Testamos de duas formas, com dois conjuntos de perguntas completamente diferentes. No próprio Harbor, usamos as 50 golden questions de rota RAG, perguntas em português sobre os cinco manuais técnicos do projeto, e esse teste prova que a busca funciona no domínio para o qual foi construída. No benchmark acadêmico público NanoBEIR (HuggingFace), usamos quatro subsets: NanoSciFact, sobre fact-checking científico; NanoFEVER, sobre verificação de afirmações; NanoHotpotQA, com perguntas multi-hop de conhecimento geral; e NanoDBPedia, sobre entidades da Wikipédia. Esse teste não valida o conteúdo do Harbor, valida se a técnica de busca, embeddings combinados com TF-IDF e reranking, generaliza para qualquer corpus, e não funciona só porque conhecemos os dados de antemão.</p>
+    <p class="objetivo">Vale uma precisão importante: os dois testes avaliam só a etapa de busca do pipeline RAG — embeddings E5, TF-IDF e, quando ativo, o Cross-Encoder de reranking. Não incluem a geração da resposta final pelo LLM nem a verificação anti-alucinação, etapas seguintes do mesmo pipeline, avaliadas separadamente no harness de faithfulness.</p>
+    <p class="objetivo">A tabela mostra os dois momentos do pipeline separadamente: a busca isolada, antes do reranking, e o pipeline completo, depois do Cross-Encoder reordenar os candidatos. Usamos top-5 nos dois casos, com folga acima do k=3 usado de fato na resposta final, para dar margem à etapa de reranking escolher entre mais opções. O reranking melhora o Recall@5 na maioria dos casos, mas o MRR do harness próprio cai levemente com ele, porque o Cross-Encoder otimiza a relevância do conjunto todo, sem garantir melhora em cada caso individual.</p>
+  </div>
+  <div class="table-wrap" style="margin-top: 1rem;">
+    <table>
+      <thead><tr><th>Avaliação</th><th>Recall@5 (sem rerank)</th><th>MRR (sem rerank)</th><th>Recall@5 (com rerank)</th><th>MRR (com rerank)</th></tr></thead>
+      <tbody>
+        <tr><td><b>Harness próprio</b></td><td class="num">98%</td><td class="num">0.900</td><td class="num">98%</td><td class="num">0.869</td></tr>
+        <tr><td>NanoBEIR / NanoSciFact</td><td class="num">74%</td><td class="num">0.707</td><td class="num">80%</td><td class="num">0.682</td></tr>
+        <tr><td>NanoBEIR / NanoFEVER</td><td class="num">96%</td><td class="num">0.805</td><td class="num">98%</td><td class="num">0.890</td></tr>
+        <tr><td>NanoBEIR / NanoHotpotQA</td><td class="num">98%</td><td class="num">0.880</td><td class="num">98%</td><td class="num">0.955</td></tr>
+        <tr><td>NanoBEIR / NanoDBPedia</td><td class="num">86%</td><td class="num">0.800</td><td class="num">94%</td><td class="num">0.879</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout example" style="margin-top: 1rem;">
+    <b>Pergunta:</b> "Quantas camadas tem a arquitetura de diagnóstico recomendada no manual e o que cada uma faz?"
+    <b>Resposta do chatbot:</b> "A arquitetura de diagnóstico recomendada tem 3 camadas: 1. Camada 1: regra determinística com thresholds fixos por sensor. 2. Camada 2: detecção de anomalia multivariada utilizando Isolation Forest sobre o conjunto de sensores. 3. Camada 3: validação semântica com modelo de linguagem analisando contexto textual para decidir se a anomalia é REAL, FALSO_POSITIVO ou INCONCLUSIVO. Fonte: manual_manutencao_sensores_industriais.md"
+  </div>
+</section>
+
+<!-- ============ SLIDE 10 — HARNESS DE AVALIACAO ============ -->
+<section class="slide" id="s4">
+  <span class="slide-index">05 / 12</span>
+  <p class="eyebrow">Medir antes de confiar</p>
+  <h2>Harness de avaliação automatizado</h2>
+  <div class="expl-body">
+    <p class="objetivo"><b>O que é um harness?</b> Um script que roda o chatbot de ponta a ponta contra um conjunto fixo de perguntas, transformando o resultado em um número comparável ao longo do tempo.</p>
+    <p class="objetivo"><b>O que são as "golden questions" e qual o critério de escolha?</b> 20 perguntas fixas, escritas manualmente, cobrindo os 4 datasets e as 3 rotas do chatbot (contexto/SQL/RAG). Cada uma define os números que a resposta deve citar, extraídos do pipeline real — nunca inventados — e um subconjunto funciona como armadilha proposital, testando se o modelo confunde ou inventa dado ausente.</p>
+    <p class="objetivo"><b>Isso é "padrão-ouro"?</b> A metodologia segue o padrão de benchmarks acadêmicos de RAG (RAGAS/FAB-Bench — ver slide 12, referências): perguntas fixas, métrica objetiva (faithfulness), armadilha anti-alucinação. Mas os <em>dados</em> são específicos do domínio do Harbor, não um benchmark público comparável externamente — por isso o slide 3 também traz o NanoBEIR, que é benchmark público de verdade.</p>
+    <p><code>eval/rodar_golden.py</code> gera a resposta de verdade (não só testa o roteamento) e <code>eval/verificacao.py</code> extrai números/afirmações da resposta e confere contra o contexto. Resultados visíveis direto no dashboard (aba "6. Avaliacao (Golden Questions)"), sem precisar abrir terminal.</p>
+  </div>
+  <div class="callout" style="margin-top: 1rem;">
+    <b>Em resumo — Harness de Avaliação:</b> 20 Golden Questions · cobertura dos 4 datasets · execução automática · dashboard de resultados.
+  </div>
+  <div class="flow-diagram">
+    <div class="flow-box"><code>golden_questions.json</code>20 perguntas + rota esperada</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box"><code>rodar_golden.py</code>resposta real do pipeline</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box"><code>verificacao.py</code>confere números vs. contexto</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">dashboard, aba "6. Avaliacao (Golden Questions)"</div>
+  </div>
+  <p style="margin-top: 1rem; font-size: 0.85rem;"><b>⚠️ Nota sobre os números abaixo:</b> medidos <i>antes</i> dos gates corrigidos no teste adversarial (ver slide "Alucinações encontradas"). O script que gera esses números (<code>eval/rodar_golden.py</code>) é uma cópia separada da lógica de roteamento do dashboard, e ainda não recebeu os gates novos — rerodar hoje sem sincronizar mostraria um número <i>pior</i>, por desatualização do script de teste, não por regressão real do chatbot. Sincronização é o próximo passo #2b. Os números abaixo são um retrato do harness ANTES dessa rodada de correções, não do chatbot como está hoje.</p>
+  <div class="stat-row" style="margin-top: 1rem;">
+    <div class="stat-tile">
+      <div class="label">Roteamento (histórico)</div>
+      <div class="value">18/20</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">Faithfulness (histórico)</div>
+      <div class="value bad">67,9%</div>
+    </div>
+    <div class="stat-tile">
+      <div class="label">Alucinações (histórico)</div>
+      <div class="value bad">2</div>
+    </div>
+  </div>
+  <p style="margin-top: 1rem; font-size: 0.9rem;">O próprio harness que expôs essas falhas foi o que permitiu corrigi-las (ver slide seguinte, "Alucinações encontradas").</p>
+</section>
+
+<!-- ============ SLIDE 11 — NL-TO-SQL ============ -->
+<section class="slide" id="s5">
+  <span class="slide-index">06 / 12</span>
+  <p class="eyebrow">Pergunta em português vira consulta</p>
+  <h2>NL-to-SQL robusto, com auto-correção</h2>
+  <div class="expl-body">
+    <p class="objetivo"><b>Por que NL-to-SQL, e não RAG para tudo?</b> RAG (slide 2) resolve perguntas sobre <em>texto</em> (o manual diz o quê?). Mas perguntas como "qual categoria de parada mais consumiu minutos?" exigem <em>agregação exata</em> sobre milhares de linhas — soma, média, ranking — algo que um LLM não calcula de forma confiável a partir de um trecho de texto recuperado. NL-to-SQL traduz a pergunta numa consulta real ao banco, que o Postgres executa com precisão matemática garantida; o LLM só traduz a intenção, nunca faz a conta.</p>
+    <p class="objetivo"><b>Objetivo:</b> traduzir a pergunta em <code>SELECT</code>, executar no Postgres real (14 tabelas do projeto, cobrindo os 4 datasets) e, se der erro, corrigir sozinho uma vez. O modelo 3B, sem essas salvaguardas, inventava JOINs e errava sintaxe com frequência — observado em testes manuais, não uma taxa medida formalmente.</p>
+    <p>O LLM local (Ollama) gera o SQL; validação aceita <b>só SELECT</b> (blacklist de DDL/DML); <i>self-repair</i> reenvia SQL+erro ao modelo; engine reutilizado. O prompt "prefira 1 tabela" combinado com a auto-correção eleva o acerto sem abrir mão da segurança.</p>
+  </div>
+  <div class="callout" style="margin-top: 1rem;">
+    <b>Em resumo — Motivação para usar NL-to-SQL:</b> consultas analíticas · agregações · rankings · precisão numérica.
+  </div>
+  <div class="flow-diagram">
+    <div class="flow-box"><code>pergunta PT-BR</code></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">LLM gera SQL</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">validação SELECT-only</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">executa no Postgres<br><span style="font-size:0.75em; color:var(--ink-faint)">erro? self-repair, tenta 1x</span></div>
+  </div>
+</section>
+
+<!-- ============ SLIDE 12 — NL-TO-SQL: BENCHMARKS ============ -->
+<section class="slide" id="s6">
+  <span class="slide-index">07 / 12</span>
+  <p class="eyebrow">NL-to-SQL — comparação com padrão-ouro</p>
+  <h2>BIRD-SQL e Spider: dois benchmarks, duas histórias</h2>
+  <p class="objetivo"><b>Por que testar contra benchmarks públicos, e não só o harness próprio?</b> O harness de 20 perguntas (slide 4) usa <b>golden questions escritas à mão por Yan</b>, específicas do schema do Harbor, que o modelo já "conhece" bem. BIRD-SQL e Spider são <b>benchmarks públicos de terceiros</b> — as perguntas, schemas e SQL-gabarito não foram escritos pelo projeto, vêm prontos do dataset acadêmico — e testam a mesma técnica em <em>schemas nunca vistos</em>. São dois conjuntos de perguntas completamente diferentes, de propósito: um mede o chatbot no domínio do Harbor, o outro mede se a técnica generaliza — a mesma lógica do slide 3 (NanoBEIR), agora aplicada a SQL em vez de retrieval.</p>
+  <p style="font-size:0.82rem; color:var(--ink-faint)">Tabela abaixo é o benchmark completo (100 + 25 perguntas), rodado só com <code>llama3.2:3b</code> (modelo padrão). Uma comparação parcial com <code>qwen2.5:7b</code> — só BIRD-SQL, amostra reduzida de 25 perguntas, Spider não rodado com qwen — está no slide 7.</p>
+  <div class="table-wrap" style="margin-top: 0.5rem;">
+    <table>
+      <thead><tr><th>Benchmark (llama3.2:3b)</th><th>Correspondência exata</th><th>Jaccard (% de sobreposição entre tabelas/colunas usadas e o gabarito)</th><th>Erros</th></tr></thead>
+      <tbody>
+        <tr><td>BIRD-SQL (100 perguntas)</td><td class="num">11,0%</td><td class="num">67,4%</td><td class="num">8/100</td></tr>
+        <tr><td>Spider (25 perguntas)</td><td class="num">36,0%</td><td class="num">75,0%</td><td class="num">0/25</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="expl-body" style="margin-top: 1.2rem;">
+    <p><b>Isso é um resultado bom ou ruim?</b> As duas colunas medem coisas diferentes, então não dá pra resumir num "bom" ou "ruim" só. A <b>correspondência exata</b> (11-36%) parece baixa, mas é uma régua injusta: só conta como acerto se o SQL gerado for <i>idêntico, palavra por palavra</i>, ao gabarito — mesmo existindo várias formas certas de escrever a mesma consulta. O <b>jaccard</b> (67-75%) é a métrica que importa mais aqui: mostra se o modelo escolheu as tabelas/colunas certas, mesmo escrevendo o SQL de um jeito diferente do gabarito. E nisso ele acerta a maior parte das vezes, mesmo em schemas que nunca tinha visto.</p>
+    <p><b>Por que o Spider saiu melhor que o BIRD-SQL nas duas métricas?</b> Não é o Harbor "piorando" — é o benchmark ficando mais difícil por design. O BIRD-SQL foi propositalmente construído com bancos mais "sujos" e schemas mais complexos; o Spider usa schemas mais limpos e didáticos. Resultado esperado, consistente com a literatura.</p>
+    <p><b>Dá pra dizer "estamos a X% do estado da arte"?</b> Não, e é importante deixar isso claro. Os números oficiais desses benchmarks (~82% no BIRD, ~85% no Spider) medem algo mais rigoroso: rodam o SQL de verdade num banco real e conferem se o resultado bate (<i>execution accuracy</i>), usando sistemas elaborados de várias etapas. Aqui, sem os bancos de dados reais (30-40GB, fora de escopo), medimos só se o texto do SQL gerado se parece com o gabarito — uma régua mais simples, não comparável diretamente com o número oficial.</p>
+  </div>
+</section>
+
+<!-- ============ SLIDE 13 — ALUCINACOES: O PADRAO ============ -->
+<section class="slide" id="s8">
+  <span class="slide-index">08 / 12</span>
+  <p class="eyebrow">Teste adversarial ("modo CEO cético")</p>
+  <h2>Quinze alucinações encontradas — e o padrão que as corrige</h2>
+  <div class="expl-body">
+    <p class="objetivo"><b>Por que teste adversarial, e não só confiar nas 20 golden questions do harness?</b> Golden questions testam se o sistema acerta perguntas "normais". Mas um usuário real (ou um CEO cético) também faz perguntas com premissa falsa, autoridade forjada, ou pedido de cruzamento impossível — cenários que golden questions "de boa-fé" não cobrem. Testar adversarialmente antes da apresentação é melhor que descobrir a falha ao vivo.</p>
+    <p class="objetivo">Um teste à parte, trocando o modelo padrão (<code>llama3.2:3b</code>) por versões maiores (<code>qwen2.5:7b</code>/<code>14b</code>), mostrou que um modelo maior mitiga os erros de agregação, mas não os elimina — quem resolve de verdade é a correção no código, não o tamanho do modelo.</p>
+    <p class="objetivo"><b>Objetivo:</b> perguntas desenhadas para quebrar o sistema — números inventados, autoridade falsa, cruzamentos impossíveis entre tabelas, decisões de risco financeiro/operacional sem dado que sustente. Busca deliberada de falha, não achado por acaso — a mesma disciplina de "validar antes de confiar" que rege todo o chatbot, aplicada de forma adversarial.</p>
+    <p>Padrão identificado: <b>Tool Delegation</b> — desde ReAct (Yao et al., 2022) e Toolformer (Schick et al., 2023), há evidência de que LLMs sozinhos são estruturalmente ruins em aritmética e sujeitos a alucinação por raciocínio não verificado; a solução desses trabalhos é o próprio modelo aprender a chamar ferramentas externas (calculadora, busca) durante a geração. O Harbor leva esse princípio adiante: em vez de o LLM decidir quando delegar, uma camada de código fora do modelo intercepta a pergunta antes dele participar, excluindo-o por completo do cálculo em casos identificados como sensíveis a erro. Anotar o contexto com a resposta pronta <i>não bastou</i> (o modelo ignorou o rótulo e errou de novo); só funcionou excluir o LLM do cálculo, montando a resposta inteira em código determinístico.</p>
+    <p class="objetivo"><b>O que é um "gate" (answerability gate)?</b> Uma função de código que intercepta a pergunta <em>antes</em> de ela chegar ao LLM ou ao SQL, decidindo por regra fixa — palavra-chave, padrão de texto — se a pergunta cabe numa resposta pré-calculada, se é impossível de responder com os dados disponíveis, ou se deve seguir o caminho normal. É a ferramenta central que resolveu a maioria dos 15 bugs abaixo: sempre que "melhorar o prompt" não bastou, um gate determinístico bastou.</p>
+  </div>
+  <div class="callout" style="margin-top: 1rem;">
+    <b>Answerability Gate — em resumo:</b> função que analisa a pergunta antes da execução do pipeline e decide se ela (1) pode ser respondida por regras pré-definidas, (2) requer SQL ou RAG, ou (3) não pode ser respondida com os dados disponíveis. <b>Benefício:</b> reduz alucinações e melhora a confiabilidade do sistema.
+  </div>
+  <div class="table-wrap" style="margin-top: 1rem;">
+    <table>
+      <thead><tr><th>#</th><th>Bug</th><th>Correção</th></tr></thead>
+      <tbody>
+        <tr><td class="num">1</td><td>Linha individual confundida com categoria agregada</td><td><code>groupby()</code> pré-calculado</td></tr>
+        <tr><td class="num">2-3</td><td>JOIN inventado entre tabelas sem chave em comum (e paráfrases)</td><td>Answerability gate determinístico</td></tr>
+        <tr><td class="num">4</td><td>Direção de mudança invertida (melhorou/piorou)</td><td>Resposta 100% montada em código</td></tr>
+        <tr><td class="num">5</td><td>GROUP BY na coluna errada (SQL válido, lógica errada)</td><td>Interceptação determinística</td></tr>
+        <tr><td class="num">6</td><td>Sycophancy (concordar com uma afirmação errada só por ela vir com tom de autoridade) — validou número errado porque a pergunta afirmou "o time já confirmou"</td><td>Regra explícita anti-sycophancy no prompt</td></tr>
+        <tr><td class="num">7</td><td>ROI fabricado com constante monetária inventada (fator "8,33"/min sem origem em dado real)</td><td>Gate <code>pede_roi_dado_inexistente()</code> — intercepta antes do SQL</td></tr>
+        <tr><td class="num">8</td><td>Tabelas de resultado ausentes no Postgres (CNC) — LLM alucinava coluna/JOIN inexistente</td><td>2 tabelas novas carregadas + gate de cruzamento + regra de agregação pré-calculada</td></tr>
+        <tr><td class="num">9</td><td>Tabelas de company_B ausentes no Postgres (Discrete Mfg) — mesma classe do #8, empresa diferente</td><td>3 tabelas novas carregadas + nota de schema "nunca misturar company_A/B"</td></tr>
+        <tr><td class="num">10</td><td>Roteamento errado por sinal fraco de palavra-chave — 3 casos via desempate por LLM, 1 via falso positivo de keyword ("camada")</td><td>3 gates de prioridade máxima + 1 exceção específica na regra de keyword</td></tr>
+        <tr><td class="num">11</td><td>Agregação pré-calculada ignorada — <code>COUNT(*)</code> em vez da coluna já pronta (2ª ocorrência, dataset diferente)</td><td>Regra de prompt ampliada com exemplo de <code>pontos_mudanca_regime</code></td></tr>
+        <tr><td class="num">12</td><td>Resposta textual invertendo ranking e omitindo cobertura parcial da tabela (3 de 9 assets)</td><td>2 regras novas no prompt de narração: ordem da tabela é a ordem do ranking; avisar cobertura parcial</td></tr>
+        <tr><td class="num">13</td><td>Rota "sql" gerando erro de tipo (boolean=integer) numa pergunta com resposta já pronta</td><td>Gate <code>pede_matriz_confusao_precalculada()</code> — evita erro visível na tela</td></tr>
+        <tr><td class="num">14</td><td>Mensagem de "não é possível responder" genérica, compartilhada por 3 gates diferentes — explicação de um caso (LSS) aparecia numa pergunta sobre outro (CNC)</td><td>Cada gate agora retorna um destino e mensagem próprios (<code>nao_respondivel_lss</code>/<code>_roi</code>/<code>_cnc</code>)</td></tr>
+        <tr><td class="num">15</td><td>Direção do recall/precision invertida — LLM lia o percentual certo (9,7%) mas concluía "acerta quase 10 em 10" quando o correto é "erra quase 10 em 10"</td><td>Gate <code>pede_interpretacao_recall()</code> — resposta 100% montada em código, mesmo padrão do bug #4</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top: 1rem; font-size: 0.9rem;">O mais perigoso (#5): SQL sintaticamente válido mas agrupado pela coluna errada — não dá nenhum sinal de erro, só confrontando com os dados reais. O mais grave de negócio (#6 e #7): o modelo validou "85% de precisão" por autoridade (real: 24,8%) e, sem gate, fabricou um número de ROI plausível com uma constante monetária inventada — o cenário de maior risco identificado no teste adversarial. Os #8-9 (2026-07-14, testando ao vivo no Streamlit) mostram a mesma lição por um ângulo novo: às vezes a causa raiz não é o LLM alucinando por conta própria, é o schema declarado estar incompleto — o pipeline calculava o dado certo, mas ele nunca chegava ao banco que o LLM consulta. Os #10-13 revelam uma camada de risco anterior ao SQL: mesmo com o roteamento por palavra-chave acertando, o desempate por LLM podia reclassificar errado — e mesmo com o SQL certo, a etapa de narração em português podia inverter a ordem sozinha. O #14 foi achado pelo próprio usuário inspecionando a tela, não por teste de código — reforça o valor de olhar a UI real. O #15 (2026-07-15) mostra que anotar o dado certo no contexto não impede o LLM de errar a interpretação da direção — mesma lição do #4, dataset diferente.</p>
+</section>
+
+<!-- ============ SLIDE 14b — BUG CNC: PIPELINE E CORRECAO ============ -->
+<section class="slide" id="s9">
+  <span class="slide-index">09 / 12</span>
+  <p class="eyebrow">Achado ao vivo, testando o dataset CNC no Streamlit</p>
+  <h2>Às vezes o culpado não é o LLM — é um dado que faltava no banco</h2>
+  <div class="expl-body">
+    <p class="objetivo">Testando o chatbot de verdade, algumas perguntas sobre o dataset de usinagem CNC vinham com resposta errada. A causa não foi o LLM "viajando" — foi mais simples: a informação certa <em>existia</em>, mas nunca tinha sido colocada no banco de dados que o chatbot consulta. Sem o dado disponível, o modelo tentava adivinhar, e adivinhava errado.</p>
+    <p>É como pedir para alguém responder uma pergunta usando uma planilha — se a planilha estiver com uma aba faltando, a pessoa não vai inventar por má vontade, vai só chutar com o que tem.</p>
+  </div>
+  <div class="callout" style="margin-top: 1.5rem;">
+    <b>Correção:</b> completamos o banco com os dados que faltavam e reforçamos as regras do chatbot para ele nunca "chutar" quando um dado não está disponível.
+  </div>
+  <p style="margin-top: 1rem; font-size: 0.85rem; color:var(--ink-faint)">Detalhe técnico, para quem quiser aprofundar: 3 perguntas falhavam porque as tabelas <code>cnc_distribuicao_program_status</code> e <code>cnc_resumo_anomalias_por_componente</code> nunca tinham sido carregadas no Postgres, apesar de o pipeline já calculá-las. Corrigido carregando as 2 tabelas, adicionando um gate que barra perguntas de cruzamento impossível, e uma regra de prompt contra reagregar um dado que já vem pronto. Testado de verdade após a correção: resultados batem com os números já publicados (Z-Axis 1634, Spindle 273).</p>
+</section>
+
+<!-- ============ SLIDE 15 — ALUCINACOES: O CODIGO ============ -->
+<section class="slide" id="s10">
+  <span class="slide-index">10 / 12</span>
+  <p class="eyebrow">Alucinações — o código que corrige</p>
+  <h2>A solução que funcionou: tirar a conta da mão do LLM</h2>
+  <div class="expl-body">
+    <p class="objetivo">Primeiro tentamos o caminho mais simples: dar a resposta certa pronta pro LLM e pedir para ele só repetir (ex: "o MTTR melhorou, o MTBF piorou"). Não funcionou — o modelo lia a resposta pronta, mas às vezes decidia "recalcular" por conta própria e errava de novo.</p>
+    <p>A solução que realmente funcionou foi mais radical: identificar essas perguntas de antemão e responder <em>direto em código</em>, sem passar pelo LLM nessa parte. O LLM só entra depois, para escrever a frase final em português — nunca para decidir o número.</p>
+  </div>
+  <div class="flow-diagram vertical">
+    <div class="flow-box" style="text-align:left; max-width: 560px;">pergunta reconhecida de antemão (ex: "o Lean Six Sigma melhorou tudo?")</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-box" style="text-align:left; max-width: 560px;">resposta calculada em código (Python), sem o LLM decidir nada</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-box" style="text-align:left; max-width: 560px;">LLM só escreve a frase final em português, com o número já certo</div>
+  </div>
+  <p style="margin-top: 1rem; font-size: 0.85rem; color:var(--ink-faint)">Detalhe técnico: <code>if pede_lss_melhorou_tudo(pergunta): return "lss_melhorou_tudo"</code> — a pergunta é interceptada antes de qualquer SQL ou chamada ao LLM; a direção de cada métrica (melhorou/piorou) é uma comparação numérica feita em Python.</p>
+</section>
+
+<!-- ============ SLIDE 16 — NEXT STEPS ============ -->
+<section class="slide" id="s11">
+  <span class="slide-index">11 / 12</span>
+  <p class="eyebrow">Próximos passos</p>
+  <h2>Para onde isso vai</h2>
+  <div class="steps-list">
+    <div class="step-item done"><span class="step-n">✓</span><p><strong>Feito:</strong> NL-to-SQL conectado ao Postgres — pergunta em português vira <code>SELECT</code>, com auto-correção.</p></div>
+    <div class="step-item done"><span class="step-n">✓</span><p><strong>Feito:</strong> RAG híbrido (denso + lexical) com reranking e chunking por seção — Recall@5 = 100%, MRR = 1.0.</p></div>
+    <div class="step-item done"><span class="step-n">✓</span><p><strong>Feito:</strong> verificação anti-alucinação (números e afirmações conferidos contra o contexto antes de responder).</p></div>
+    <div class="step-item done"><span class="step-n">✓</span><p><strong>Feito:</strong> harness automatizado de 20 golden questions, visível direto no dashboard — números do slide "Harness de avaliação" (medidos antes dos gates mais recentes, ver ressalva ali).</p></div>
+    <div class="step-item done"><span class="step-n">✓</span><p><strong>Feito:</strong> teste de consistência (mesma pergunta 3x) — 14/17 perguntas estáveis, contra a instabilidade 0%-100% documentada antes do RAG híbrido.</p></div>
+    <div class="step-item done"><span class="step-n">✓</span><p><strong>Feito:</strong> teste adversarial estruturado ("modo CEO cético") — 15 classes de alucinação encontradas e corrigidas via delegação para código determinístico (tool delegation), incluindo o gate de ROI/decisão financeira sobre dado inexistente.</p></div>
+    <div class="step-item done"><span class="step-n">✓</span><p><strong>Feito:</strong> seletor de modelo Rápido/Qualidade/Máxima qualidade (llama3.2:3b, qwen2.5:7b, qwen2.5:14b) — trocar de modelo mitiga mas não elimina os erros de agregação.</p></div>
+    <div class="step-item"><span class="step-n">1</span><p>Incorporar as 15 perguntas adversariais ao harness formal (<code>eval/golden_questions.json</code>) como casos de regressão permanentes.</p></div>
+    <div class="step-item"><span class="step-n">2</span><p>Auditar datasets 1 (OEE) e 4 (CNC) com a mesma cobertura adversarial que datasets 2 e 3 já tiveram — só uma amostra parcial foi testada ao vivo até agora.</p></div>
+    <div class="step-item"><span class="step-n">2b</span><p>Portar os gates novos de <code>dashboard/app.py</code> para <code>eval/rodar_golden.py</code> (3ª cópia da lógica de roteamento) e rerodar o harness formal — hoje os números do slide são anteriores aos bugfixes, e rerodar sem sincronizar mostraria um número pior por desatualização, não por regressão.</p></div>
+    <div class="step-item"><span class="step-n">2c</span><p>Avaliar o pipeline RAG de ponta a ponta nas mesmas 50 golden questions e no NanoBEIR — hoje o Recall@5/MRR mede só a etapa de busca (retrieval), sem incluir a geração da resposta final pelo LLM nem a verificação anti-alucinação.</p></div>
+    <div class="step-item"><span class="step-n">2d</span><p>Testar o BIRD-SQL/Spider com execução real no banco, não só correspondência textual — hoje o teste não pega o erro mais traiçoeiro do catálogo de bugs: uma consulta sintaticamente correta com a lógica errada, que parece acerto no Jaccard sem realmente ser.</p></div>
+    <div class="step-item"><span class="step-n">3</span><p>Alerta automático no Telegram via N8N quando o diagnóstico detectar falha real.</p></div>
+    <div class="step-item"><span class="step-n">4</span><p>Substituir os datasets públicos por dados reais do LiveMES / InfinityQS assim que disponíveis.</p></div>
+    <div class="step-item"><span class="step-n">5</span><p><strong>GraphRAG:</strong> conectar entidades e relações entre documentos (sensor → threshold → procedimento) para perguntas que exigem cruzar várias seções/documentos.</p></div>
+    <div class="step-item"><span class="step-n">6</span><p><strong>Agentic RAG:</strong> o agente decide em tempo real se precisa buscar de novo ou combinar RAG + SQL na mesma resposta, em vez de uma rota fixa por pergunta.</p></div>
+    <div class="step-item"><span class="step-n">7</span><p><strong>RAG multimodal:</strong> indexar diagramas e fotos de componentes dos manuais, hoje só texto.</p></div>
+    <div class="step-item"><span class="step-n">8</span><p><strong>Deep Agents:</strong> delegar análise a subagentes em paralelo — compensa quando o corpus crescer além do que cabe numa única chamada.</p></div>
+  </div>
+</section>
+
+<!-- ============ SLIDE 17 — REFERÊNCIAS ============ -->
+<section class="slide" id="s12">
+  <span class="slide-index">12 / 12</span>
+  <p class="eyebrow">Base acadêmica e técnica</p>
+  <h2>Referências</h2>
+  <p class="lede">Fontes organizadas por tema, sem formatação ABNT.</p>
+  <div class="approach-grid" style="font-size: 0.85rem;">
+    <div class="approach-card">
+      <span class="k">RAG</span>
+      <p style="font-size:0.85rem">LEWIS, Patrick <em>et al.</em> <strong>Retrieval-augmented generation for knowledge-intensive NLP tasks</strong>. Facebook AI Research; University College London, 2020. https://arxiv.org/abs/2005.11401</p>
+      <p style="font-size:0.78rem; margin-top:0.5rem; color:var(--ink-faint)">Base do RAG híbrido dos slides 2-3.</p>
+    </div>
+    <div class="approach-card">
+      <span class="k">Avaliação de RAG</span>
+      <p style="font-size:0.85rem">ES, Shahul <em>et al.</em> <strong>RAGAS: automated evaluation of retrieval augmented generation</strong>. 2023. https://arxiv.org/abs/2309.15217</p>
+      <p style="font-size:0.78rem; margin-top:0.5rem; color:var(--ink-faint)">Métrica de <em>Faithfulness</em> usada como referência conceitual no harness próprio (<code>eval/verificacao.py</code>).</p>
+    </div>
+    <div class="approach-card">
+      <span class="k">Benchmark de retrieval</span>
+      <p style="font-size:0.85rem">THAKUR, Nandan <em>et al.</em> <strong>BEIR: a heterogeneous benchmark for zero-shot evaluation of information retrieval models</strong>. 2021.</p>
+      <p style="font-size:0.85rem; margin-top:0.4rem"><strong>NanoBEIR-en</strong> (Sentence-Transformers). https://huggingface.co/datasets/sentence-transformers/NanoBEIR-en</p>
+      <p style="font-size:0.78rem; margin-top:0.5rem; color:var(--ink-faint)">Variante reduzida do BEIR (50 queries/subset) usada para validar o retrieval fora do domínio ajustado do Harbor (4 dos 13 subsets: SciFact, FEVER, HotpotQA, DBPedia).</p>
+    </div>
+    <div class="approach-card">
+      <span class="k">NL-to-SQL</span>
+      <p style="font-size:0.85rem">LI, Jinyang <em>et al.</em> <strong>BIRD-SQL: a big bench for large-scale database grounded text-to-SQL evaluation</strong>. 2023.</p>
+      <p style="font-size:0.85rem; margin-top:0.4rem">YU, Tao <em>et al.</em> <strong>Spider: a large-scale human-labeled dataset for complex and cross-domain semantic parsing and text-to-SQL task</strong>. 2018.</p>
+      <p style="font-size:0.78rem; margin-top:0.5rem; color:var(--ink-faint)">Usados para comparar o NL-to-SQL do Harbor fora do schema ajustado (slide 6). Dataset técnico via HuggingFace — <code>xu3kev/BIRD-SQL-data-train</code>; <code>xlangai/spider</code> (perguntas+SQL gold) unido a <code>richardr1126/spider-schema</code> (schemas) — split train, não o dev/test set oficial dos papers: o split de treino já vinha pronto nesse formato, enquanto o dev/test oficial exigiria baixar os bancos SQLite reais (~30-40GB), fora de escopo aqui. Por isso não comparável ao estado da arte publicado (ver slide 6).</p>
+    </div>
+    <div class="approach-card">
+      <span class="k">Tool delegation</span>
+      <p style="font-size:0.85rem">YAO, Shunyu <em>et al.</em> <strong>ReAct: synergizing reasoning and acting in language models</strong>. 2022.</p>
+      <p style="font-size:0.85rem; margin-top:0.4rem">SCHICK, Timo <em>et al.</em> <strong>Toolformer: language models can teach themselves to use tools</strong>. 2023.</p>
+      <p style="font-size:0.78rem; margin-top:0.5rem; color:var(--ink-faint)">Os dois papers ensinam o próprio modelo a chamar ferramentas durante a geração; o Harbor vai além, com uma camada de código fora do LLM que o exclui por completo do cálculo em casos sensíveis a erro (slides 8-10).</p>
+    </div>
+    <div class="approach-card">
+      <span class="k">Datasets públicos</span>
+      <p style="font-size:0.85rem"><strong>Heavy Clay Production downtime dataset</strong>. CERN, 2025. https://zenodo-rdm.web.cern.ch</p>
+      <p style="font-size:0.85rem; margin-top:0.4rem"><strong>Legacy Industrial Equipment sensor logs</strong>. https://www.kaggle.com/datasets/colabsss/legacy-industrial-equipment-sensor-logs</p>
+      <p style="font-size:0.85rem; margin-top:0.4rem"><strong>SME manufacturing dataset</strong>. https://github.com/HumanCenteredTechnology/SME-Manufacturing-Dataset</p>
+      <p style="font-size:0.85rem; margin-top:0.4rem"><strong>Five-Axis CNC milling dataset</strong>. 2025. DOI: 10.5281/zenodo.15735480</p>
+    </div>
+  </div>
+</section>

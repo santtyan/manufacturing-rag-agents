@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Dependências baixadas localmente (cache de wheels)
+wheelhouse/
+
+# Dados/artefatos gerados
+outputs/
+
+# Vetores/índices locais (RAG)
+rag/chroma_db/
+rag/chroma_db_benchmark/
+rag/vector_store/
+
+# Segredos e configuração local
+.env
+.env.*
+*.key
+.ai-jail
+
+# Logs e dados gerados em runtime
+*.log
+*_log.txt
+dashboard/log_alucinacoes.jsonl
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

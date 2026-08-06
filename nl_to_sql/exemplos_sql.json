@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "descricao": "Banco de exemplos pergunta->SQL correto para few-shot no NL-to-SQL (Parte 6 do plano padrao-ouro, sugestao do Gustavo na reuniao CERISE: 'RAG de exemplos de consultas validas minimiza o problema de coluna errada'). Semeado com as 3 queries validadas de infra/queries_uteis.sql + exemplos cobrindo as demais tabelas do esquema.",
+    "fonte": "infra/queries_uteis.sql + esquema NL_TO_SQL_ESQUEMA de dashboard/app.py"
+  },
+  "exemplos": [
+    {
+      "pergunta": "Qual categoria de parada (StopGroup) tem mais minutos totais de parada?",
+      "sql": "SELECT \"StopGroup\", ROUND(SUM(\"StopDuration(min)\")::numeric, 1) AS minutos_totais, COUNT(*) AS ocorrencias FROM oee_downtime_raw GROUP BY \"StopGroup\" ORDER BY minutos_totais DESC;"
+    },
+    {
+      "pergunta": "Mostre o comparativo de OEE antes e depois do Lean Six Sigma",
+      "sql": "SELECT * FROM oee_comparacao_lss;"
+    },
+    {
+      "pergunta": "Qual a taxa de falha real (Target) por maquina, comparada com o que o Isolation Forest detectou?",
+      "sql": "SELECT \"Machine_ID\", COUNT(*) AS total_leituras, SUM(CASE WHEN \"Target\" = 'Fault' THEN 1 ELSE 0 END) AS fault_real, SUM(CASE WHEN if_anomaly THEN 1 ELSE 0 END) AS anomalias_detectadas FROM sensor_predicoes GROUP BY \"Machine_ID\" ORDER BY fault_real DESC;"
+    },
+    {
+      "pergunta": "Quantos registros existem na tabela de paradas (oee_downtime_raw)?",
+      "sql": "SELECT COUNT(*) AS total_registros FROM oee_downtime_raw;"
+    },
+    {
+      "pergunta": "Qual e o tempo medio de ciclo (cycle_time_medio) por produto no CNC?",
+      "sql": "SELECT \"Program_path\", cycle_time_medio, cycle_time_max FROM cnc_ciclo_por_produto ORDER BY cycle_time_medio DESC;"
+    },
+    {
+      "pergunta": "Quantas leituras foram marcadas como anomalia (if_anomaly) pelo Isolation Forest?",
+      "sql": "SELECT COUNT(*) AS total_anomalias FROM sensor_predicoes WHERE if_anomaly = true;"
+    },
+    {
+      "pergunta": "Qual asset (maquina) da manufatura discreta teve mais mudancas de regime de energia?",
+      "sql": "SELECT asset, pontos_mudanca_regime, power_avg_medio FROM manufacturing_regime_a ORDER BY pontos_mudanca_regime DESC;"
+    },
+    {
+      "pergunta": "Quanto tempo cada estado (status_label) da maquina durou, em numero de registros?",
+      "sql": "SELECT asset, status_label, n_registros FROM manufacturing_duracao_estados_a ORDER BY n_registros DESC;"
+    },
+    {
+      "pergunta": "Qual a media de temperatura (Temperature_C) separando leituras Fault de Normal?",
+      "sql": "SELECT \"Target\", AVG(\"Temperature_C\") AS temp_media FROM sensor_backtest_separacao GROUP BY \"Target\";"
+    },
+    {
+      "pergunta": "Qual StopType mais aparece nas paradas, e qual sua duracao media?",
+      "sql": "SELECT \"StopType\", COUNT(*) AS ocorrencias, ROUND(AVG(\"StopDuration(min)\")::numeric, 2) AS media_min FROM oee_downtime_raw GROUP BY \"StopType\" ORDER BY ocorrencias DESC;"
+    }
+  ]
+}

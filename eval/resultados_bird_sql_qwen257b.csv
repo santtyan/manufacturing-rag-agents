@@ -1,0 +1,82 @@
+idx,db_id,pergunta,sql_gerado,sql_gold,exato_normalizado,jaccard_tokens,erro
+0,video_games,List down at least five publishers of the games with number of sales less than 10000.,"SELECT DISTINCT p.publisher_name 
+FROM publisher p
+JOIN game_publisher gp ON p.id = gp.publisher_id
+JOIN game_platform gpf ON gp.id = gpf.game_publisher_id
+JOIN region_sales rs ON gpf.id = rs.game_pla",SELECT T.publisher_name FROM ( SELECT DISTINCT T5.publisher_name FROM region AS T1 INNER JOIN region_sales AS T2 ON T1.id = T2.region_id INNER JOIN game_platform AS T3 ON T2.game_platform_id = T3.id I,False,0.4,
+1,retail_complains,"What is the full address of the customers who, having received a timely response from the company, have dispute about th","SELECT c.address_1, c.address_2 
+FROM client c
+JOIN callcenterlogs cl ON c.client_id = cl.`rand client`
+JOIN events e ON cl.`Complaint ID` = e.`Complaint ID`
+WHERE e.`Timely response?` = 'Yes' AND e.`","SELECT T1.address_1, T1.address_2 FROM client AS T1 INNER JOIN events AS T2 ON T1.client_id = T2.Client_ID WHERE T2.`Timely response?` = 'Yes' AND T2.`Consumer disputed?` = 'Yes'",False,0.526,
+2,disney,How many movies did Wolfgang Reitherman direct?,SELECT COUNT(DISTINCT movie_title) FROM director WHERE director = 'Wolfgang Reitherman',SELECT COUNT(name) FROM director WHERE director = 'Wolfgang Reitherman',False,0.6,
+3,legislator,How many legislators are not senator?,"SELECT COUNT(*) 
+FROM (
+    SELECT DISTINCT bioguide_id 
+    FROM current 
+    WHERE class IS NULL
+) AS non_senators",SELECT COUNT(bioguide) FROM `current-terms` WHERE class IS NULL,False,0.333,
+4,food_inspection_2,"How many inspections done by Lisa Tillman ended up with the result of ""Out of Business""?","SELECT COUNT(*)
+FROM inspection i
+JOIN employee e ON i.employee_id = e.employee_id
+WHERE e.first_name = 'Lisa' AND e.last_name = 'Tillman' AND i.results = 'Out of Business'",SELECT COUNT(T1.inspection_id) FROM inspection AS T1 INNER JOIN employee AS T2 ON T1.employee_id = T2.employee_id WHERE T2.first_name = 'Lisa' AND T2.last_name = 'Tillman' AND T1.results = 'Out of Bus,False,0.688,
+5,mondial_geo,In which group of islands is Rinjani Mountain located?,,SELECT T1.Islands FROM island AS T1 INNER JOIN mountainOnIsland AS T2 ON T1.Name = T2.Island INNER JOIN mountain AS T3 ON T3.Name = T2.Mountain WHERE T3.Name = 'Rinjani',False,0.0,"HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=90)"
+6,shakespeare,"Give the character's ID of the character that said the paragraph ""O my poor brother! and so perchance may he be.""",SELECT character_id FROM paragraphs WHERE PlainText = 'O my poor brother! and so perchance may he be.',SELECT character_id FROM paragraphs WHERE PlainText = 'O my poor brother! and so perchance may he be.',True,1.0,
+7,food_inspection_2,Calculate the average salary for employees who did inspection on License Re-Inspection.,"SELECT AVG(e.salary) AS average_salary
+FROM employee e
+JOIN inspection i ON e.employee_id = i.employee_id
+WHERE i.inspection_type = 'License Re-Inspection'",SELECT AVG(T2.salary) FROM inspection AS T1 INNER JOIN employee AS T2 ON T1.employee_id = T2.employee_id WHERE T1.inspection_type = 'License Re-Inspection',False,0.583,
+8,movie_3,Give the full name of the actor with the highest rental rate.,,"SELECT T1.first_name, T1.last_name FROM actor AS T1 INNER JOIN film_actor AS T2 ON T1.actor_id = T2.actor_id INNER JOIN film AS T3 ON T3.film_id = T2.film_id ORDER BY T3.rental_rate DESC LIMIT 1",False,0.0,"HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=90)"
+9,car_retails,From which branch does the sales representative employee who made the most sales in 2005? Please indicates its full addr,,"SELECT T3.addressLine1, T3.addressLine2, T3.phone FROM orderdetails AS T1 INNER JOIN orders AS T2 ON T1.orderNumber = T2.orderNumber INNER JOIN customers AS T3 ON T2.customerNumber = T3.customerNumber",False,0.0,"HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=90)"
+10,food_inspection,Provide the name of the business which had the most number of inspections because of complaint.,"SELECT b.name
+FROM businesses b
+JOIN inspections i ON b.business_id = i.business_id
+WHERE i.type = 'Complaint'
+GROUP BY b.name
+ORDER BY COUNT(i.score) DESC
+LIMIT 1",SELECT T2.name FROM inspections AS T1 INNER JOIN businesses AS T2 ON T1.business_id = T2.business_id WHERE T1.type = 'Complaint' GROUP BY T2.name ORDER BY COUNT(T1.business_id) DESC LIMIT 1,False,0.545,
+11,superstore,What are the names of the products that were ordered by Alejandro Grove?,"SELECT DISTINCT T2.`Product Name`
+FROM people AS T1
+JOIN central_superstore AS T3 ON T1.`Customer ID` = T3.`Customer ID`
+JOIN product AS T2 ON T3.`Product ID` = T2.`Product ID`
+WHERE T1.`Customer Name",SELECT DISTINCT T3.`Product Name` FROM west_superstore AS T1 INNER JOIN people AS T2 ON T1.`Customer ID` = T2.`Customer ID` INNER JOIN product AS T3 ON T3.`Product ID` = T1.`Product ID` WHERE T2.`Cust,False,0.833,
+12,regional_sales,Name the product that was registered in the sales order 'SO - 0005951'.,"SELECT P.`Product Name`
+FROM `Sales Orders` SO
+JOIN Products P ON SO._ProductID = P.ProductID
+WHERE SO.OrderNumber = 'SO - 0005951'",SELECT T FROM ( SELECT DISTINCT CASE  WHEN T2.OrderNumber = 'SO - 0005951' THEN T1.`Product Name` ELSE NULL END AS T FROM Products T1 INNER JOIN `Sales Orders` T2 ON T2._ProductID = T1.ProductID ) WHE,False,0.692,
+13,talkingdata,How many app IDs were included under science fiction category?,SELECT COUNT(DISTINCT app_id) FROM app_labels WHERE label_id = (SELECT label_id FROM label_categories WHERE category = 'science fiction'),SELECT COUNT(T2.app_id) FROM label_categories AS T1 INNER JOIN app_labels AS T2 ON T2.label_id = T1.label_id WHERE T1.category = 'science fiction',False,0.778,
+14,video_games,How many games did BMG Interactive Entertainment release in 2012?,"SELECT COUNT(gp.id)
+FROM game_publisher gp
+JOIN publisher p ON gp.publisher_id = p.id
+JOIN game_platform gpf ON gp.id = gpf.game_publisher_id
+WHERE p.publisher_name = 'BMG Interactive Entertainment' A",SELECT COUNT(DISTINCT T2.game_id) FROM publisher AS T1 INNER JOIN game_publisher AS T2 ON T1.id = T2.publisher_id INNER JOIN game_platform AS T3 ON T2.id = T3.game_publisher_id WHERE T3.release_year =,False,0.389,
+15,ice_hockey_draft,How many players were born in 1982 and have a height above 182cm?,"SELECT COUNT(*)
+FROM PlayerInfo
+WHERE birthyear = 1982 AND height IN (
+    SELECT height_id FROM height_info WHERE height_in_cm > 182
+)","SELECT COUNT(T2.ELITEID) FROM height_info AS T1 INNER JOIN PlayerInfo AS T2 ON T1.height_id = T2.height WHERE T1.height_in_cm > 182 AND strftime('%Y', T2.birthdate) = '1982'",False,0.417,
+16,works_cycles,What is the highest profit on net for a product?,,SELECT LastReceiptCost - StandardPrice FROM ProductVendor ORDER BY LastReceiptCost - StandardPrice DESC LIMIT 1,False,0.0,"HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=90)"
+17,simpson_episodes,State the name of director for the 'Treehouse of Horror XIX' episode.,,SELECT T2.person FROM Episode AS T1 INNER JOIN Credit AS T2 ON T1.episode_id = T2.episode_id WHERE T1.title = 'Treehouse of Horror XIX' AND T2.role = 'director';,False,0.0,"HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=90)"
+18,movies_4,"How many female characters are there in the movie ""Spider-Man 3""?","SELECT COUNT(*)
+FROM movie_cast mc
+JOIN person p ON mc.person_id = p.person_id
+JOIN gender g ON mc.gender_id = g.gender_id
+WHERE mc.movie_id = (SELECT movie_id FROM movie WHERE title = 'Spider-Man 3')",SELECT COUNT(*) FROM movie AS T1 INNER JOIN movie_cast AS T2 ON T1.movie_id = T2.movie_id INNER JOIN gender AS T3 ON T2.gender_id = T3.gender_id WHERE T1.title = 'Spider-Man 3' AND T3.gender = 'Female,False,0.529,
+19,food_inspection_2,List down the dba name of restaurants that were inspected due to license.,"SELECT DISTINCT e.dba_name 
+FROM establishment e 
+JOIN inspection i ON e.license_no = i.license_no 
+WHERE i.inspection_type = 'License'",SELECT T1.dba_name FROM establishment AS T1 INNER JOIN inspection AS T2 ON T1.license_no = T2.license_no WHERE T2.inspection_type = 'License',False,0.6,
+20,cars,Which country produced the car with the lowest price?,"SELECT c.country 
+FROM country c
+JOIN production p ON c.origin = p.country
+JOIN price pr ON p.ID = pr.ID
+WHERE pr.price = (SELECT MIN(prices.price) FROM price AS prices)",SELECT T3.country FROM price AS T1 INNER JOIN production AS T2 ON T1.ID = T2.ID INNER JOIN country AS T3 ON T3.origin = T2.country ORDER BY T1.price ASC LIMIT 1,False,0.417,
+21,student_loan,Please list the departments the students are absent from school for 9 months are in.,SELECT organ FROM enlist WHERE name IN (SELECT name FROM longest_absense_from_school WHERE month = 9),SELECT T2.organ FROM longest_absense_from_school AS T1 INNER JOIN enlist AS T2 ON T1.`name` = T2.`name` WHERE T1.`month` = 9,False,0.714,
+22,legislator,What is the ratio between male and female legislators?,"SELECT 
+    CAST(SUM(CASE WHEN gender_bio = 'M' THEN 1 ELSE 0 END) AS FLOAT) / 
+    SUM(CASE WHEN gender_bio = 'F' THEN 1 ELSE 0 END) AS ratio
+FROM current",SELECT CAST(SUM(CASE WHEN gender_bio = 'M' THEN 1 ELSE 0 END) AS REAL) / SUM(CASE WHEN gender_bio = 'F' THEN 1 ELSE 0 END) FROM historical,False,0.429,
+23,olympics,Calculate the bmi of the competitor id 147420.,"SELECT (weight / POWER(height, 2)) AS bmi
+FROM person
+WHERE id = 147420",SELECT CAST(T1.weight AS REAL) / (T1.height * T1.height) FROM person AS T1 INNER JOIN games_competitor AS T2 ON T1.id = T2.person_id WHERE T2.id = 147420,False,0.4,
+24,hockey,"For the goalie who had the most shutouts in 2010, what's his catching hand?",,SELECT T2.shootCatch FROM Goalies AS T1 INNER JOIN Master AS T2 ON T1.playerID = T2.playerID WHERE T1.year = 2010 GROUP BY T2.shootCatch ORDER BY SUM(T1.SHO) DESC LIMIT 1,False,0.0,"HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=90)"
