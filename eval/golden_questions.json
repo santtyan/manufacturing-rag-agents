@@ -224,7 +224,7 @@
       "id": "alucinacao-2-3-cruzamento-lss-categoria",
       "dataset": "oee",
       "pergunta": "Qual categoria de parada mais consumiu minutos, e como isso mudou antes vs. depois do Lean Six Sigma?",
-      "rota_esperada": "nao_respondivel",
+      "rota_esperada": "nao_respondivel_lss",
       "numeros_esperados": [],
       "numeros_proibidos": [],
       "tolerancia": 0.0,

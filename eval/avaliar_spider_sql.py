@@ -14,6 +14,11 @@ banco populado para execution accuracy oficial), a metrica aqui e correspondenci
 estrutural de texto, NAO execution accuracy -- nao comparavel diretamente ao estado da
 arte publicado (~85% no Spider dev set com sistemas frontier).
 
+REESCRITO (2026-08-07): antes reimplementava gerar_sql_spider() em paralelo a
+nl_to_sql/nl_to_sql.py (mesmo problema do BIRD antes da reescrita -- ver
+eval/avaliar_bird_sql.py). Agora chama nl_to_sql.gerar_sql_com_schema() real; mesma
+ressalva do BIRD sobre nao usar self-repair/DBA-Agent (sem banco real para executar).
+
 Uso: python eval/avaliar_spider_sql.py [n_perguntas] [modelo_ollama]
      (default: 25 perguntas, modelo llama3.2)
 Saida: eval/resultados_spider_sql[_modelo].csv + resumo no stdout.
@@ -22,37 +27,28 @@ import csv
 import sys
 from pathlib import Path
 
-# Reusa call_ollama, limpar_sql, normalizar_sql, extrair_tabelas_colunas, comparar --
-# uma unica implementacao dessas funcoes, compartilhada entre BIRD e Spider.
-sys.path.insert(0, str(Path(__file__).parent))
+EVAL_DIR = Path(__file__).parent
+# Reusa normalizar_sql/extrair_tabelas_colunas/comparar de avaliar_bird_sql.py -- uma unica
+# implementacao dessas funcoes, compartilhada entre BIRD e Spider (legitimo: sao especificas
+# de comparacao estrutural de benchmark, nao logica de producao).
+sys.path.insert(0, str(EVAL_DIR))
 import avaliar_bird_sql as bird_utils
 
-EVAL_DIR = Path(__file__).parent
+sys.path.insert(0, str(EVAL_DIR.parent / "nl_to_sql"))
+from nl_to_sql import gerar_sql_com_schema  # noqa: E402
+import nl_to_sql  # noqa: E402
+
 N_PERGUNTAS = int(sys.argv[1]) if len(sys.argv) > 1 else 25
 OLLAMA_MODEL = sys.argv[2] if len(sys.argv) > 2 else "llama3.2"
+nl_to_sql.OLLAMA_MODEL = OLLAMA_MODEL  # nl_to_sql.call_ollama le o modulo-level OLLAMA_MODEL
 _sufixo_modelo = "" if OLLAMA_MODEL == "llama3.2" else f"_{OLLAMA_MODEL.replace(':', '')}"
 RESULTADOS = EVAL_DIR / f"resultados_spider_sql{_sufixo_modelo}.csv"
 
-# avaliar_bird_sql.py le OLLAMA_MODEL do seu proprio escopo de modulo -- sobrescreve aqui
-# para call_ollama() (importada de la) usar o modelo certo passado neste script.
-bird_utils.OLLAMA_MODEL = OLLAMA_MODEL
-
 
 def gerar_sql_spider(pergunta, schema_txt):
-    """Mesmo padrao de prompt do BIRD, mas sem campo 'evidence' (Spider nao tem dica textual
-    -- so pergunta + schema, mais dificil nesse sentido que o BIRD)."""
-    prompt = f"""Voce e um especialista em SQL. Traduza a pergunta abaixo em uma consulta SQL
-usando APENAS as tabelas e colunas listadas no esquema. Responda SOMENTE com o SQL, sem
-explicacao, sem markdown, sem ```sql.
-
-=== ESQUEMA ===
-{schema_txt}
-
-=== PERGUNTA ===
-{pergunta}
-
-SQL:"""
-    return bird_utils.limpar_sql(bird_utils.call_ollama(prompt))
+    """Wrapper fino sobre nl_to_sql.gerar_sql_com_schema() -- Spider nao tem campo
+    'evidence' (diferente do BIRD), entao chama direto sem concatenar dica extra."""
+    return gerar_sql_com_schema(pergunta, esquema=schema_txt, usar_few_shot=False)
 
 
 def main():

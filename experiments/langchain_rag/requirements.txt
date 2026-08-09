@@ -1,0 +1,7 @@
+# Dependências exclusivas do experimento LangChain (comparação, não produção).
+# Não afeta requirements.txt/requirements.lock do projeto principal.
+langchain>=0.3
+langchain-community>=0.3
+langchain-chroma>=0.2
+langchain-huggingface>=0.1
+rank-bm25>=0.2.2

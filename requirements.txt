@@ -14,3 +14,6 @@ uvicorn
 sentence-transformers   # RAG neural - modelo E5
 chromadb                # banco vetorial para RAG
 mcp                     # SDK oficial do Model Context Protocol
+
+# Benchmarks academicos (eval/avaliar_retrieval_nanobeir.py, avaliar_bird_sql.py, avaliar_spider_sql.py)
+datasets                # HuggingFace datasets -- NanoBEIR/BIRD-SQL/Spider vem de load_dataset()

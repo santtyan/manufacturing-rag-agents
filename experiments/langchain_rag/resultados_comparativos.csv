@@ -1,0 +1,4 @@
+implementacao,recall_at_5,precision_at_5,mrr,tempo_indexacao_s,linhas_codigo,n_perguntas
+producao_rag_hibrido,98.0,38.8,0.9,20.0,317,50
+langchain_fiel_tfidf_uniao,98.0,38.8,0.9,11.07,170,50
+langchain_bm25_rrf,98.0,50.0,0.899,10.76,127,50

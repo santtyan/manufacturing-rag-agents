@@ -14,19 +14,34 @@ corpus academico publico e generico (ex: SciFact, artigos cientificos) -- da um 
 comparavel com o MTEB leaderboard (BM25 e modelos densos), validando a qualidade GERAL
 do motor de retrieval, nao a qualidade das respostas sobre o dominio do Harbor.
 
+REESCRITO (2026-08-07): antes reimplementava _embed_passages/_construir_tfidf/
+_buscar_tfidf/buscar() em paralelo a rag/rag_hibrido.py::RAGHibrido -- mesma logica,
+codigo duplicado, risco de divergencia silenciosa (mesmo problema ja documentado para o
+roteamento em terceira_copia_roteamento_harness). RAGHibrido agora aceita chroma_dir/
+colecao parametrizados (indice separado da producao) e documentos_customizados (corpus do
+benchmark, sem chunking) -- este script chama a classe real, sem reimplementar nada.
+Tambem nunca persistia resultado em CSV -- so imprimia no stdout; agora salva
+eval/resultados_retrieval_nanobeir_<subset>.csv, igual ao padrao de avaliar_retrieval.py.
+
 IMPORTANTE: o indice deste benchmark fica em rag/chroma_db_benchmark/, SEPARADO do
 indice de producao (rag/chroma_db/) -- nunca misturar os dois.
 
-Uso: python eval/avaliar_retrieval_nanobeir.py [nome_do_subset]
+Uso: python eval/avaliar_retrieval_nanobeir.py [nome_do_subset] [--denso] [--sem-rerank]
      (default: NanoSciFact -- corpus pequeno de resumos cientificos, ~3k docs, 50 queries)
+     --denso desativa a metade TF-IDF do hybrid (default: hybrid completo, igual producao)
+     --sem-rerank mede o retrieval isolado, comparavel diretamente contra
+     eval/avaliar_retrieval.py (que tambem usa usar_rerank=False por default)
 """
+import csv
 import statistics
 import sys
 from pathlib import Path
 
+sys.path.insert(0, r"C:\Projetos\Harbor\rag")
+from rag_hibrido import RAGHibrido  # noqa: E402
+
+EVAL_DIR = Path(__file__).parent
 CHROMA_DIR_BENCHMARK = Path(r"C:\Projetos\Harbor\rag\chroma_db_benchmark")
-MODELO_EMBEDDING = "intfloat/multilingual-e5-small"
-MODELO_RERANK = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 K = 5
 
 
@@ -38,110 +53,10 @@ def carregar_subset_nanobeir(nome_subset):
     return queries, corpus, qrels
 
 
-def indexar_corpus_benchmark(corpus, nome_subset, forcar=False):
-    """Indexa o corpus do NanoBEIR num ChromaDB SEPARADO do indice de producao, usando o
-    mesmo modelo/prefixos E5 do motor de retrieval real (rag/rag_hibrido.py), mas sem
-    reaproveitar a classe RAGHibrido diretamente -- ela esta acoplada a MANUAIS_DIR
-    (le .md do disco), o que nao serve para um corpus vindo de um dataset HuggingFace."""
-    import chromadb
-    from sentence_transformers import SentenceTransformer
-
-    CHROMA_DIR_BENCHMARK.mkdir(parents=True, exist_ok=True)
-    cliente = chromadb.PersistentClient(path=str(CHROMA_DIR_BENCHMARK))
-    colecao_nome = f"nanobeir_{nome_subset.lower()}"
-
-    nomes_existentes = [c.name for c in cliente.list_collections()]
-    if colecao_nome in nomes_existentes and not forcar:
-        return cliente.get_collection(colecao_nome)
-    if colecao_nome in nomes_existentes:
-        cliente.delete_collection(colecao_nome)
-
-    colecao = cliente.create_collection(colecao_nome, metadata={"hnsw:space": "cosine"})
-    modelo = SentenceTransformer(MODELO_EMBEDDING)
-
-    ids = [str(row["_id"]) for row in corpus]
-    textos = [row["text"] for row in corpus]
-    # Prefixo E5 obrigatorio para documentos -- mesmo padrao de rag_hibrido.py::_embed_passages.
-    embeddings = modelo.encode([f"passage: {t}" for t in textos], normalize_embeddings=True).tolist()
-
-    # ChromaDB aceita lotes de ate 5461 itens por chamada (limite do backend) -- corpus dos
-    # subsets maiores do NanoBEIR pode passar disso, entao adiciona em lotes.
-    LOTE = 5000
-    for i in range(0, len(ids), LOTE):
-        colecao.add(
-            ids=ids[i:i + LOTE],
-            documents=textos[i:i + LOTE],
-            embeddings=embeddings[i:i + LOTE],
-        )
-    return colecao
-
-
-def construir_tfidf(corpus):
-    """Indice lexical (TF-IDF) sobre o MESMO corpus do benchmark -- mesma tecnica de
-    rag_hibrido.py::_construir_tfidf, reproduzida aqui porque aquela funcao esta acoplada
-    ao estado interno de RAGHibrido (self._tfidf), nao reaproveitavel diretamente."""
-    from sklearn.feature_extraction.text import TfidfVectorizer
-
-    ids = [str(row["_id"]) for row in corpus]
-    textos = [row["text"] for row in corpus]
-    vectorizer = TfidfVectorizer(stop_words=None, max_features=2000)
-    matriz = vectorizer.fit_transform(textos)
-    return vectorizer, matriz, textos, ids
-
-
-def buscar_tfidf(tfidf_state, pergunta, k):
-    """Metade lexical do hybrid search -- mesma logica de rag_hibrido.py::_buscar_tfidf."""
-    from sklearn.metrics.pairwise import cosine_similarity
-    import numpy as np
-
-    vectorizer, matriz, textos, ids = tfidf_state
-    vetor_pergunta = vectorizer.transform([pergunta])
-    scores = cosine_similarity(vetor_pergunta, matriz)[0]
-    top_idx = np.argsort(scores)[::-1][:k]
-    return [ids[i] for i in top_idx if scores[i] > 0]
-
-
-def buscar(colecao, modelo, reranker, pergunta, k=K, k_candidatos=10, tfidf_state=None, usar_rerank=True):
-    """Retrieval denso (E5) [+ lexical TF-IDF se tfidf_state for passado] [+ rerank
-    Cross-Encoder se usar_rerank] -- replica RAGHibrido.buscar() (rag/rag_hibrido.py) com
-    hybrid=True quando tfidf_state e fornecido, medindo o pipeline de producao completo em
-    vez de so a metade densa. usar_rerank=False mede o retrieval isolado, para comparar
-    contra o mesmo modo do harness proprio (eval/avaliar_retrieval.py)."""
-    emb_query = modelo.encode([f"query: {pergunta}"], normalize_embeddings=True).tolist()
-    res = colecao.query(query_embeddings=emb_query, n_results=k_candidatos)
-    docs = res["documents"][0]
-    ids = res["ids"][0]
-
-    candidatos_id = list(ids)
-    candidatos_texto = list(docs)
-    candidatos_score = [1.0 - d for d in res["distances"][0]]
-
-    if tfidf_state is not None:
-        vistos = set(candidatos_id)
-        for doc_id in buscar_tfidf(tfidf_state, pergunta, k=k_candidatos):
-            if doc_id not in vistos:
-                idx = tfidf_state[3].index(doc_id)
-                candidatos_id.append(doc_id)
-                candidatos_texto.append(tfidf_state[2][idx])
-                candidatos_score.append(0.0)  # score TF-IDF nao comparavel ao score E5; so usado sem rerank
-                vistos.add(doc_id)
-
-    if not usar_rerank:
-        ranking = list(zip(candidatos_id, candidatos_score))[:k]
-        return [doc_id for doc_id, _ in ranking]
-
-    pares = [[pergunta, t] for t in candidatos_texto]
-    scores = reranker.predict(pares)
-    ranking = sorted(zip(candidatos_id, scores), key=lambda x: x[1], reverse=True)
-    return [doc_id for doc_id, _ in ranking[:k]]
-
-
 def avaliar_subset(nome_subset=None, usar_hybrid=True, usar_rerank=True):
     nome_subset = nome_subset or "NanoSciFact"
-    partes_modo = []
-    partes_modo.append("hybrid E5+TF-IDF" if usar_hybrid else "denso E5 apenas")
-    partes_modo.append("+rerank" if usar_rerank else " sem rerank (retrieval isolado)")
-    modo = "".join(partes_modo)
+    modo = ("hybrid E5+TF-IDF" if usar_hybrid else "denso E5 apenas") + \
+           ("+rerank" if usar_rerank else " sem rerank (retrieval isolado)")
     print(f"Carregando subset NanoBEIR: {nome_subset} -- modo: {modo}...")
     queries, corpus, qrels = carregar_subset_nanobeir(nome_subset)
     print(f"  {len(queries)} queries, {len(corpus)} documentos, {len(qrels)} qrels (pares relevantes)")
@@ -153,45 +68,57 @@ def avaliar_subset(nome_subset=None, usar_hybrid=True, usar_rerank=True):
     for row in qrels:
         relevantes_por_query.setdefault(str(row["query-id"]), set()).add(str(row["corpus-id"]))
 
-    print(f"\nIndexando corpus no ChromaDB de benchmark (separado da producao)...")
-    colecao = indexar_corpus_benchmark(corpus, nome_subset)
+    documentos_customizados = [
+        {"id": str(row["_id"]), "texto": row["text"], "fonte": str(row["_id"])}
+        for row in corpus
+    ]
 
-    tfidf_state = None
-    if usar_hybrid:
-        print("Construindo indice TF-IDF (metade lexical do hybrid)...")
-        tfidf_state = construir_tfidf(corpus)
-
-    from sentence_transformers import SentenceTransformer, CrossEncoder
-    modelo = SentenceTransformer(MODELO_EMBEDDING)
-    reranker = CrossEncoder(MODELO_RERANK)
+    print(f"\nIndexando corpus no ChromaDB de benchmark (separado da producao) via RAGHibrido real...")
+    rag = RAGHibrido(chroma_dir=CHROMA_DIR_BENCHMARK, colecao=f"nanobeir_{nome_subset.lower()}")
+    n = rag.indexar(forcar=True, documentos_customizados=documentos_customizados)
+    print(f"  {n} documentos indexados.")
 
     print(f"\nAvaliando retrieval (k={K})...\n")
-    recalls, mrrs = [], []
+    resultados = []
     for row in queries:
         query_id = str(row["_id"])
         alvo = relevantes_por_query.get(query_id)
         if not alvo:
             continue  # query sem qrel associado no subset -- pula
 
-        recuperados = buscar(colecao, modelo, reranker, row["text"], k=K, tfidf_state=tfidf_state, usar_rerank=usar_rerank)
+        candidatos = rag.buscar(row["text"], k=K, usar_rerank=usar_rerank, usar_hybrid=usar_hybrid, k_candidatos=10)
+        recuperados = [c["id"] for c in candidatos]
+
         acertou = any(doc_id in alvo for doc_id in recuperados)
-        recalls.append(1.0 if acertou else 0.0)
+        recall = 1.0 if acertou else 0.0
 
         rr = 0.0
         for i, doc_id in enumerate(recuperados, start=1):
             if doc_id in alvo:
                 rr = 1.0 / i
                 break
-        mrrs.append(rr)
 
-    recall_medio = statistics.mean(recalls) if recalls else 0.0
-    mrr_medio = statistics.mean(mrrs) if mrrs else 0.0
+        resultados.append({"query_id": query_id, "recall_at_k": recall, "reciprocal_rank": round(rr, 3),
+                            "ids_recuperados": ";".join(recuperados)})
+
+    recall_medio = statistics.mean(r["recall_at_k"] for r in resultados) if resultados else 0.0
+    mrr_medio = statistics.mean(r["reciprocal_rank"] for r in resultados) if resultados else 0.0
+
+    sufixo_modo = "" if (usar_hybrid and usar_rerank) else \
+        ("_denso" if not usar_hybrid else "") + ("_sem_rerank" if not usar_rerank else "")
+    resultados_path = EVAL_DIR / f"resultados_retrieval_nanobeir_{nome_subset.lower()}{sufixo_modo}.csv"
+    with resultados_path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["query_id", "recall_at_k", "reciprocal_rank", "ids_recuperados"])
+        for r in resultados:
+            w.writerow([r["query_id"], r["recall_at_k"], r["reciprocal_rank"], r["ids_recuperados"]])
 
     print("=" * 60)
     print(f"NanoBEIR subset     : {nome_subset} ({modo})")
-    print(f"Queries avaliadas   : {len(recalls)}")
+    print(f"Queries avaliadas   : {len(resultados)}")
     print(f"Recall@{K} medio     : {recall_medio*100:.1f}%")
     print(f"MRR                 : {mrr_medio:.3f}")
+    print(f"Resultados salvos   : {resultados_path}")
     print("=" * 60)
     print(
         "\nNota: comparacao INFORMAL com o MTEB leaderboard (huggingface.co/spaces/mteb/"
@@ -199,14 +126,10 @@ def avaliar_subset(nome_subset=None, usar_hybrid=True, usar_rerank=True):
         "isto NAO e um resultado oficial de submissao, e uma checagem de faixa esperada."
     )
     return {"subset": nome_subset, "usar_hybrid": usar_hybrid, "usar_rerank": usar_rerank,
-            "n_queries": len(recalls), "recall_at_k": recall_medio, "mrr": mrr_medio}
+            "n_queries": len(resultados), "recall_at_k": recall_medio, "mrr": mrr_medio}
 
 
 if __name__ == "__main__":
-    # Uso: python avaliar_retrieval_nanobeir.py [subset1,subset2,...] [--denso] [--sem-rerank]
-    # --denso desativa a metade TF-IDF do hybrid (default: hybrid completo, igual producao)
-    # --sem-rerank mede o retrieval isolado (mesmo modo default de eval/avaliar_retrieval.py,
-    # comparavel diretamente contra o harness proprio do Harbor)
     args = sys.argv[1:]
     usar_hybrid = "--denso" not in args
     usar_rerank = "--sem-rerank" not in args

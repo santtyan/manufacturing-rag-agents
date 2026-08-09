@@ -20,7 +20,7 @@ from mcp.server.fastmcp import FastMCP
 sys.path.insert(0, r"C:\Projetos\Harbor\rag")
 sys.path.insert(0, r"C:\Projetos\Harbor\nl_to_sql")
 
-API_URL = "http://localhost:9000"
+API_URL = "http://localhost:8000"
 HARBOR_API_KEY = "harbor-demo-2026"
 
 mcp = FastMCP("harbor-manufatura")

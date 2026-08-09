@@ -14,6 +14,17 @@ mas SEM os dados populados -- entao mede uma metrica MAIS FRACA: "correspondenci
 Isso NAO e diretamente comparavel ao numero oficial do estado da arte (~82% no BIRD test set,
 via execution accuracy) -- e uma aproximacao honesta, nao um benchmark formal replicado.
 
+NAO usa self-repair nem DBA-Agent (perguntar_com_dba, que a producao real tem): os dois
+dependem de EXECUTAR a query contra um banco real e observar erro/resultado -- sem os dados
+populados (ver paragrafo acima), nao ha erro do Postgres para reenviar ao LLM nem resultado
+para o DBA-Agent avaliar. gerar_sql_com_schema() (nl_to_sql/nl_to_sql.py) e o maximo de reuso
+possivel dado essa restricao real: mesmo prompt/logica de geracao da producao, schema
+dinamico do BIRD no lugar do ESQUEMA fixo do Harbor.
+
+REESCRITO (2026-08-07): antes reimplementava gerar_sql_bird()/call_ollama() em paralelo a
+nl_to_sql/nl_to_sql.py -- mesmo algoritmo (prompt LLM->SQL via Ollama), codigo duplicado.
+Agora chama nl_to_sql.gerar_sql_com_schema() real.
+
 Uso: python eval/avaliar_bird_sql.py [n_perguntas] [modelo_ollama]
      (default: 25 perguntas, modelo llama3.2)
      ex: python eval/avaliar_bird_sql.py 100 qwen2.5:7b
@@ -24,52 +35,27 @@ import re
 import sys
 from pathlib import Path
 
-import requests
-
 EVAL_DIR = Path(__file__).parent
-OLLAMA_URL = "http://localhost:11434/api/generate"
+sys.path.insert(0, str(EVAL_DIR.parent / "nl_to_sql"))
+from nl_to_sql import gerar_sql_com_schema  # noqa: E402
+import nl_to_sql  # noqa: E402 -- para sobrescrever OLLAMA_MODEL usado internamente por call_ollama()
+
 N_PERGUNTAS = int(sys.argv[1]) if len(sys.argv) > 1 else 25
 OLLAMA_MODEL = sys.argv[2] if len(sys.argv) > 2 else "llama3.2"
+nl_to_sql.OLLAMA_MODEL = OLLAMA_MODEL  # nl_to_sql.call_ollama le o modulo-level OLLAMA_MODEL
 # Nome de arquivo distinto por modelo, para nao sobrescrever resultados de rodadas anteriores
 # com outro modelo (mesmo padrao de rodar_golden.py / rodar_golden_qwen.py).
 _sufixo_modelo = "" if OLLAMA_MODEL == "llama3.2" else f"_{OLLAMA_MODEL.replace(':', '').replace('.', '')}"
 RESULTADOS = EVAL_DIR / f"resultados_bird_sql{_sufixo_modelo}.csv"
 
 
-def call_ollama(prompt, timeout=180):
-    resp = requests.post(
-        OLLAMA_URL,
-        json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "options": {"temperature": 0.2}},
-        timeout=timeout,
-    )
-    resp.raise_for_status()
-    return resp.json().get("response", "").strip()
-
-
-def limpar_sql(resposta):
-    sql = resposta.strip()
-    sql = re.sub(r"^```sql\s*|```$", "", sql, flags=re.MULTILINE).strip()
-    return sql.rstrip(";").strip()
-
-
 def gerar_sql_bird(pergunta, evidence, schema):
-    """Mesmo padrao de prompt de nl_to_sql.py::gerar_sql, mas com schema DINAMICO (vindo do
-    BIRD, nao fixo do Harbor) -- nao reusa a funcao original porque ela tem ESQUEMA hardcoded."""
-    prompt = f"""Voce e um especialista em SQL. Traduza a pergunta abaixo em uma consulta SQL
-usando APENAS as tabelas e colunas listadas no esquema. Responda SOMENTE com o SQL, sem
-explicacao, sem markdown, sem ```sql.
-
-=== ESQUEMA ===
-{schema}
-
-=== DICA (evidence) ===
-{evidence}
-
-=== PERGUNTA ===
-{pergunta}
-
-SQL:"""
-    return limpar_sql(call_ollama(prompt))
+    """Wrapper fino sobre nl_to_sql.gerar_sql_com_schema(): o BIRD tem um campo 'evidence'
+    (dica extra do dataset) que nao existe no formato de pergunta do Harbor -- concatenado
+    a pergunta antes de chamar a funcao real, para nao precisar de um parametro novo em
+    gerar_sql_com_schema() so para este benchmark."""
+    pergunta_com_evidence = f"{pergunta}\n\nDica adicional: {evidence}" if evidence else pergunta
+    return gerar_sql_com_schema(pergunta_com_evidence, esquema=schema, usar_few_shot=False)
 
 
 def normalizar_sql(sql):

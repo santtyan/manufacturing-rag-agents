@@ -18,8 +18,11 @@ LIA---TRABALHO-FINAL (docs/indexacao.md):
   4. Indexar texto corrido chunkado, nao blocos curtos (chunks de tabela "vencem" no cosseno
      contra paragrafos ricos).
 
-Interface identica ao TF-IDF (buscar -> lista de {texto, fonte, score}) para ser plugavel
-no lugar do modulo antigo sem tocar em quem consome.
+Interface identica ao TF-IDF (buscar -> lista de {texto, fonte, id, score}) para ser
+plugavel no lugar do modulo antigo sem tocar em quem consome. Campo "id" adicionado para
+permitir uso por benchmarks (eval/avaliar_retrieval_nanobeir.py) que precisam comparar
+contra um id de documento original, nao so o nome do arquivo -- aditivo, nao quebra codigo
+que so usa texto/fonte/score.
 """
 import re
 from pathlib import Path
@@ -135,7 +138,13 @@ class RAGHibrido:
     combinado (buscar(), etapa 3) -- ver docstring de cada metodo abaixo.
     """
 
-    def __init__(self):
+    def __init__(self, chroma_dir=None, colecao=None):
+        """chroma_dir/colecao opcionais -- default None usa os valores fixos do modulo
+        (CHROMA_DIR/COLECAO), comportamento de producao INTOCADO. Parametrizavel para que
+        benchmarks (ex: NanoBEIR, eval/avaliar_retrieval_nanobeir.py) possam indexar um
+        corpus diferente sem colidir com o indice de producao -- ver indexar()."""
+        self._chroma_dir = chroma_dir or CHROMA_DIR
+        self._colecao_nome = colecao or COLECAO
         self._modelo = None      # SentenceTransformer (E5), carregado sob demanda
         self._colecao = None     # colecao do ChromaDB (indice dos embeddings)
         self._reranker = None    # CrossEncoder, carregado sob demanda
@@ -161,8 +170,8 @@ class RAGHibrido:
     def _cliente_chroma(self):
         """Cliente do ChromaDB, o banco vetorial onde os embeddings ficam persistidos."""
         import chromadb
-        CHROMA_DIR.mkdir(parents=True, exist_ok=True)
-        return chromadb.PersistentClient(path=str(CHROMA_DIR))
+        self._chroma_dir.mkdir(parents=True, exist_ok=True)
+        return chromadb.PersistentClient(path=str(self._chroma_dir))
 
     # ── Busca semântica: texto -> vetor (E5) ───────────────────────────────────────
 
@@ -180,52 +189,77 @@ class RAGHibrido:
 
     # ── Indexação (roda uma vez, antes de qualquer pergunta) ───────────────────────
 
-    def indexar(self, forcar=False):
+    def indexar(self, forcar=False, documentos_customizados=None):
         """Le os manuais .md, corta em chunks, embeda e salva no ChromaDB + indice TF-IDF.
-        Se a colecao ja existir e forcar=False, reaproveita o indice persistido em disco."""
+        Se a colecao ja existir e forcar=False, reaproveita o indice persistido em disco.
+
+        documentos_customizados (opcional): lista de {"id", "texto", "fonte"} para indexar
+        um corpus diferente dos manuais .md, SEM chunking (cada item vira 1 documento
+        indexado como esta, usando o "id" fornecido em vez de um chunk_index sintetico).
+        Usado por benchmarks (ex: NanoBEIR) cujo corpus ja vem em unidades de documento
+        prontas e precisa do id original para comparar contra o gold (qrels) -- ver
+        eval/avaliar_retrieval_nanobeir.py. None (default) preserva o comportamento de
+        producao (le MANUAIS_DIR, chunking por secao)."""
         cliente = self._cliente_chroma()
 
         nomes_existentes = [c.name for c in cliente.list_collections()]
-        if COLECAO in nomes_existentes and not forcar:
-            self._colecao = cliente.get_collection(COLECAO)
+        if self._colecao_nome in nomes_existentes and not forcar:
+            self._colecao = cliente.get_collection(self._colecao_nome)
             self._reconstruir_tfidf()
             return self._colecao.count()
 
-        if COLECAO in nomes_existentes:
-            cliente.delete_collection(COLECAO)
+        if self._colecao_nome in nomes_existentes:
+            cliente.delete_collection(self._colecao_nome)
 
         # hnsw:space cosine explicito -- casa com normalize_embeddings=True.
-        self._colecao = cliente.create_collection(COLECAO, metadata={"hnsw:space": "cosine"})
+        self._colecao = cliente.create_collection(self._colecao_nome, metadata={"hnsw:space": "cosine"})
 
         documentos, metadados, ids = [], [], []
-        for caminho in sorted(MANUAIS_DIR.glob("*.md")):
-            texto = caminho.read_text(encoding="utf-8").strip()
-            for i, chunk in enumerate(chunk_texto(texto)):
-                documentos.append(chunk)
-                metadados.append({"file_name": caminho.name, "chunk_index": i})
-                ids.append(f"{caminho.stem}_{i}")
+        if documentos_customizados is not None:
+            for doc in documentos_customizados:
+                documentos.append(doc["texto"])
+                metadados.append({"file_name": doc.get("fonte", doc["id"])})
+                ids.append(str(doc["id"]))
+        else:
+            for caminho in sorted(MANUAIS_DIR.glob("*.md")):
+                texto = caminho.read_text(encoding="utf-8").strip()
+                for i, chunk in enumerate(chunk_texto(texto)):
+                    documentos.append(chunk)
+                    metadados.append({"file_name": caminho.name, "chunk_index": i})
+                    ids.append(f"{caminho.stem}_{i}")
 
+        # ChromaDB aceita lotes de ate 5461 itens por chamada (limite do backend) -- corpus
+        # de benchmark pode passar disso, ao contrario dos poucos chunks dos manuais.
+        LOTE = 5000
         embeddings = self._embed_passages(documentos)
-        self._colecao.add(documents=documentos, embeddings=embeddings, metadatas=metadados, ids=ids)
+        for i in range(0, len(documentos), LOTE):
+            self._colecao.add(
+                documents=documentos[i:i + LOTE], embeddings=embeddings[i:i + LOTE],
+                metadatas=metadados[i:i + LOTE], ids=ids[i:i + LOTE],
+            )
 
-        self._construir_tfidf(documentos, metadados)
+        self._construir_tfidf(documentos, metadados, ids)
         return self._colecao.count()
 
     # ── Busca lexical: texto -> índice TF-IDF ──────────────────────────────────────
 
-    def _construir_tfidf(self, documentos, metadados):
+    def _construir_tfidf(self, documentos, metadados, ids=None):
         """Indice lexical (TF-IDF, scikit-learn puro) sobre os MESMOS chunks do indice E5 --
-        e a metade 'palavra exata' do hybrid search: acerta siglas/codigos que o E5 erra."""
+        e a metade 'palavra exata' do hybrid search: acerta siglas/codigos que o E5 erra.
+
+        ids opcional: preserva o id de cada documento (usado por buscar()/_buscar_tfidf()
+        para incluir "id" no resultado, alem de "fonte") -- None quando reconstruido a
+        partir de colecao antiga sem essa informacao explicita (retrocompatibilidade)."""
         from sklearn.feature_extraction.text import TfidfVectorizer
         vectorizer = TfidfVectorizer(stop_words=None, max_features=2000)
         matriz = vectorizer.fit_transform(documentos)
-        self._tfidf = (vectorizer, matriz, documentos, metadados)
+        self._tfidf = (vectorizer, matriz, documentos, metadados, ids)
 
     def _reconstruir_tfidf(self):
         """Reconstroi o indice TF-IDF em memoria a partir dos chunks ja salvos no ChromaDB --
         usado ao reaproveitar uma colecao existente num processo novo (self._tfidf vazio)."""
         dados = self._colecao.get(include=["documents", "metadatas"])
-        self._construir_tfidf(dados["documents"], dados["metadatas"])
+        self._construir_tfidf(dados["documents"], dados["metadatas"], dados.get("ids"))
 
     def _buscar_tfidf(self, pergunta, k):
         """Busca lexical pura: similaridade de cosseno entre a pergunta e os chunks indexados."""
@@ -234,12 +268,13 @@ class RAGHibrido:
 
         if self._tfidf is None:
             self.indexar()
-        vectorizer, matriz, documentos, metadados = self._tfidf
+        vectorizer, matriz, documentos, metadados, ids = self._tfidf
         vetor_pergunta = vectorizer.transform([pergunta])
         scores = cosine_similarity(vetor_pergunta, matriz)[0]
         top_idx = np.argsort(scores)[::-1][:k]
         return [
-            {"texto": documentos[i], "fonte": metadados[i]["file_name"], "score": round(float(scores[i]), 4)}
+            {"texto": documentos[i], "fonte": metadados[i]["file_name"],
+             "id": ids[i] if ids else None, "score": round(float(scores[i]), 4)}
             for i in top_idx if scores[i] > 0
         ]
 
@@ -261,12 +296,13 @@ class RAGHibrido:
         docs = res["documents"][0]
         metas = res["metadatas"][0]
         distancias = res["distances"][0]
+        res_ids = res["ids"][0]
 
         candidatos = []
         vistos = set()
-        for texto, meta, dist in zip(docs, metas, distancias):
+        for texto, meta, dist, doc_id in zip(docs, metas, distancias, res_ids):
             score_e5 = 1.0 - float(dist)
-            candidatos.append({"texto": texto, "fonte": meta["file_name"], "score": round(score_e5, 4)})
+            candidatos.append({"texto": texto, "fonte": meta["file_name"], "id": doc_id, "score": round(score_e5, 4)})
             vistos.add(texto)
 
         # 2. BUSCA LEXICAL (TF-IDF) + COMBINACAO: une os candidatos do TF-IDF aos do E5,

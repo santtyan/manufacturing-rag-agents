@@ -20,6 +20,8 @@ outputs/
 rag/chroma_db/
 rag/chroma_db_benchmark/
 rag/vector_store/
+experiments/langchain_rag/chroma_db_fiel/
+experiments/langchain_rag/chroma_db_bm25rrf/
 
 # Segredos e configuração local
 .env

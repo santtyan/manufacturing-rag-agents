@@ -84,8 +84,14 @@ a coluna nao e encontrada. Colunas totalmente minusculas (ex: sum, count, mean, 
 """
 
 
-def call_ollama(prompt, timeout=60):
-    """Chamada crua ao Ollama local -- toda geracao de SQL/resposta passa por aqui."""
+def call_ollama(prompt, timeout=120):
+    """Chamada crua ao Ollama local -- toda geracao de SQL/resposta passa por aqui.
+
+    timeout=120 (era 60): achado real ao rodar eval/avaliar_bird_sql.py com 25 perguntas
+    (2026-08-07) -- 3 timeouts em schemas grandes (10-37K chars, bem acima do schema fixo
+    do Harbor, ~2-3K chars) que passavam de 60s no llama3.2 local. Producao real nunca
+    exercitou esse caso (schema sempre pequeno), so apareceu com gerar_sql_com_schema()
+    contra benchmarks academicos de schema variavel."""
     resp = requests.post(OLLAMA_URL, json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}, timeout=timeout)
     resp.raise_for_status()
     return resp.json().get("response", "").strip()
@@ -149,21 +155,12 @@ def _formatar_exemplos_prompt(exemplos):
 
 # ── 2. Geração de SQL (com self-repair) ─────────────────────────────────────────────────
 
-def gerar_sql(pergunta_nl, usar_few_shot=True):
-    """Traduz a pergunta em SQL: monta o prompt (esquema + regras + exemplos few-shot
-    opcionais) e pede ao LLM. Não executa a query -- só gera o texto do SQL."""
-    exemplos_txt = ""
-    if usar_few_shot:
-        try:
-            exemplos = recuperar_exemplos_similares(pergunta_nl, k=3)
-            exemplos_txt = f"""
-=== EXEMPLOS DE CONSULTAS VALIDAS JA TESTADAS (use como referencia de sintaxe e colunas) ===
-{_formatar_exemplos_prompt(exemplos)}
-"""
-        except Exception:
-            pass  # se o RAG de exemplos falhar (E5 indisponivel), segue sem few-shot
-
-    prompt = f"""Voce e um especialista em SQL PostgreSQL. Traduza a pergunta abaixo em uma consulta SQL
+def _montar_prompt_gerar_sql(pergunta_nl, esquema, exemplos_txt):
+    """Monta o prompt de geracao de SQL. Extraido de gerar_sql() para que o texto do prompt
+    viva em UM lugar so, reusado tanto pela producao (esquema fixo do Harbor) quanto por
+    gerar_sql_com_schema() (esquema dinamico, benchmarks BIRD-SQL/Spider) -- ver
+    gerar_sql_com_schema() abaixo para o motivo de precisar de schema parametrizavel."""
+    return f"""Voce e um especialista em SQL PostgreSQL. Traduza a pergunta abaixo em uma consulta SQL
 usando APENAS as tabelas e colunas listadas no esquema. Responda SOMENTE com o SQL, sem explicacao,
 sem markdown, sem ```sql. A query deve ser um SELECT (nunca INSERT/UPDATE/DELETE/DROP).
 
@@ -186,26 +183,64 @@ SELECT componente, n_anomalias FROM cnc_resumo_anomalias_por_componente ORDER BY
 manufacturing_regime_a ORDER BY pontos_mudanca_regime DESC.
 
 === ESQUEMA ===
-{ESQUEMA}
+{esquema}
 {exemplos_txt}
 === PERGUNTA ===
 {pergunta_nl}
 
 SQL:"""
+
+
+def _montar_exemplos_txt(pergunta_nl):
+    """Bloco de few-shot formatado, ou string vazia se o RAG de exemplos falhar
+    (E5 indisponivel) -- mesmo fallback silencioso que gerar_sql() sempre teve."""
+    try:
+        exemplos = recuperar_exemplos_similares(pergunta_nl, k=3)
+        return f"""
+=== EXEMPLOS DE CONSULTAS VALIDAS JA TESTADAS (use como referencia de sintaxe e colunas) ===
+{_formatar_exemplos_prompt(exemplos)}
+"""
+    except Exception:
+        return ""
+
+
+def gerar_sql(pergunta_nl, usar_few_shot=True):
+    """Traduz a pergunta em SQL: monta o prompt (esquema + regras + exemplos few-shot
+    opcionais) e pede ao LLM. Não executa a query -- só gera o texto do SQL.
+
+    Assinatura e comportamento INTOCADOS por design -- usada pela producao real
+    (perguntar()/perguntar_com_dba()). Sempre usa o ESQUEMA fixo do Harbor."""
+    exemplos_txt = _montar_exemplos_txt(pergunta_nl) if usar_few_shot else ""
+    prompt = _montar_prompt_gerar_sql(pergunta_nl, ESQUEMA, exemplos_txt)
     return _limpar_sql(call_ollama(prompt))
 
 
-def corrigir_sql(pergunta_nl, sql_ruim, erro):
-    """Self-repair: reenvia ao LLM o SQL que falhou + a mensagem de erro, pedindo correcao.
-    Sobe muito a taxa de sucesso do modelo local, que erra sintaxe/colunas na primeira tentativa."""
-    prompt = f"""Voce e um especialista em SQL PostgreSQL. A consulta abaixo, gerada para responder a
+def gerar_sql_com_schema(pergunta_nl, esquema, usar_few_shot=False):
+    """Mesma geracao de SQL de gerar_sql(), mas com ESQUEMA DINAMICO -- para benchmarks
+    academicos (BIRD-SQL, Spider) cujo schema varia por pergunta, diferente do banco fixo
+    do Harbor. usar_few_shot=False por padrao: os exemplos de exemplos_sql.json sao
+    especificos do schema do Harbor, nao fazem sentido como referencia de sintaxe para um
+    schema de terceiros.
+
+    Nao reusa gerar_sql() diretamente (ela so aceita o ESQUEMA fixo do modulo) -- ambas
+    chamam _montar_prompt_gerar_sql() para o texto do prompt viver em um lugar so."""
+    exemplos_txt = _montar_exemplos_txt(pergunta_nl) if usar_few_shot else ""
+    prompt = _montar_prompt_gerar_sql(pergunta_nl, esquema, exemplos_txt)
+    return _limpar_sql(call_ollama(prompt))
+
+
+def _montar_prompt_corrigir_sql(pergunta_nl, esquema, sql_ruim, erro):
+    """Prompt de self-repair. Extraido de corrigir_sql() pelo mesmo motivo de
+    _montar_prompt_gerar_sql() -- reusado por corrigir_sql() (esquema fixo) e
+    corrigir_sql_com_schema() (esquema dinamico)."""
+    return f"""Voce e um especialista em SQL PostgreSQL. A consulta abaixo, gerada para responder a
 pergunta, FALHOU ao ser executada. Corrija-a usando APENAS as tabelas/colunas do esquema.
 Responda SOMENTE com o SQL corrigido, sem explicacao, sem markdown.
 
 Lembre-se: colunas com maiusculas vao entre aspas duplas; prefira uma unica tabela; so SELECT.
 
 === ESQUEMA ===
-{ESQUEMA}
+{esquema}
 
 === PERGUNTA ORIGINAL ===
 {pergunta_nl}
@@ -217,6 +252,23 @@ Lembre-se: colunas com maiusculas vao entre aspas duplas; prefira uma unica tabe
 {erro}
 
 SQL corrigido:"""
+
+
+def corrigir_sql(pergunta_nl, sql_ruim, erro):
+    """Self-repair: reenvia ao LLM o SQL que falhou + a mensagem de erro, pedindo correcao.
+    Sobe muito a taxa de sucesso do modelo local, que erra sintaxe/colunas na primeira tentativa.
+
+    Assinatura e comportamento INTOCADOS -- usada pela producao real (perguntar())."""
+    prompt = _montar_prompt_corrigir_sql(pergunta_nl, ESQUEMA, sql_ruim, erro)
+    return _limpar_sql(call_ollama(prompt))
+
+
+def corrigir_sql_com_schema(pergunta_nl, esquema, sql_ruim, erro):
+    """Self-repair com esquema dinamico -- irma de gerar_sql_com_schema(). Existe para
+    benchmarks que tenham um banco real para executar e obter erro (BIRD-SQL/Spider hoje
+    NAO tem, ver docstring de avaliar_bird_sql.py -- fica disponivel para uso futuro se
+    isso mudar)."""
+    prompt = _montar_prompt_corrigir_sql(pergunta_nl, esquema, sql_ruim, erro)
     return _limpar_sql(call_ollama(prompt))
 
 
