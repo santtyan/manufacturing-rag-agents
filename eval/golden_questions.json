@@ -30,7 +30,7 @@
       "id": "legacy-recall",
       "dataset": "legacy_sensor",
       "pergunta": "So 62 de 639 falhas reais foram detectadas - o que esse recall de 9.7% significa na pratica?",
-      "rota_esperada": "contexto",
+      "rota_esperada": "interpretacao_recall",
       "numeros_esperados": [9.7, 62, 639],
       "tolerancia": 0.5,
       "fonte": "pipeline2_legacy_sensor/backtest_metrics.json",
@@ -319,11 +319,11 @@
       "id": "rag-legacy-recall-interpretacao",
       "dataset": "legacy_sensor",
       "pergunta": "Segundo o manual, um recall baixo do modelo de deteccao significa que ele acerta a maioria das falhas?",
-      "rota_esperada": "rag",
+      "rota_esperada": "interpretacao_recall",
       "numeros_esperados": [],
       "tolerancia": 0.0,
       "fonte": "rag/manuais/manual_legacy_sensor.md",
-      "nota": "ARMADILHA CONCEITUAL: o manual (secao 3) explicita que recall baixo significa o OPOSTO -- o modelo so identifica uma pequena fracao das falhas reais, deixando a maior parte passar sem alerta. Mesmo padrao do gate pede_interpretacao_recall() ja implementado no codigo (bug #15 do catalogo de alucinacoes) -- aqui testa se o RAG tambem preserva a interpretacao correta ao citar o manual."
+      "nota": "ARMADILHA CONCEITUAL: o manual (secao 3) explicita que recall baixo significa o OPOSTO -- o modelo so identifica uma pequena fracao das falhas reais, deixando a maior parte passar sem alerta. rota_esperada atualizada em 2026-08-07: o gate pede_interpretacao_recall() intercepta esta pergunta ANTES do roteamento normal decidir entre rag/contexto (qualquer pergunta com 'recall'+'significa que' cai no gate, mesmo mencionando 'segundo o manual') -- e o comportamento real do sistema hoje, nao um bug. Objetivo original era testar se o RAG preservava a interpretacao ao citar o manual; hoje quem garante isso e o calculo deterministico do gate, nao mais o RAG. Se essa distincao (RAG vs. gate) precisar ser testada de novo no futuro, escrever uma pergunta que nao dispare o gate (evitar a combinacao 'recall'/'precision' + 'acerta'/'erra'/'significa que'/'na pratica')."
     },
     {
       "id": "rag-legacy-falso-alarme",
