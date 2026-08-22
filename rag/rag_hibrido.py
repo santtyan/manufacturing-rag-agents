@@ -128,27 +128,43 @@ def chunk_texto(texto, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
 class RAGHibrido:
     """Motor de busca hibrida (RAG) sobre o manual tecnico: 3 etapas em sequencia.
 
-        1. BUSCA SEMANTICA (E5)   -> entende significado, erra termo tecnico exato.
-        2. BUSCA LEXICAL (TF-IDF) -> entende termo exato, erra sinonimo/parafrase.
-        3. RERANK (Cross-Encoder) -> reordena a uniao das duas buscas por relevancia real.
+        1. BUSCA SEMANTICA (E5)     -> entende significado, erra termo tecnico exato.
+        2. BUSCA LEXICAL (TF-IDF ou BM25) -> entende termo exato, erra sinonimo/parafrase.
+        3. RERANK (Cross-Encoder)   -> reordena a uniao das duas buscas por relevancia real.
 
-    E5 e TF-IDF sao bibliotecas prontas (sentence-transformers / scikit-learn), usadas sem
-    alterar o algoritmo. A engenharia do projeto esta em COMO essas pecas se conectam: unir
-    os dois resultados sem duplicar (buscar(), etapa 2) e so entao rerankear o conjunto
-    combinado (buscar(), etapa 3) -- ver docstring de cada metodo abaixo.
+    E5, TF-IDF/BM25 e Cross-Encoder sao bibliotecas prontas (sentence-transformers /
+    scikit-learn / rank_bm25), usadas sem alterar o algoritmo. A engenharia do projeto esta
+    em COMO essas pecas se conectam: unir os dois resultados sem duplicar (buscar(), etapa 2)
+    e so entao rerankear o conjunto combinado (buscar(), etapa 3) -- ver docstring de cada
+    metodo abaixo.
+
+    lexico="tfidf" (default) preserva o comportamento de producao original. lexico="bm25"
+    troca a metade lexical por Okapi BM25 (rank_bm25) -- sugestao do Pedro (ver memoria
+    feedback_pedro_bm25_limiar_alucinacao.md): BM25 normaliza por tamanho de documento e
+    satura frequencia de termo, o que tende a ajudar em corpora pequenos como o do Harbor
+    (manuais curtos, poucos documentos) onde TF-IDF puro deixa um termo repetido dominar o
+    score. Comparar os dois empiricamente -- ver eval/comparar_tfidf_bm25.py -- antes de
+    trocar o default de producao.
     """
 
-    def __init__(self, chroma_dir=None, colecao=None):
+    def __init__(self, chroma_dir=None, colecao=None, lexico="tfidf"):
         """chroma_dir/colecao opcionais -- default None usa os valores fixos do modulo
         (CHROMA_DIR/COLECAO), comportamento de producao INTOCADO. Parametrizavel para que
         benchmarks (ex: NanoBEIR, eval/avaliar_retrieval_nanobeir.py) possam indexar um
-        corpus diferente sem colidir com o indice de producao -- ver indexar()."""
+        corpus diferente sem colidir com o indice de producao -- ver indexar().
+
+        lexico: "tfidf" (default, producao) ou "bm25" -- escolhe o algoritmo da metade
+        lexical do hybrid search (etapa 2). Ver docstring da classe."""
+        if lexico not in ("tfidf", "bm25"):
+            raise ValueError(f"lexico deve ser 'tfidf' ou 'bm25', recebido: {lexico!r}")
         self._chroma_dir = chroma_dir or CHROMA_DIR
         self._colecao_nome = colecao or COLECAO
+        self._lexico = lexico
         self._modelo = None      # SentenceTransformer (E5), carregado sob demanda
         self._colecao = None     # colecao do ChromaDB (indice dos embeddings)
         self._reranker = None    # CrossEncoder, carregado sob demanda
-        self._tfidf = None       # (vectorizer, matriz, chunks, metadados) do indice lexical
+        self._tfidf = None       # (vectorizer, matriz, chunks, metadados, ids) do indice TF-IDF
+        self._bm25 = None        # (bm25, chunks, metadados, ids) do indice BM25
 
     # ── Modelos (carregamento preguiçoso, uma vez por instância) ──────────────────
 
@@ -205,7 +221,7 @@ class RAGHibrido:
         nomes_existentes = [c.name for c in cliente.list_collections()]
         if self._colecao_nome in nomes_existentes and not forcar:
             self._colecao = cliente.get_collection(self._colecao_nome)
-            self._reconstruir_tfidf()
+            self._reconstruir_indice_lexical()
             return self._colecao.count()
 
         if self._colecao_nome in nomes_existentes:
@@ -238,10 +254,29 @@ class RAGHibrido:
                 metadatas=metadados[i:i + LOTE], ids=ids[i:i + LOTE],
             )
 
-        self._construir_tfidf(documentos, metadados, ids)
+        self._construir_indice_lexical(documentos, metadados, ids)
         return self._colecao.count()
 
-    # ── Busca lexical: texto -> índice TF-IDF ──────────────────────────────────────
+    # ── Busca lexical: texto -> índice TF-IDF ou BM25 ───────────────────────────────
+
+    def _construir_indice_lexical(self, documentos, metadados, ids=None):
+        """Despacha para o indice lexical escolhido em __init__ (self._lexico)."""
+        if self._lexico == "bm25":
+            self._construir_bm25(documentos, metadados, ids)
+        else:
+            self._construir_tfidf(documentos, metadados, ids)
+
+    def _reconstruir_indice_lexical(self):
+        """Reconstroi o indice lexical em memoria a partir dos chunks ja salvos no ChromaDB --
+        usado ao reaproveitar uma colecao existente num processo novo (indice vazio)."""
+        dados = self._colecao.get(include=["documents", "metadatas"])
+        self._construir_indice_lexical(dados["documents"], dados["metadatas"], dados.get("ids"))
+
+    def _buscar_lexical(self, pergunta, k):
+        """Despacha para a busca lexical do algoritmo escolhido em __init__ (self._lexico)."""
+        if self._lexico == "bm25":
+            return self._buscar_bm25(pergunta, k)
+        return self._buscar_tfidf(pergunta, k)
 
     def _construir_tfidf(self, documentos, metadados, ids=None):
         """Indice lexical (TF-IDF, scikit-learn puro) sobre os MESMOS chunks do indice E5 --
@@ -254,12 +289,6 @@ class RAGHibrido:
         vectorizer = TfidfVectorizer(stop_words=None, max_features=2000)
         matriz = vectorizer.fit_transform(documentos)
         self._tfidf = (vectorizer, matriz, documentos, metadados, ids)
-
-    def _reconstruir_tfidf(self):
-        """Reconstroi o indice TF-IDF em memoria a partir dos chunks ja salvos no ChromaDB --
-        usado ao reaproveitar uma colecao existente num processo novo (self._tfidf vazio)."""
-        dados = self._colecao.get(include=["documents", "metadatas"])
-        self._construir_tfidf(dados["documents"], dados["metadatas"], dados.get("ids"))
 
     def _buscar_tfidf(self, pergunta, k):
         """Busca lexical pura: similaridade de cosseno entre a pergunta e os chunks indexados."""
@@ -275,6 +304,50 @@ class RAGHibrido:
         return [
             {"texto": documentos[i], "fonte": metadados[i]["file_name"],
              "id": ids[i] if ids else None, "score": round(float(scores[i]), 4)}
+            for i in top_idx if scores[i] > 0
+        ]
+
+    def _construir_bm25(self, documentos, metadados, ids=None):
+        """Indice lexical Okapi BM25 (rank_bm25) sobre os MESMOS chunks do indice E5 --
+        alternativa ao TF-IDF (etapa 2 do hybrid search). Diferenca de TF-IDF+cosseno:
+        BM25 normaliza pelo tamanho do documento e satura a contribuicao de um termo muito
+        repetido (parametros k1/b padrao do rank_bm25), o que tende a evitar que um chunk
+        vença so por repetir uma palavra, mais relevante em corpora pequenos como o do
+        Harbor. Tokenizacao simples (lower + split) -- suficiente para portugues sem stemming,
+        mesma escolha de simplicidade do TfidfVectorizer(stop_words=None) acima."""
+        from rank_bm25 import BM25Okapi
+        tokenizados = [doc.lower().split() for doc in documentos]
+        bm25 = BM25Okapi(tokenizados)
+        self._bm25 = (bm25, documentos, metadados, ids)
+
+    def _buscar_bm25(self, pergunta, k):
+        """Busca lexical pura via BM25: mesma interface de retorno que _buscar_tfidf, para
+        ser plugavel em buscar() sem mudar o restante do hybrid search.
+
+        NORMALIZACAO min-max para [0,1] sobre os candidatos retornados: BM25Okapi.get_scores
+        nao e limitado a [0,1] como cosseno (TF-IDF/E5) -- score cru observado no golden set
+        do Harbor variou ate ~7.5. Achado real (comparacao TF-IDF vs BM25, ver
+        eval/comparar_tfidf_bm25.py): sem normalizar, buscar() com usar_hybrid=True e
+        usar_rerank=False ordena a uniao E5+BM25 por score cru, e o BM25 (escala maior)
+        dominava o sort mesmo quando irrelevante, derrubando Recall@5 de 98% (BM25 isolado)
+        para 86% (hybrid sem rerank) -- o rerank escondia o problema porque substitui os
+        scores depois, mas usar_rerank=False (o modo mais barato/rapido do dashboard) ficava
+        pior que so usar TF-IDF. Min-max por query (nao global) e suficiente aqui: so precisa
+        ser comparavel DENTRO da mesma chamada de buscar(), nao entre queries diferentes."""
+        import numpy as np
+
+        if self._bm25 is None:
+            self.indexar()
+        bm25, documentos, metadados, ids = self._bm25
+        scores = bm25.get_scores(pergunta.lower().split())
+        top_idx = np.argsort(scores)[::-1][:k]
+        scores_top = scores[top_idx]
+        maior, menor = float(scores_top.max()), float(scores_top.min())
+        amplitude = maior - menor
+        return [
+            {"texto": documentos[i], "fonte": metadados[i]["file_name"],
+             "id": ids[i] if ids else None,
+             "score": round((float(scores[i]) - menor) / amplitude, 4) if amplitude > 0 else 1.0}
             for i in top_idx if scores[i] > 0
         ]
 
@@ -305,11 +378,12 @@ class RAGHibrido:
             candidatos.append({"texto": texto, "fonte": meta["file_name"], "id": doc_id, "score": round(score_e5, 4)})
             vistos.add(texto)
 
-        # 2. BUSCA LEXICAL (TF-IDF) + COMBINACAO: une os candidatos do TF-IDF aos do E5,
-        # sem duplicar um chunk que as duas buscas já tenham encontrado. Esta união é a
-        # parte de engenharia própria do "hybrid search" — não vem de nenhuma biblioteca.
+        # 2. BUSCA LEXICAL (TF-IDF ou BM25, ver self._lexico) + COMBINACAO: une os candidatos
+        # da busca lexical aos do E5, sem duplicar um chunk que as duas buscas já tenham
+        # encontrado. Esta união é a parte de engenharia própria do "hybrid search" — não
+        # vem de nenhuma biblioteca.
         if usar_hybrid:
-            for c_lex in self._buscar_tfidf(pergunta, k=n_buscar):
+            for c_lex in self._buscar_lexical(pergunta, k=n_buscar):
                 if c_lex["texto"] not in vistos:
                     candidatos.append(c_lex)
                     vistos.add(c_lex["texto"])

@@ -12,7 +12,6 @@ rag-oee-categoria-maior-consumo,manual_oee_downtime.md,1.0,0.8,1.0,manual_oee_do
 rag-oee-mttr-mtbf-juntos,manual_oee_downtime.md,1.0,0.8,1.0,manual_oee_downtime.md;manual_oee_downtime.md;manual_oee_downtime.md;manual_oee_downtime.md;manual_discrete_manufacturing.md
 rag-oee-camadas-armadilha,manual_oee_downtime.md,1.0,0.2,1.0,manual_oee_downtime.md;manual_discrete_manufacturing.md;manual_legacy_sensor.md;manual_manutencao_sensores_industriais.md;manual_five_axis_cnc.md
 rag-legacy-poder-discriminativo-manual,manual_legacy_sensor.md,1.0,0.4,0.5,manual_manutencao_sensores_industriais.md;manual_legacy_sensor.md;manual_legacy_sensor.md;manual_oee_downtime.md;manual_manutencao_sensores_industriais.md
-rag-legacy-recall-interpretacao,manual_legacy_sensor.md,1.0,0.6,1.0,manual_legacy_sensor.md;manual_oee_downtime.md;manual_discrete_manufacturing.md;manual_legacy_sensor.md;manual_legacy_sensor.md
 rag-legacy-falso-alarme,manual_legacy_sensor.md,1.0,0.8,1.0,manual_legacy_sensor.md;manual_legacy_sensor.md;manual_manutencao_sensores_industriais.md;manual_legacy_sensor.md;manual_legacy_sensor.md
 rag-discrete-transicao-alarme-a,manual_discrete_manufacturing.md,1.0,0.6,1.0,manual_discrete_manufacturing.md;manual_discrete_manufacturing.md;manual_discrete_manufacturing.md;manual_oee_downtime.md;manual_legacy_sensor.md
 rag-discrete-alarm-consumo-armadilha,manual_discrete_manufacturing.md,1.0,0.6,1.0,manual_discrete_manufacturing.md;manual_discrete_manufacturing.md;manual_oee_downtime.md;manual_discrete_manufacturing.md;descricao_legacy_sensor_logs.md
