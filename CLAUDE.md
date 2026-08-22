@@ -85,3 +85,4 @@ Fluxos recorrentes já empacotados como skills — usar em vez de reimprovisar o
 - **`adicionar-manual-rag`** — adiciona manual novo em `rag/manuais/`, reindexa, valida Recall@k/MRR.
 - **`atualizar-slide-resposta`** — cria/atualiza resposta preparada em `slides/*.md` com números atuais.
 - **`comparar-tfidf-bm25`** — roda o benchmark que compara os dois algoritmos lexicais de `rag_hibrido.py`.
+- **`roadmap-slm-multiagente`** — guia vivo do fit do Harbor com o Projeto 1 do PDC (multiagentes confiáveis + SLMs em português); lista priorizada de itens implementáveis.
