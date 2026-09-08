@@ -79,6 +79,36 @@ Marque `[x]` conforme for implementando, e adicione uma linha de resultado abaix
       `eval/alucinacoes.md` (catálogo de bugs reais, com causa raiz e data) como um documento
       de padrão de design não-específico ao domínio industrial. É quase só reformulação —
       o trabalho empírico já foi feito.
+
+      **Validação externa encontrada (2026-09-08)**, reforça que vale a pena formalizar este
+      item — três fontes independentes convergem no mesmo princípio: separar "quem gera/decide"
+      de "quem valida/guarda", nunca confiar em instrução de prompt para fazer cumprir uma
+      regra dura.
+      - **OpenAI Agents SDK** (docs oficiais): "Guardrails" são descritos como validação de
+        entrada/saída rodando em paralelo à execução do agente, "falhando rápido" quando a
+        checagem não passa — é a mesma descrição funcional dos answerability gates do Harbor,
+        só que como padrão nomeado de mercado.
+      - **AutoGen** (paper Microsoft/Wu et al., arXiv:2308.08155): dado experimental direto no
+        estudo A6 (xadrez conversacional) — removendo o "board agent" (validador determinístico
+        de jogadas) e substituindo por só uma instrução textual pedindo jogadas legais, o
+        sistema quebrou com jogadas ilegais. Confirma empiricamente, em domínio diferente, o
+        mesmo achado que motivou os gates do Harbor (LLM não respeita regra dura só por
+        instrução de prompt).
+      - **AutoGen, estudo A4** (OptiGuide): separar "Writer" (gera código) de "Safeguard"
+        (valida segurança) em dois agentes distintos, em vez de um agente único fazendo as duas
+        coisas, aumentou F1 de detecção de código inseguro em **+8% (GPT-4) e +35%
+        (GPT-3.5-turbo)**. Evidência quantitativa publicada a favor do mesmo padrão que o
+        DBA-Agent (segunda opinião no NL-to-SQL) e a precedência da regra determinística sobre
+        o veredito do LLM (API de diagnóstico) já aplicam no Harbor.
+      - **AutoGen, estudo A3** (ALFWorld): um "grounding agent" injetando conhecimento de senso
+        comum quando o sistema começa a repetir erros trouxe **+15% de performance** — mesmo
+        padrão de "agente crítico externo corrigindo o principal" já planejado como item 2 da
+        skill `[[migrar-para-langchain]]` (self-repair/DBA-Agent → critic node).
+      - Ao escrever o documento deste item, citar esses três achados como evidência externa —
+        fortalece o argumento de que o padrão não é uma escolha isolada do Harbor, é
+        convergência com literatura acadêmica e produtos de mercado (relevante para a
+        candidatura ao Projeto 1, que pede exatamente "padrões de design para agentes
+        proativos").
 - [ ] **2. Avaliação sistemática de custo computacional por modelo** — estender o harness
       (`eval/rodar_golden.py` ou script novo) para medir latência/tokens-por-segundo/uso de
       memória por modelo (llama3.2:3b vs qwen2.5:7b vs qwen2.5:14b), não só qualidade. Roda
