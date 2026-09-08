@@ -85,22 +85,65 @@ pipeline funciona com poucas imagens antes de expandir.
       `moondream` é insuficiente para uso real — não promover para produção nem expandir sem
       antes resolver o item 2 com um VLM maior.
 
+## Estado da arte 2026 e critério de escolha de arquitetura (pesquisa atualizada, 2026-09-08)
+
+Três arquiteturas competem hoje e **não há vencedor universal** — atualiza a decisão acima com
+o resultado de uma segunda rodada de pesquisa:
+
+- **caption-then-embed** (a que o Harbor usa): mais simples, adequada a corpora pouco
+  complexos visualmente. Continua a escolha certa para o Harbor enquanto o corpus for pequeno
+  e o custo de indexação (1 vetor de texto por imagem) importar mais que recall máximo.
+- **Embeddings visuais unificados** (Cohere Embed 4, voyage-multimodal-3.5): agora
+  competitivos com ColPali na maioria dos corpora empresariais, a uma fração do custo de
+  armazenamento — via de meio-termo se caption-then-embed não bastar mas ColPali for caro
+  demais para o volume de imagens.
+- **Late interaction / page-as-image** (ColPali, ICLR 2025, ColQwen2.5, ColNomic): SOTA em
+  ViDoRe e em UNIDOC-BENCH para layout difícil e documentos escaneados, ao custo de ~1.000
+  vetores de patch por página — não cabe no `ChromaDB` de produção sem uma coleção dedicada
+  com esquema diferente. Achado relevante: RAG textual + rerank ColPali **nem sempre** bate
+  ColPali sozinho — em documentos escaneados, erro de OCR no ramo textual derruba o híbrido
+  abaixo do ColPali puro.
+
+**Critério prático de escolha**: late interaction quando recall é o gargalo e as queries são
+visualmente difíceis (ex. localizar um número específico dentro de uma tabela complexa);
+caption-and-index quando não são. **Regra do Harbor**: não trocar de arquitetura antes de medir
+o baseline atual — ver item 5 abaixo, já executado.
+
+## Item 5 executado: harness formal de retrieval multimodal (2026-09-08)
+
+Promovido de smoke test (3 perguntas manuais, stdout) para módulo medido:
+
+- `eval/golden_questions_multimodal.json` — 7 perguntas cobrindo as 4 imagens de
+  `rag/manuais_imagens/`, mesmo formato de 1-documento-relevante de
+  `eval/avaliar_retrieval.py`.
+- `eval/avaliar_rag_multimodal.py` — Recall@k/Precision@k/MRR sobre o cache de legendas já
+  gerado (`rag/legendas_cache.json`), reusando `RAGLangChainBM25RRF`. **Não chama Ollama** —
+  roda no mesmo processo sem risco do segfault do achado #2 (só toca sentence-transformers).
+
+**Resultado do baseline** (k=3, sem rerank, `moondream` como VLM): **Recall@3 = 86%, MRR =
+0,524, Precision@3 = 29%**. Corpus de só 4 imagens torna o número frágil estatisticamente (uma
+troca de posição muda o resultado em pontos percentuais grandes), mas é a primeira medição que
+existe — antes disso a avaliação era "funcionou/não funcionou" em 3 perguntas manuais. As
+legendas do `moondream` seguem qualitativamente pobres (uma legenda saiu como
+`"[0.0, 0.13, 0.99, 0.28]"`, coordenadas cruas sem conteúdo semântico) — o número de retrieval
+"aceitável" esconde uma camada de captioning que não está de fato descrevendo o gráfico.
+
+**Não decidir arquitetura nova a partir deste número isolado** — ele serve de baseline para
+comparar contra qualquer mudança futura (troca de VLM, ou arquitetura), não como veredito de
+que caption-then-embed "funciona bem" no geral.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
-- [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real após o smoke test:
-      `moondream` não é suficiente (achado item 4 acima). Tentar `qwen2.5-vl`/Qwen2.5-VL
-      novamente quando houver mais espaço em disco (a falha de carregamento do projetor pode
-      ou não estar relacionada ao disco cheio — não foi isolado; testar de novo com disco
-      livre antes de descartar o modelo definitivamente) ou `llava` (~4GB, não testado ainda
-      por falta de espaço em disco na tentativa desta sessão).
-- [ ] **5. Harness formal para retrieval multimodal** — golden set de perguntas sobre as
-      imagens, medindo Recall@k/MRR como já se faz para texto (`eval/avaliar_retrieval.py`).
-- [ ] **6. Integrar ao dashboard/chat de produção** — só depois do item 5 confirmar que o
-      retrieval multimodal não regride nada; seguir a mesma regra inegociável de
-      `[[migrar-para-langchain]]` (não apontar produção para algo não medido).
-- [ ] **7. ColPali/ColQwen2 como via secundária** — avaliar se compensar quando o volume de
-      diagramas crescer o suficiente para a legenda perder informação demais na prática
-      (mensurável, não decidir por achismo).
+- [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com
+      número: as legendas do `moondream` incluem uma saída sem sentido semântico
+      (`"[0.0, 0.13, 0.99, 0.28]"`). Tentar `qwen2.5-vl`/Qwen2.5-VL novamente quando houver
+      mais espaço em disco, ou `llava` (~4GB).
+- [ ] **6. Integrar ao dashboard/chat de produção** — aguardando o dataset real do usuário
+      chegar (imagens sintéticas atuais são só prova de conceito); reavaliar Recall@k contra
+      esse dataset antes de decidir arquitetura final, seguindo o critério acima.
+- [ ] **7. ColPali/ColQwen2 como via secundária** — decisão adiada explicitamente até o dataset
+      real chegar (ver critério de escolha acima): usar quando recall for o gargalo medido E as
+      queries forem visualmente difíceis, não antes.
 - [ ] **8. GraphRAG-sobre-estrutura (ex. DEXPI)** — só relevante se um dia houver diagrama real
       em formato estruturado formal (P&ID), não para os dados sintéticos atuais.
 

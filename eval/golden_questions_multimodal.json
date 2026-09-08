@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "descricao": "Golden set para avaliar retrieval do RAG multimodal (caption-then-embed) sobre as 4 imagens sinteticas de rag/manuais_imagens/ (geradas por rag/gerar_imagens_sinteticas.py a partir de dados reais dos pipelines 2 e 4). Cada pergunta tem UM id de imagem relevante (documento_relevante) -- mesmo formato de golden set de 1-documento-relevante ja usado em eval/avaliar_retrieval.py, nao o formato multi-relevante do NanoBEIR/BEIR.",
+    "criado_em": "2026-09-08",
+    "arquitetura_avaliada": "caption-then-embed (rag/rag_multimodal_langchain.py) -- Fase 4 do plano de disciplina experimental PDC: medir antes de trocar de arquitetura (ColPali/embeddings unificados). Sem numero de baseline, trocar seria fe, nao medicao."
+  },
+  "perguntas": [
+    {
+      "id": "mm-cnc-anomalias-componente",
+      "pergunta": "qual componente do CNC teve mais anomalias de temperatura?",
+      "documento_relevante": "grafico_anomalias_componentes_cnc"
+    },
+    {
+      "id": "mm-cnc-anomalias-ranking",
+      "pergunta": "mostre o ranking de anomalias por componente do CNC",
+      "documento_relevante": "grafico_anomalias_componentes_cnc"
+    },
+    {
+      "id": "mm-pressao-vazao",
+      "pergunta": "existe relacao entre pressao e vazao no sistema?",
+      "documento_relevante": "grafico_pressao_vazao"
+    },
+    {
+      "id": "mm-pressao-vazao-grafico",
+      "pergunta": "mostre um grafico relacionando pressao e vazao",
+      "documento_relevante": "grafico_pressao_vazao"
+    },
+    {
+      "id": "mm-temperatura-classe",
+      "pergunta": "como a temperatura se distribui entre leituras normais e com falha?",
+      "documento_relevante": "grafico_temperatura_por_classe"
+    },
+    {
+      "id": "mm-vibracao-classe",
+      "pergunta": "existe alguma diferenca de vibracao entre operacao normal e com falha?",
+      "documento_relevante": "grafico_vibracao_por_classe"
+    },
+    {
+      "id": "mm-vibracao-anomalia",
+      "pergunta": "a vibracao ajuda a distinguir leituras anomalas de leituras normais?",
+      "documento_relevante": "grafico_vibracao_por_classe"
+    }
+  ]
+}

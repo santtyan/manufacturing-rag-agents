@@ -1,0 +1,8 @@
+id,documento_esperado,recall_at_k,precision_at_k,reciprocal_rank,documentos_recuperados
+mm-cnc-anomalias-componente,grafico_anomalias_componentes_cnc,1.0,0.333,0.333,grafico_pressao_vazao;grafico_vibracao_por_classe;grafico_anomalias_componentes_cnc
+mm-cnc-anomalias-ranking,grafico_anomalias_componentes_cnc,0.0,0.0,0.0,grafico_vibracao_por_classe;grafico_pressao_vazao;grafico_temperatura_por_classe
+mm-pressao-vazao,grafico_pressao_vazao,1.0,0.333,0.5,grafico_vibracao_por_classe;grafico_pressao_vazao;grafico_temperatura_por_classe
+mm-pressao-vazao-grafico,grafico_pressao_vazao,1.0,0.333,0.5,grafico_vibracao_por_classe;grafico_pressao_vazao;grafico_temperatura_por_classe
+mm-temperatura-classe,grafico_temperatura_por_classe,1.0,0.333,0.333,grafico_vibracao_por_classe;grafico_pressao_vazao;grafico_temperatura_por_classe
+mm-vibracao-classe,grafico_vibracao_por_classe,1.0,0.333,1.0,grafico_vibracao_por_classe;grafico_pressao_vazao;grafico_temperatura_por_classe
+mm-vibracao-anomalia,grafico_vibracao_por_classe,1.0,0.333,1.0,grafico_vibracao_por_classe;grafico_pressao_vazao;grafico_temperatura_por_classe
