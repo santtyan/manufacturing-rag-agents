@@ -1,0 +1,32 @@
+% Exemplo de frame de comparação com narrativa — copiar a estrutura, não o conteúdo.
+% Princípio: cada frame de módulo migrado conta uma HISTÓRIA de 3 batidas —
+% (1) o que medimos, (2) o que isso significou, (3) o que decidimos e por quê —
+% nunca só uma tabela solta sem a decisão que ela gerou.
+
+\begin{frame}{RAG híbrido: Python puro vs. LangChain}
+  \begin{numerobloco}{O que medimos (golden set, 49 perguntas de rota RAG)}
+    \begin{center}
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Métrica} & \textbf{Produção (TF-IDF)} & \textbf{LangChain fiel} & \textbf{LangChain BM25+RRF} \\
+      \midrule
+      Recall@5    & 98,0\%  & 98,0\%  & 98,0\%  \\
+      Precision@5 & 38,4\%  & 38,4\%  & \alert{49,8\%} \\
+      MRR         & 0,898   & 0,898   & 0,897   \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} o ganho de qualidade (+11,4pp de Precision@5) vem do
+  \alert{algoritmo} BM25+RRF, não do framework LangChain em si — a versão "fiel" (mesmo
+  algoritmo, framework trocado) empata exatamente com a produção.
+
+  \pause
+  \begin{decisaobloco}{O que decidimos}
+    Migramos mesmo assim: o roteador e o self-repair vão para LangGraph em seguida, e ter o
+    RAG já em LangChain evita uma segunda migração. Usamos a versão BM25+RRF (framework +
+    ganho real juntos), não a versão "fiel".
+  \end{decisaobloco}
+\end{frame}

@@ -1,0 +1,97 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{booktabs}
+\usepackage{xcolor}
+
+% Tema CERISE — cores da identidade visual do projeto (ver
+% .claude/skills/atualizar-slide-migracao-langchain/references/tema_cerise.sty).
+% Colado direto aqui para o arquivo funcionar sozinho no Overleaf sem precisar
+% subir um segundo arquivo .sty.
+\definecolor{cerisemagenta}{HTML}{A6186B}
+\definecolor{ceriserosa}{HTML}{E6186D}
+\definecolor{cerisecoral}{HTML}{F5642D}
+\definecolor{ceriseroxo}{HTML}{5B1A6B}
+
+\setbeamercolor{title}{fg=cerisemagenta}
+\setbeamercolor{frametitle}{fg=white,bg=cerisemagenta}
+\setbeamercolor{structure}{fg=cerisemagenta}
+\setbeamercolor{block title}{fg=white,bg=ceriseroxo}
+\setbeamercolor{block body}{bg=cerisemagenta!5}
+\setbeamercolor{alerted text}{fg=cerisecoral}
+\setbeamercolor{item}{fg=cerisemagenta}
+
+\newenvironment{numerobloco}[1]{\begin{block}{#1}}{\end{block}}
+\newenvironment{decisaobloco}[1]{\begin{alertblock}{#1}}{\end{alertblock}}
+
+\title{Migração do Harbor para LangChain/LangGraph}
+\subtitle{Progresso, comparações e decisões}
+\author{Yan Santos Leite}
+\date{\today}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Por que migrar}
+  \begin{itemize}
+    \item O roteador (\texttt{dashboard/roteador.py}) e o self-repair do NL-to-SQL
+      (\texttt{DBA-Agent}) vão usar \textbf{LangGraph} em breve, para branching condicional
+      e um padrão de \emph{critic node} (CRAG/Self-RAG).
+    \item Ter o RAG já em LangChain evita uma segunda migração quando esses módulos
+      precisarem consumir o retriever dentro de um grafo único.
+    \item Cada módulo só migra depois de medido — nunca "porque LangChain é melhor" sem
+      número que sustente.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Ordem de migração (por risco crescente)}
+  \begin{enumerate}
+    \item \textbf{RAG híbrido} — \alert{migrado} (2026-09-08)
+    \item Self-repair / DBA-Agent — não iniciado
+    \item Roteador + answerability gates — não iniciado
+    \item Diagnóstico em camadas (regra $\to$ Isolation Forest $\to$ LLM) — não iniciado,
+      baixo retorno esperado
+    \item NL-to-SQL — não iniciado, maior risco (validação determinística própria precisa
+      ser preservada)
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{RAG híbrido: Python puro vs. LangChain}
+  \begin{numerobloco}{O que medimos (golden set, 49 perguntas de rota RAG, 2026-09-08)}
+    \begin{center}
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Métrica} & \textbf{Produção (TF-IDF)} & \textbf{LangChain fiel} & \textbf{LangChain BM25+RRF} \\
+      \midrule
+      Recall@5    & 98,0\%  & 98,0\%  & 98,0\%  \\
+      Precision@5 & 38,4\%  & 38,4\%  & \alert{49,8\%} \\
+      MRR         & 0,898   & 0,898   & 0,897   \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} o ganho de qualidade (+11,4pp de Precision@5) vem do
+  \alert{algoritmo} BM25+RRF, não do framework LangChain — a versão "fiel" (mesmo algoritmo,
+  framework trocado) empata exatamente com a produção em Recall@5/MRR.
+
+  \pause
+  \begin{decisaobloco}{O que decidimos}
+    Migramos mesmo assim, por consistência com o roteador e o self-repair (LangGraph em
+    breve) — não pelo ganho isolado de retrieval. Usamos a implementação BM25+RRF
+    (framework + o ganho real juntos), não a versão "fiel".
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Próximos passos}
+  \begin{itemize}
+    \item Item 2: self-repair / DBA-Agent $\to$ LangGraph \emph{critic node}
+      (padrão CRAG/Self-RAG) — validar branching condicional antes do roteador.
+    \item Regra que não muda: nenhuma migração é aceita se regredir
+      \texttt{eval/rodar\_golden.py} (roteamento/faithfulness) ou o golden set.
+  \end{itemize}
+\end{frame}
+
+\end{document}

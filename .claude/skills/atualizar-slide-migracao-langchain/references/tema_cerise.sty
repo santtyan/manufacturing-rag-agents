@@ -1,0 +1,31 @@
+% Tema Beamer CERISE — cores extraídas da identidade visual do centro de pesquisa
+% (ver memória identidade_visual_cerise.md). Incluir com \usepackage{tema_cerise}
+% ou colar o conteúdo direto no preâmbulo se o Overleaf não aceitar arquivo extra.
+
+\definecolor{cerisemagenta}{HTML}{A6186B}
+\definecolor{ceriserosa}{HTML}{E6186D}
+\definecolor{cerisecoral}{HTML}{F5642D}
+\definecolor{ceriseroxo}{HTML}{5B1A6B}
+
+\setbeamercolor{title}{fg=cerisemagenta}
+\setbeamercolor{frametitle}{fg=white,bg=cerisemagenta}
+\setbeamercolor{structure}{fg=cerisemagenta}
+\setbeamercolor{block title}{fg=white,bg=ceriseroxo}
+\setbeamercolor{block body}{bg=cerisemagenta!5}
+\setbeamercolor{alerted text}{fg=cerisecoral}
+\setbeamercolor{item}{fg=cerisemagenta}
+
+% Bloco de "número medido" — usar para destacar uma métrica real (nunca estimada)
+\newenvironment{numerobloco}[1]{%
+  \begin{block}{#1}
+}{%
+  \end{block}
+}
+
+% Bloco de "decisão tomada" — usar para o momento de virada da narrativa
+% (ex.: "medimos, não compensava isolado, decidimos migrar por outro motivo")
+\newenvironment{decisaobloco}[1]{%
+  \begin{alertblock}{#1}
+}{%
+  \end{alertblock}
+}
