@@ -29,9 +29,11 @@ import requests
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).parent))
 _sys.path.insert(0, str(Path(__file__).parent.parent / "dashboard"))
+_sys.path.insert(0, str(Path(__file__).parent.parent))
 from verificacao import numeros_nao_fundamentados
 import rag_gerador
 from roteador import rotear_pergunta
+from shared.ollama_client import chamar as _chamar_ollama
 
 BASE = Path(r"C:\Projetos\Harbor")
 EVAL_DIR = BASE / "eval"
@@ -60,17 +62,7 @@ def call_ollama(prompt, timeout=180, temperature=OLLAMA_TEMPERATURE):
     temperature fixa, comportamento especifico deste script de avaliacao."""
     for modelo in (OLLAMA_MODEL, OLLAMA_MODEL_FALLBACK):
         try:
-            resp = requests.post(
-                OLLAMA_URL,
-                json={"model": modelo, "prompt": prompt, "stream": False,
-                      "options": {"temperature": temperature}},
-                timeout=timeout,
-            )
-            resp.raise_for_status()
-            corpo = resp.json()
-            if "error" in corpo:
-                raise RuntimeError(corpo["error"])
-            return corpo.get("response", "").strip()
+            return _chamar_ollama(prompt, modelo=modelo, timeout=timeout, temperature=temperature, url=OLLAMA_URL)
         except Exception:
             if modelo == OLLAMA_MODEL_FALLBACK:
                 return "[Ollama indisponivel: falha em ambos os modelos (3B e 1B)]"

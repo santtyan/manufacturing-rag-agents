@@ -19,8 +19,13 @@ config sem precisar duplicar a funcao -- mesmo principio de parametrizacao usado
 rag/rag_hibrido.py (chroma_dir/colecao) e nl_to_sql/nl_to_sql.py (gerar_sql_com_schema).
 """
 import json
+import sys as _sys
+from pathlib import Path as _Path
 
 import requests
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+from shared.ollama_client import chamar as _chamar_ollama
 
 PALAVRAS_CHAVE_RAG = [
     "manual", "manutencao", "manutenção", "procedimento", "threshold", "limiar",
@@ -318,19 +323,12 @@ uma REGRA, PROCEDIMENTO ou LIMITE ESCRITO EM TEXTO (ex: "qual a temperatura maxi
 Pergunta: {pergunta}
 
 Responda em JSON com a chave "rota"."""
+    formato = {"type": "object",
+               "properties": {"rota": {"type": "string", "enum": ["contexto", "rag", "sql"]}},
+               "required": ["rota"]}
     try:
-        resp = requests.post(
-            ollama_url,
-            json={
-                "model": ollama_model, "prompt": prompt, "stream": False,
-                "format": {"type": "object",
-                           "properties": {"rota": {"type": "string", "enum": ["contexto", "rag", "sql"]}},
-                           "required": ["rota"]},
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        rota = json.loads(resp.json().get("response", "{}")).get("rota")
+        resposta = _chamar_ollama(prompt, modelo=ollama_model, timeout=30, formato=formato, url=ollama_url)
+        rota = json.loads(resposta or "{}").get("rota")
         return rota if rota in ("contexto", "rag", "sql") else None
     except Exception:
         return None

@@ -19,6 +19,8 @@ import pandas as pd
 import requests
 from sqlalchemy import create_engine, text
 
+from shared.ollama_client import chamar as _chamar_ollama
+
 ENGINE_URL = "postgresql+psycopg2://harbor:harbor123@localhost:5432/harbor_manufatura"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3.2"
@@ -92,9 +94,7 @@ def call_ollama(prompt, timeout=120):
     do Harbor, ~2-3K chars) que passavam de 60s no llama3.2 local. Producao real nunca
     exercitou esse caso (schema sempre pequeno), so apareceu com gerar_sql_com_schema()
     contra benchmarks academicos de schema variavel."""
-    resp = requests.post(OLLAMA_URL, json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}, timeout=timeout)
-    resp.raise_for_status()
-    return resp.json().get("response", "").strip()
+    return _chamar_ollama(prompt, modelo=OLLAMA_MODEL, timeout=timeout, url=OLLAMA_URL)
 
 
 def _limpar_sql(resposta):
@@ -320,7 +320,7 @@ def perguntar(pergunta_nl, tentar_corrigir=True, chamar_llm=call_ollama):
 # que RODA SEM ERRO mas nao responde a pergunta (ex: pergunta pede media de vibracao, LLM
 # consultou media de temperatura por engano -- sintaticamente valido, semanticamente errado).
 # O DBA-Agent fecha essa lacuna: pede ao LLM para avaliar se o RESULTADO responde a pergunta.
-def verificar_resultado_responde(pergunta_nl, sql, resultado_df, timeout=60):
+def verificar_resultado_responde(pergunta_nl, sql, resultado_df, timeout=60, chamar_llm=None):
     """Segundo LLM (papel de 'DBA') avalia se o resultado da query realmente responde a
     pergunta original. Retorna (responde: bool, motivo: str). So roda se o resultado nao
     for vazio -- resultado vazio ja e auto-evidente (a query nao achou nada)."""
@@ -343,22 +343,23 @@ usuario. Responda em JSON: {{"responde": true ou false, "motivo": "explicacao cu
 O resultado (colunas retornadas) realmente responde ao que foi perguntado? Por exemplo, se a
 pergunta pede sobre "vibracao" mas o SQL trouxe colunas de "temperatura", isso NAO responde.
 Responda SOMENTE o JSON."""
+    formato = {
+        "type": "object",
+        "properties": {"responde": {"type": "boolean"}, "motivo": {"type": "string"}},
+        "required": ["responde", "motivo"],
+    }
     try:
-        resp = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
-                "format": {
-                    "type": "object",
-                    "properties": {"responde": {"type": "boolean"}, "motivo": {"type": "string"}},
-                    "required": ["responde", "motivo"],
-                },
-            },
-            timeout=timeout,
-        )
-        resp.raise_for_status()
         import json
-        corpo = json.loads(resp.json().get("response", "{}"))
+        if chamar_llm is not None:
+            # chamar_llm injetado (ex: eval/rodar_golden.py) so aceita prompt puro -- sem
+            # como repassar `format`, entao pedimos JSON por instrucao no proprio prompt e
+            # extraimos o primeiro objeto JSON da resposta (LLM as vezes envolve em texto).
+            texto = chamar_llm(prompt + "\n\nResponda SOMENTE o JSON, sem texto ao redor.")
+            match = re.search(r"\{.*\}", texto, re.DOTALL)
+            corpo = json.loads(match.group(0)) if match else {}
+        else:
+            resposta = _chamar_ollama(prompt, modelo=OLLAMA_MODEL, timeout=timeout, formato=formato, url=OLLAMA_URL)
+            corpo = json.loads(resposta or "{}")
         return bool(corpo.get("responde", True)), corpo.get("motivo", "")
     except Exception:
         # Se o DBA-Agent falhar (Ollama indisponivel, JSON invalido), nao bloqueia a resposta
@@ -366,14 +367,32 @@ Responda SOMENTE o JSON."""
         return True, "DBA-Agent indisponivel, resultado nao revisado."
 
 
-def perguntar_com_dba(pergunta_nl, tentar_corrigir=True, tentar_novo_sql_se_nao_responde=True):
+def perguntar_com_dba(
+    pergunta_nl,
+    tentar_corrigir=True,
+    tentar_novo_sql_se_nao_responde=True,
+    usar_dba_agent=True,
+    chamar_llm=None,
+):
     """Fluxo completo: gera+executa (com self-repair de erro), depois pede ao DBA-Agent para
     checar se o resultado responde a pergunta. Se nao responder, tenta gerar um SQL novo UMA vez
     (mesmo padrao de limite de tentativas do self-repair, evita loop -- achado do estudo empirico
     de frameworks de agente: >1/3 das falhas de agentes sao loops sem teto de iteracao).
-    Retorna dict: sql, resultado, dba_responde, dba_motivo."""
-    sql, resultado = perguntar(pergunta_nl, tentar_corrigir=tentar_corrigir)
-    dba_responde, dba_motivo = verificar_resultado_responde(pergunta_nl, sql, resultado)
+    Retorna dict: sql, resultado, dba_responde, dba_motivo.
+
+    chamar_llm: injetavel (ex: eval/rodar_golden.py usa isso para trocar de modelo/instrumentar
+    tokens) -- antes desta correcao (Fase 2, disciplina experimental PDC), esse parametro nao
+    existia aqui e nao era repassado a perguntar()/verificar_resultado_responde(), deixando a
+    rota SQL do harness fora do choke point de instrumentacao que as outras rotas ja tinham.
+    usar_dba_agent: flag de ablacao (Fase 3) -- desligar pula a segunda opiniao inteira, para
+    medir custo/qualidade com e sem essa camada (regra de baseline justo do PDC)."""
+    chamar_llm_efetivo = chamar_llm or call_ollama
+    sql, resultado = perguntar(pergunta_nl, tentar_corrigir=tentar_corrigir, chamar_llm=chamar_llm_efetivo)
+
+    if not usar_dba_agent:
+        return {"sql": sql, "resultado": resultado, "dba_responde": True, "dba_motivo": "DBA-Agent desligado (ablacao)."}
+
+    dba_responde, dba_motivo = verificar_resultado_responde(pergunta_nl, sql, resultado, chamar_llm=chamar_llm)
 
     if not dba_responde and tentar_novo_sql_se_nao_responde:
         prompt_novo = f"""Voce e um especialista em SQL PostgreSQL. A consulta abaixo RODOU SEM ERRO
@@ -392,10 +411,10 @@ REGRA CRITICA DE SINTAXE: colunas com maiusculas entre aspas duplas. So SELECT. 
 {sql}
 
 SQL corrigido:"""
-        sql_novo = _limpar_sql(call_ollama(prompt_novo))
+        sql_novo = _limpar_sql(chamar_llm_efetivo(prompt_novo))
         try:
             resultado_novo = _executar(sql_novo)
-            dba_responde_novo, dba_motivo_novo = verificar_resultado_responde(pergunta_nl, sql_novo, resultado_novo)
+            dba_responde_novo, dba_motivo_novo = verificar_resultado_responde(pergunta_nl, sql_novo, resultado_novo, chamar_llm=chamar_llm)
             sql, resultado, dba_responde, dba_motivo = sql_novo, resultado_novo, dba_responde_novo, dba_motivo_novo
         except Exception:
             pass  # mantem o resultado original (rodou sem erro) se a 2a tentativa falhar

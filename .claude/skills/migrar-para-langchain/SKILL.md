@@ -94,6 +94,27 @@ para `rag/`, mover o arquivo para fora de `experiments/` (ela deixa de ser exper
 atualizar os consumidores (`dashboard/app.py`, `eval/rag_gerador.py`, `mcp/servidor_harbor.py`)
 — aplicar a mesma regra inegociável abaixo antes de trocar o import de produção.
 
+## Regra de baseline justo (disciplina experimental do grupo PDC, 2026-09-08)
+
+O grupo de pesquisa PDC (sublinha de Agentes, "Harness Engineering") define como regra
+inegociável: **experimento multiagente sem baseline single-agent a custo normalizado não é
+submetido**. Isso se aplica diretamente ao Harbor sempre que uma camada extra de LLM entrar em
+jogo — self-repair, DBA-Agent (segunda opinião), roteador com desempate por LLM.
+
+Concretamente: nenhuma comparação envolvendo `usar_self_repair`, `usar_dba_agent` ou
+`usar_llm_desempate` é aceita como conclusão (nem em slide, nem em relatório) sem reportar também
+o resultado com essa camada **desligada**, **ao mesmo custo de tokens** — não só "com e sem
+melhora a qualidade", mas "quanto custou cada braço em tokens de entrada+saída". Antes de
+2026-09-08 isso não era mensurável: as 13 chamadas ao Ollama do projeto descartavam
+`eval_count`/`prompt_eval_count` com `.get("response")`. Ver `shared/ollama_client.py` (wrapper
+único que agora captura esses campos) e `shared/trace.py` (onde o custo por passo é registrado).
+
+As flags de ablação já existentes para produzir esse baseline: `RAGHibrido.buscar(usar_rerank=,
+usar_hybrid=)` (já existia), `perguntar_com_dba(usar_dba_agent=, tentar_corrigir=,
+tentar_novo_sql_se_nao_responde=)` em `nl_to_sql/nl_to_sql.py`, `rotear_pergunta(usar_llm=)` em
+`dashboard/roteador.py` (já existia). Regra de design: sempre parâmetro booleano, nunca branch de
+código — um experimento de ablação é uma linha de configuração, não uma edição de arquivo.
+
 ## Regra inegociável por módulo migrado
 
 Nenhuma migração é aceita se regredir:

@@ -20,6 +20,10 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from sklearn.ensemble import IsolationForest
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from shared.ollama_client import chamar as _chamar_ollama
+
 DATA_PATH = Path(r"C:\Users\USER\Downloads\Projeto_HarboR-20260707T002634Z-3-001\Projeto_HarboR\Dataset\Legacy Industrial\archive\industrial_dataset.csv")
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3.2"
@@ -112,13 +116,7 @@ def startup_event():
 
 def call_ollama(prompt, timeout=120):
     try:
-        resp = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        return resp.json().get("response", "").strip()
+        return _chamar_ollama(prompt, modelo=OLLAMA_MODEL, timeout=timeout, url=OLLAMA_URL)
     except Exception as exc:
         return f"[Ollama indisponivel: {exc}]"
 
@@ -127,22 +125,15 @@ def call_ollama_veredito(prompt, timeout=120) -> VerdictoLLM:
     """Veredito da camada 3 com saida estruturada (Parte 4 padrao-ouro): forca o Ollama a
     retornar {"veredito": "REAL"|"FALSO_POSITIVO"|"INCONCLUSIVO"} via format JSON-schema,
     em vez de texto livre + .strip().upper() (fragil a variacao de pontuacao/idioma do LLM)."""
+    formato = {
+        "type": "object",
+        "properties": {"veredito": {"type": "string",
+                                     "enum": ["REAL", "FALSO_POSITIVO", "INCONCLUSIVO"]}},
+        "required": ["veredito"],
+    }
     try:
-        resp = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
-                "format": {
-                    "type": "object",
-                    "properties": {"veredito": {"type": "string",
-                                                 "enum": ["REAL", "FALSO_POSITIVO", "INCONCLUSIVO"]}},
-                    "required": ["veredito"],
-                },
-            },
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        veredito = json.loads(resp.json().get("response", "{}")).get("veredito")
+        resposta = _chamar_ollama(prompt, modelo=OLLAMA_MODEL, timeout=timeout, formato=formato, url=OLLAMA_URL)
+        veredito = json.loads(resposta or "{}").get("veredito")
         return veredito if veredito in ("REAL", "FALSO_POSITIVO", "INCONCLUSIVO") else "INCONCLUSIVO"
     except Exception:
         return "INCONCLUSIVO"

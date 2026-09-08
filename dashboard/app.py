@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+
+from shared.ollama_client import chamar as _chamar_ollama
 import streamlit as st
 from sqlalchemy import create_engine, text
 
@@ -304,17 +306,7 @@ def call_ollama(prompt, timeout=180, temperature=OLLAMA_TEMPERATURE):
         timeout = max(timeout, 180)
     for modelo in (modelo_principal, OLLAMA_MODEL_FALLBACK):
         try:
-            resp = requests.post(
-                OLLAMA_URL,
-                json={"model": modelo, "prompt": prompt, "stream": False,
-                      "options": {"temperature": temperature}},
-                timeout=timeout,
-            )
-            resp.raise_for_status()
-            corpo = resp.json()
-            if "error" in corpo:
-                raise RuntimeError(corpo["error"])
-            return corpo.get("response", "").strip()
+            return _chamar_ollama(prompt, modelo=modelo, timeout=timeout, temperature=temperature, url=OLLAMA_URL)
         except Exception:
             if modelo == OLLAMA_MODEL_FALLBACK:
                 return "[Ollama indisponivel: falha em ambos os modelos (3B e 1B)]"
