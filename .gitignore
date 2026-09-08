@@ -49,3 +49,4 @@ dashboard/log_alucinacoes.jsonl
 # OS
 .DS_Store
 Thumbs.db
+eval/traces/
