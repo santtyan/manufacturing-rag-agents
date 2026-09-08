@@ -30,6 +30,10 @@ experiments/langchain_rag/chroma_db_bm25rrf/
 *.key
 .ai-jail
 
+# Referencias pessoais sem relacao com o projeto Harbor (achado real, auditoria
+# estrutural 2026-09-08: prompt de persona para outra ferramenta, nao pertence ao repo)
+docs/prompt_staff_engineer_reference.md
+
 # Logs e dados gerados em runtime
 *.log
 *_log.txt
