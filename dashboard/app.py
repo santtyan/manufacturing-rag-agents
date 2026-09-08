@@ -340,7 +340,7 @@ def rag_hibrido_indexado():
     nao disponiveis. Renomeado de rag_neural_indexado() em 2026-07-15."""
     try:
         sys.path.insert(0, r"C:\Projetos\Harbor\rag")
-        from rag_hibrido import RAGHibrido
+        from rag_hibrido_langchain import RAGHibrido
         rag = RAGHibrido()
         rag.indexar()
         return rag

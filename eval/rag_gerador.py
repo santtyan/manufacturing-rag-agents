@@ -34,7 +34,7 @@ def carregar_rag_hibrido():
     Retorna None se indisponivel (falta de pacote/memoria) -- quem chamar deve usar o
     fallback lexical abaixo nesse caso."""
     try:
-        from rag_hibrido import RAGHibrido
+        from rag_hibrido_langchain import RAGHibrido
         rag = RAGHibrido()
         rag.indexar()
         return rag

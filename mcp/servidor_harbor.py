@@ -45,7 +45,7 @@ def buscar_manual(pergunta: str) -> str:
     """Busca no manual tecnico de manutencao industrial (RAG hibrido, embeddings E5 + TF-IDF).
     Use para perguntas sobre procedimentos, limiares de seguranca, thresholds de
     temperatura/vibracao, arquitetura de diagnostico. Retorna trechos com citacao de fonte."""
-    from rag_hibrido import RAGHibrido
+    from rag_hibrido_langchain import RAGHibrido
     rag = RAGHibrido()
     rag.indexar()
     docs = rag.buscar(pergunta, k=3)

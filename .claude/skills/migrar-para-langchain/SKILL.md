@@ -73,6 +73,27 @@ blogs técnicos). Ordem crescente de risco/esforço:
 - LangSmith funciona com Ollama local sem exigir LLM pago (alternativa OSS: Langfuse), mas é
   aditivo — fora do escopo desta skill, avaliar separadamente se/quando fizer sentido.
 
+## Decisão registrada: migrar mesmo sem ganho isolado de qualidade (2026-09-08)
+
+O item 1 (RAG híbrido) foi medido dia 2026-09-08: Recall@5/MRR idênticos entre produção
+(TF-IDF), LangChain-fiel e LangChain BM25+RRF (98%/~0,90 nos três); o único ganho real
+(+11,4pp de Precision@5) vem do **algoritmo BM25+RRF, não do framework** — ver
+`experiments/langchain_rag/README.md`, seção "Atualização 2026-09-08", e commit `8d0ec37`.
+
+Decisão do usuário: migrar mesmo assim, porque **o roteador e o self-repair (itens 2-3) vão
+usar LangGraph em breve**, e ter o RAG já em LangChain evita uma segunda migração/mistura de
+paradigmas quando esses módulos consumirem o retriever do RAG dentro de um grafo. Ou seja, o
+critério de aceite deixa de ser só "não regredir e/ou ganhar qualidade isolada" — passa a valer
+também **consistência arquitetural com o restante do pipeline LangGraph**, quando essa razão for
+declarada explicitamente pelo usuário (não assumir isso por padrão sem essa razão ter sido dita).
+
+Implementação usada em produção: **`RAGLangChainBM25RRF`** (`experiments/langchain_rag/
+rag_langchain_bm25rrf.py`) — não `RAGLangChainFiel` — porque combina os dois ganhos (framework
+LangChain + o algoritmo BM25+RRF que efetivamente melhora Precision@5). Ao promover essa classe
+para `rag/`, mover o arquivo para fora de `experiments/` (ela deixa de ser experimental) e
+atualizar os consumidores (`dashboard/app.py`, `eval/rag_gerador.py`, `mcp/servidor_harbor.py`)
+— aplicar a mesma regra inegociável abaixo antes de trocar o import de produção.
+
 ## Regra inegociável por módulo migrado
 
 Nenhuma migração é aceita se regredir:
@@ -91,7 +112,14 @@ substitui o antigo, não convive como versão B desatualizada.
 Marcar `[x]` conforme cada módulo for migrado, com uma linha de resultado (fato + data),
 seguindo o padrão de `roadmap-slm-multiagente`.
 
-- [ ] **1. RAG híbrido → `EnsembleRetriever` + `ContextualCompressionRetriever`**
+- [x] **1. RAG híbrido → `EnsembleRetriever`** — promovido para produção em 2026-09-08 como
+      `rag/rag_hibrido_langchain.py` (classe `RAGHibrido`, drop-in). Harness rodado 3x
+      (baseline + 2 confirmações pós-troca de import) sem regressão — mesmas 2-3 alucinações
+      conhecidas em `eval/alucinacoes.md`, nenhuma nova. Consumidores atualizados:
+      `dashboard/app.py`, `eval/rag_gerador.py`, `mcp/servidor_harbor.py`. Ver seção "Decisão
+      registrada" acima para o motivo (consistência com LangGraph futuro, não ganho isolado de
+      Recall@5/MRR). `ContextualCompressionRetriever` não foi usado — fica como item do roadmap
+      `[[roadmap-rag-survey]]` (item 2, context compression), não faz parte deste item.
 - [ ] **2. Self-repair/DBA-Agent → LangGraph critic node (padrão CRAG/Self-RAG)**
 - [ ] **3. Roteador + gates → LangGraph conditional edges, gates portados 1:1**
 - [ ] **4. Diagnóstico em camadas → avaliar se vale migrar (pode ficar como está)**
