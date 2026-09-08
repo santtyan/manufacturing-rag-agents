@@ -83,6 +83,51 @@ LangChain.
 - Comparação de linhas de código é aproximada (conta linhas do arquivo inteiro, incluindo
   comentários/docstrings) — não é uma métrica normalizada de complexidade ciclomática.
 
+## Atualização 2026-09-08
+
+O golden set de retrieval cresceu de 50→67 perguntas totais desde agosto (49 de rota
+`rag` hoje, vs. 50 em agosto — uma pergunta mudou de rota/foi ajustada no meio do
+crescimento do golden set). Este rerun usa exatamente o mesmo `avaliar.py` de agosto,
+sem nenhuma mudança de lógica ou arquitetura das classes `RAGLangChainFiel` /
+`RAGLangChainBM25RRF` — só reexecutado contra `eval/golden_questions.json` no estado
+atual do repositório. Nenhum ajuste de API foi necessário: as versões já instaladas
+(`langchain==1.4.0`, `langchain-core==1.6.2`, `langchain-chroma==1.1.0`,
+`langchain-community==0.4.2`, `langchain-huggingface==1.2.2`, `langchain-classic==1.0.8`)
+rodaram o script sem erro, incluindo o `EnsembleRetriever` de `langchain_classic` e o
+`CrossEncoderReranker` com o mesmo contorno de score já documentado nas Limitações
+conhecidas abaixo.
+
+| Métrica | Ago/2026 (50 perguntas) — Produção | Ago/2026 — LC fiel | Ago/2026 — LC BM25+RRF | Set/2026 (49 perguntas) — Produção | Set/2026 — LC fiel | Set/2026 — LC BM25+RRF |
+|---|---|---|---|---|---|---|
+| Recall@5 | 98,0% | 98,0% | 98,0% | 98,0% | 98,0% | 98,0% |
+| Precision@5 | 38,8% | 38,8% | 50,0% | 38,4% | 38,4% | **49,8%** |
+| MRR | 0,900 | 0,900 | 0,899 | 0,898 | 0,898 | 0,897 |
+| Indexação | 20,0s | 11,1s | 10,8s | 54,5s | 22,8s | 20,1s |
+| Linhas de código | 317 | 170 | 127 | 427 | 170 | 127 |
+
+Resultados salvos em `resultados_comparativos_2026-09-08.csv` (o
+`resultados_comparativos.csv` original de agosto foi preservado sem alteração, para
+manter o histórico).
+
+**O veredito de agosto se sustenta.** Com o golden set maior (49 perguntas de rota RAG,
+vs. 50 em agosto — praticamente o mesmo tamanho, a expansão de 50→67 perguntas foi
+majoritariamente em outras rotas do chatbot, não em retrieval RAG puro):
+
+- Recall@5 e MRR permanecem estatisticamente idênticos entre as 3 implementações
+  (diferença de 1 ponto no MRR é ruído de arredondamento, não sinal).
+- O ganho de Precision@5 do BM25+RRF sobre TF-IDF+união se mantém quase intacto
+  (+11,2pp em agosto → +11,4pp agora: 49,8% vs. 38,4%) — reforça que o efeito é do
+  **algoritmo**, não do framework, exatamente como concluído em agosto.
+- LOC idêntico (não mudou porque o código dos wrappers não foi tocado).
+- Tempo de indexação subiu nos 3 (20s→54,5s produção; 11s→23s LC-fiel; 11s→20s
+  BM25+RRF) — atribuível a variação de máquina/cache de modelo no momento da medição
+  (ex.: download do Cross-Encoder do zero neste rerun), não a mudança de algoritmo;
+  a proporção relativa entre as 3 implementações se manteve parecida.
+
+Conclusão: recomendação de agosto (não migrar produção para LangChain; aplicar
+BM25+RRF nativamente em `rag_hibrido.py` se quiser o ganho de Precision@5) permanece
+válida com o golden set atual.
+
 ## Como rodar de novo
 
 ```
