@@ -8,10 +8,14 @@ contexto agregado) e mede:
   3. Alucinacao     -- a resposta cita numero proibido (armadilha) ou inventa numero fora do contexto?
 
 Nao importa dashboard/app.py (que puxa streamlit); replica a logica essencial de forma leve
-para rodar standalone. call_ollama e rotear_pergunta sao copias fieis do app.py.
+para rodar standalone. call_ollama e copia fiel do app.py (so troca o modelo principal para
+qwen2.5:7b); rotear_pergunta vem de dashboard/roteador.py (mesma fonte unica de verdade usada
+por eval/rodar_golden.py -- ver docstring de roteador.py para o problema real que motivou a
+extracao: uma copia manual do roteamento aqui ja tinha ficado desatualizada sem os gates novos,
+achado real na auditoria de 2026-09-08).
 
-Uso:  python eval/rodar_golden.py         (Ollama precisa estar no ar)
-Saida: eval/resultados_golden.csv + resumo no stdout + eval/alucinacoes.md atualizado.
+Uso:  python eval/rodar_golden_qwen.py     (Ollama precisa estar no ar)
+Saida: eval/resultados_golden_qwen.csv + resumo no stdout + eval/alucinacoes_qwen.md atualizado.
 """
 import csv
 import json
@@ -23,8 +27,10 @@ import requests
 
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).parent))
+_sys.path.insert(0, str(Path(__file__).parent.parent / "dashboard"))
 from verificacao import numeros_nao_fundamentados
 import rag_gerador
+from roteador import rotear_pergunta
 
 BASE = Path(r"C:\Projetos\Harbor")
 EVAL_DIR = BASE / "eval"
@@ -66,94 +72,6 @@ def call_ollama(prompt, timeout=180, temperature=OLLAMA_TEMPERATURE):
             if modelo == OLLAMA_MODEL_FALLBACK:
                 return "[Ollama indisponivel: falha em ambos os modelos (3B e 1B)]"
             continue
-
-
-# ── copia fiel do roteamento (dashboard/app.py:382) ─────────────────────────────
-PALAVRAS_CHAVE_RAG = [
-    "manual", "manutencao", "manutenção", "procedimento", "threshold", "limiar",
-    "arquitetura", "camada", "temperatura maxima", "temperatura máxima", "seguranca", "segurança",
-    "rag", "retrieval",
-]
-PALAVRAS_CHAVE_SQL = [
-    "select", "tabela", "banco de dados", "quantos registros", "quantas linhas",
-    "sql", "consulta no banco", "query",
-]
-PALAVRAS_CHAVE_AGREGACAO_COM_FILTRO = [
-    "nesse periodo", "nesse período", "no periodo", "no período", "nessa faixa",
-    "dessa maquina", "dessa máquina", "desse periodo", "desse período",
-]
-
-
-def pede_agregacao_com_filtro(pergunta):
-    p = pergunta.lower()
-    tem_verbo_agregacao = any(v in p for v in ("media", "média", "soma", "total", "maximo", "máximo", "minimo", "mínimo"))
-    tem_recorte = any(kw in p for kw in PALAVRAS_CHAVE_AGREGACAO_COM_FILTRO)
-    return tem_verbo_agregacao and tem_recorte
-
-
-def rotear_por_keyword(pergunta):
-    p = pergunta.lower()
-    if any(kw in p for kw in PALAVRAS_CHAVE_SQL) or pede_agregacao_com_filtro(pergunta):
-        return "sql"
-    if any(kw in p for kw in PALAVRAS_CHAVE_RAG):
-        return "rag"
-    return "contexto"
-
-
-# Copia fiel do prompt de rotear_por_llm em dashboard/app.py (corrigido apos o achado de bug:
-# perguntas de metrica tipo "categoria de parada que mais consumiu minutos" estavam indo pra RAG
-# por engano). Manter os dois prompts sincronizados sempre que um dos dois mudar.
-def rotear_por_llm(pergunta):
-    prompt = f"""Classifique a intencao da pergunta em UMA categoria. Regra de ouro: se a pergunta
-pode ser respondida com METRICAS/NUMEROS/COMPARACOES que um pipeline de dados ja calculou
-(percentuais, medias, contagens, ranking de categorias, antes/depois), a categoria e "contexto" --
-mesmo que a pergunta nao diga explicitamente "dados calculados". So use "rag" se a pergunta pedir
-uma REGRA, PROCEDIMENTO ou LIMITE ESCRITO EM TEXTO (ex: "qual a temperatura maxima segura?",
-"qual o procedimento de manutencao?").
-
-- contexto: metricas/resultados/comparacoes JA CALCULADOS E PRONTOS pelo pipeline, sem precisar
-  filtrar/recortar nada novo. Exemplos: "qual categoria de parada mais consumiu minutos?", "o OEE
-  antes e depois do Lean Six Sigma", "qual o recall do modelo?", "qual produto tem o maior tempo
-  de ciclo?"
-- rag: regras/procedimentos/limites escritos no MANUAL TECNICO. Exemplos: "qual a temperatura
-  maxima de operacao?", "qual o procedimento de manutencao preventiva?", "como o sistema decide
-  se e falha real?"
-- sql: pede um CALCULO NOVO (media/soma/total/maximo/minimo) sobre um RECORTE especifico
-  (periodo, maquina, faixa de datas) que ainda nao foi calculado pelo pipeline -- precisa
-  consultar o banco de dados para o resultado ser exato, em vez de estimar de uma amostra.
-  Tambem inclui pedidos diretos de contagem/tabela. Exemplos: "qual a media de temperatura nesse
-  periodo?", "qual a media de vibracao da maquina 3?", "quantos registros tem a tabela X?",
-  "mostre a tabela Y"
-
-Pergunta: {pergunta}
-
-Responda em JSON com a chave "rota"."""
-    try:
-        resp = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
-                "format": {"type": "object",
-                           "properties": {"rota": {"type": "string", "enum": ["contexto", "rag", "sql"]}},
-                           "required": ["rota"]},
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        rota = json.loads(resp.json().get("response", "{}")).get("rota")
-        return rota if rota in ("contexto", "rag", "sql") else None
-    except Exception:
-        return None
-
-
-def rotear_pergunta(pergunta, usar_llm=True):
-    """Roteamento hibrido -- copia fiel de dashboard/app.py: keyword primeiro (rapido); se cair
-    em 'contexto' por default, confirma com o LLM (pega sinonimos/rag-vs-contexto ambiguo)."""
-    rota_kw = rotear_por_keyword(pergunta)
-    if rota_kw != "contexto" or not usar_llm:
-        return rota_kw
-    rota_llm = rotear_por_llm(pergunta)
-    return rota_llm or rota_kw
 
 
 # ── contexto agregado por dataset (subset do que o app monta) ────────────────────
@@ -268,7 +186,7 @@ def numero_presente(alvo, encontrados, tol):
 
 
 def avaliar(pergunta_obj, resposta, contexto=""):
-    rota_real = rotear_pergunta(pergunta_obj["pergunta"])
+    rota_real = rotear_pergunta(pergunta_obj["pergunta"], ollama_model=OLLAMA_MODEL)
     rota_ok = rota_real == pergunta_obj["rota_esperada"]
 
     nums_resposta = extrair_numeros(resposta)
@@ -315,7 +233,7 @@ def avaliar(pergunta_obj, resposta, contexto=""):
 def responder(pergunta_obj):
     """Gera a resposta pelo caminho real da rota roteada (contexto, rag ou sql).
     Retorna (resposta, contexto_usado)."""
-    rota = rotear_pergunta(pergunta_obj["pergunta"])
+    rota = rotear_pergunta(pergunta_obj["pergunta"], ollama_model=OLLAMA_MODEL)
 
     if rota == "rag":
         rag = _rag_hibrido()
