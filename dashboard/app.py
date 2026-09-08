@@ -4,6 +4,7 @@ Dashboard consolidado - Projeto Harbor / entrega 2026-07-07
 Rodar com: streamlit run app.py
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -72,7 +73,7 @@ def registrar_alucinacao(dataset_key, pergunta, resposta, numeros_suspeitos, des
         print(f"[log_alucinacoes: falha ao gravar: {exc}]")
 
 API_URL = "http://localhost:8000"
-HARBOR_API_KEY = "harbor-demo-2026"
+HARBOR_API_KEY = os.environ.get("HARBOR_API_KEY", "harbor-demo-2026")
 N8N_URL = "http://localhost:5678"
 
 st.set_page_config(

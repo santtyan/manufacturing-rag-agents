@@ -11,6 +11,7 @@ Rodar (stdio transport, o mais simples):
 Testar com o MCP Inspector:
     npx @modelcontextprotocol/inspector python C:\\Projetos\\Harbor\\mcp\\servidor_harbor.py
 """
+import os
 import sys
 
 import requests
@@ -21,7 +22,7 @@ sys.path.insert(0, r"C:\Projetos\Harbor\rag")
 sys.path.insert(0, r"C:\Projetos\Harbor\nl_to_sql")
 
 API_URL = "http://localhost:8000"
-HARBOR_API_KEY = "harbor-demo-2026"
+HARBOR_API_KEY = os.environ.get("HARBOR_API_KEY", "harbor-demo-2026")
 
 mcp = FastMCP("harbor-manufatura")
 
