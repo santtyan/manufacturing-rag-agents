@@ -233,8 +233,8 @@ def gerar_sql_com_schema(pergunta_nl, esquema, usar_few_shot=False):
 
 def _montar_prompt_corrigir_sql(pergunta_nl, esquema, sql_ruim, erro):
     """Prompt de self-repair. Extraido de corrigir_sql() pelo mesmo motivo de
-    _montar_prompt_gerar_sql() -- reusado por corrigir_sql() (esquema fixo) e
-    corrigir_sql_com_schema() (esquema dinamico)."""
+    _montar_prompt_gerar_sql() -- parametrizavel por esquema, mesmo que hoje so
+    corrigir_sql() (esquema fixo) use isso na pratica."""
     return f"""Voce e um especialista em SQL PostgreSQL. A consulta abaixo, gerada para responder a
 pergunta, FALHOU ao ser executada. Corrija-a usando APENAS as tabelas/colunas do esquema.
 Responda SOMENTE com o SQL corrigido, sem explicacao, sem markdown.
@@ -263,15 +263,6 @@ def corrigir_sql(pergunta_nl, sql_ruim, erro, chamar_llm=call_ollama):
     chamar_llm: ver docstring de gerar_sql() -- mesmo motivo de injetabilidade."""
     prompt = _montar_prompt_corrigir_sql(pergunta_nl, ESQUEMA, sql_ruim, erro)
     return _limpar_sql(chamar_llm(prompt))
-
-
-def corrigir_sql_com_schema(pergunta_nl, esquema, sql_ruim, erro):
-    """Self-repair com esquema dinamico -- irma de gerar_sql_com_schema(). Existe para
-    benchmarks que tenham um banco real para executar e obter erro (BIRD-SQL/Spider hoje
-    NAO tem, ver docstring de avaliar_bird_sql.py -- fica disponivel para uso futuro se
-    isso mudar)."""
-    prompt = _montar_prompt_corrigir_sql(pergunta_nl, esquema, sql_ruim, erro)
-    return _limpar_sql(call_ollama(prompt))
 
 
 # ── 3. Validação e execução (só SELECT, no Postgres real) ──────────────────────────────
