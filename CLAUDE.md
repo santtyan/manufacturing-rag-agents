@@ -86,3 +86,4 @@ Fluxos recorrentes já empacotados como skills — usar em vez de reimprovisar o
 - **`atualizar-slide-resposta`** — cria/atualiza resposta preparada em `slides/*.md` com números atuais.
 - **`comparar-tfidf-bm25`** — roda o benchmark que compara os dois algoritmos lexicais de `rag_hibrido.py`.
 - **`roadmap-slm-multiagente`** — guia vivo do fit do Harbor com o Projeto 1 do PDC (multiagentes confiáveis + SLMs em português); lista priorizada de itens implementáveis.
+- **`refatorar-organizar-repositorio`** — audita dívida técnica estrutural (duplicação, arquivos órfãos, nomenclatura, organização de pastas) e aplica refatoração com comportamento preservado em mudanças pequenas e reversíveis; skill genérica, não específica do Harbor.
