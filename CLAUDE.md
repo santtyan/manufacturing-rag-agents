@@ -68,7 +68,7 @@ python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 
 ### Pipelines (`pipelines/`)
 
-7 pipelines, um por dataset, cada um gravando outputs em `outputs/pipelineN_*/` (CSVs e JSONs consumidos pelo dashboard como "contexto" pré-calculado — a rota mais confiável do roteador, porque não depende do LLM calcular nada). Datasets: OEE/Downtime, Legacy Sensor Logs, Discrete Manufacturing (2 empresas anônimas), Five-Axis CNC Milling, Facility Maintenance, Labeled Car, Aircraft Annotation.
+7 pipelines, um por dataset, cada um gravando outputs em `outputs/pipelineN_*/`. **Só os pipelines 1-4** (OEE/Downtime, Legacy Sensor Logs, Discrete Manufacturing, Five-Axis CNC Milling) têm outputs consumidos pelo dashboard como "contexto" pré-calculado (a rota mais confiável do roteador, porque não depende do LLM calcular nada) e aparecem no dict de reprocessamento de `dashboard/app.py` (aba "Reprocessar pipeline"). Os pipelines 5-7 (Facility Maintenance, Labeled Car, Aircraft Annotation) processam seus datasets e gravam outputs, mas **não alimentam o chat/dashboard ainda** — ficaram fora do escopo do roteador/chatbot (achado da auditoria de scripts órfãos, 2026-09-08). Se algum dia forem integrados ao chat, atualizar também o dict `pipelines_disponiveis` em `dashboard/app.py`.
 
 ### Golden set e gates
 
@@ -87,3 +87,4 @@ Fluxos recorrentes já empacotados como skills — usar em vez de reimprovisar o
 - **`comparar-tfidf-bm25`** — roda o benchmark que compara os dois algoritmos lexicais de `rag_hibrido.py`.
 - **`roadmap-slm-multiagente`** — guia vivo do fit do Harbor com o Projeto 1 do PDC (multiagentes confiáveis + SLMs em português); lista priorizada de itens implementáveis.
 - **`refatorar-organizar-repositorio`** — audita dívida técnica estrutural (duplicação, arquivos órfãos, nomenclatura, organização de pastas) e aplica refatoração com comportamento preservado em mudanças pequenas e reversíveis; skill genérica, não específica do Harbor.
+- **`auditar-scripts-orfaos`** — classifica scripts Python standalone (`if __name__ == "__main__":`) em útil/órfão/arquivado intencionalmente/setup one-shot, cruzando evidência de chamada real com sinais de auto-abandono no docstring; skill genérica, não específica do Harbor.
