@@ -4,7 +4,6 @@ Dashboard consolidado - Projeto Harbor / entrega 2026-07-07
 Rodar com: streamlit run app.py
 """
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -25,6 +24,15 @@ except Exception as _exc:
 # Geracao RAG compartilhada com o harness (eval/rodar_golden.py) -- mesma logica de prompt.
 import rag_gerador
 
+# NL-to-SQL compartilhado com o harness/MCP (nl_to_sql/nl_to_sql.py) -- mesmo padrao de
+# rag_gerador.py acima, evita manter uma segunda copia do ESQUEMA/prompt/self-repair
+# divergindo (achado real, auditoria 2026-09-08: app.py tinha uma copia manual do schema
+# que ja diferia sutilmente do original). O dashboard tem seletor de modelo
+# (Rapido/Qualidade/Maxima qualidade) que nl_to_sql.py nao tem, entao em vez de importar
+# so as funcoes, injeta o proprio call_ollama do dashboard via parametro chamar_llm.
+sys.path.insert(0, r"C:\Projetos\Harbor\nl_to_sql")
+import nl_to_sql as _nl_to_sql
+
 OUTPUTS = Path(r"C:\Projetos\Harbor\outputs")
 DATASET_ROOT = Path(r"C:\Users\USER\Downloads\Projeto_HarboR-20260707T002634Z-3-001\Projeto_HarboR\Dataset")
 OLLAMA_URL = "http://localhost:11434/api/generate"
@@ -32,61 +40,6 @@ OLLAMA_MODEL = "llama3.2"
 CACHE_CHAT_PATH = Path(__file__).parent / "cache_respostas_chat.json"
 LOG_ALUCINACOES_PATH = Path(__file__).parent / "log_alucinacoes.jsonl"
 MANUAIS_DIR = Path(r"C:\Projetos\Harbor\rag\manuais")
-NL_TO_SQL_ENGINE_URL = "postgresql+psycopg2://harbor:harbor123@localhost:5432/harbor_manufatura"
-
-NL_TO_SQL_ESQUEMA = """
-Tabelas disponiveis no banco harbor_manufatura, agrupadas por DATASET DE ORIGEM. Cada
-pergunta pertence a UM dataset -- nunca misture tabelas de datasets diferentes na mesma
-consulta, mesmo que os nomes de coluna pareçam parecidos (ex: "Machine_ID" existe em
-sensor_predicoes, mas o dataset de manufatura discreta usa "asset", nao "Machine_ID").
-
---- Dataset 1: OEE/Downtime (linha de tijolos, Kakoyiannis Bricks) ---
-oee_downtime_raw(Date, Productcode, StopGroup, Stop, StopType, StopLocation, ExtraText, StopStartTime, StopEndTime, "StopDuration(min)")
-oee_agregacao_paradas(StopGroup, StopType, StopLocation, sum, count, mean)
-oee_comparacao_lss("Unnamed: 0", antes_LSS, depois_LSS, "variacao_%")
-
---- Dataset 2: Legacy Sensor Logs (sensores industriais legados, rotulo Normal/Fault) ---
-sensor_predicoes(Timestamp, Machine_ID, Target, if_anomaly)
-sensor_backtest_separacao(Target, Temperature_C, Pressure_bar, Vibration_Level, ...)
-
---- Dataset 3: Discrete Manufacturing (SME, duas empresas anonimas, company_A e company_B) ---
-manufacturing_duracao_estados_a(asset, status_label, n_registros)
-manufacturing_regime_a(asset, n_registros, power_avg_medio, pontos_mudanca_regime)
-manufacturing_estados_antes_alarme_a(status_label, count)
-manufacturing_duracao_estados_b(asset, status, n_registros)
-manufacturing_regime_b(asset, n_registros, power_avg_medio, pontos_mudanca_regime)
-manufacturing_consumo_energia_status_b(status, power_avg, power_min, power_max)
-
-NOTA Dataset 3: company_A usa status numerico traduzido para status_label
-(idle/manual/automatico/alarme, ingles: idle/manual/automatic/alarm); company_B usa status
-TEXTUAL diferente (Alarm/Standby/MachineOn/Production/Loading/Tooling) -- NUNCA misture as
-duas empresas na mesma consulta, os valores de status nao sao equivalentes. Perguntas sobre
-"Alarm", "Loading" ou "Tooling" (com esses nomes exatos) sao SEMPRE de company_B, nunca de
-company_A. manufacturing_consumo_energia_status_b e a UNICA tabela com energia por status
-(so existe para company_B, nao ha equivalente para company_A).
-manufacturing_regime_a e manufacturing_regime_b so tem 3 assets cada -- sao os 3 assets com
-MAIS registros da respectiva empresa (9 assets no total em cada), escolhidos deliberadamente
-pelo pipeline para analise de mudanca de regime (CUSUM). Os outros 6 assets de cada empresa
-NAO tem essa analise calculada -- se a pergunta pedir "todos os N assets" e a tabela so tiver
-3, avise explicitamente que a analise cobre so os 3 mais frequentes, nao inclua isso como se
-fossem todos.
-manufacturing_estados_antes_alarme_a NAO e contagem de registros por status -- e o estado
-que ANTECEDE cada ocorrencia de alarme (transicao), sempre 3 linhas (alarme/automatico/manual
-como estado anterior). Nao existe coluna Machine_ID em nenhuma tabela deste dataset, use
-"asset".
-
---- Dataset 4: Five-Axis CNC Milling (usinagem, Program_path/Program_status por leitura) ---
-cnc_ciclo_por_produto(Program_path, n_registros, cycle_time_medio, cycle_time_max, running_time_medio)
-cnc_distribuicao_program_status(Program_status, n_registros)
-cnc_resumo_anomalias_por_componente(componente, media, std, n_anomalias)
-
-NOTA Dataset 4: nao existe tabela com colunas de temperatura por leitura individual, nem por
-Program_path cruzado com componente/eixo -- os dados de temperatura estao SO agregados
-por componente em cnc_resumo_anomalias_por_componente (5 linhas: Spindle_motor_temperature,
-X_Axis_motor_temperature, Z_Axis_Motor_temperature, Y_Axis_Motor_temperature,
-General_temperature). Nao ha como cruzar anomalia de temperatura com Program_path especifico
-nem com ExtraText -- essas colunas nao existem em nenhuma tabela do banco.
-"""
 
 
 @st.cache_data
@@ -272,7 +225,7 @@ def checar_postgres(timeout=3):
     o indicador antigo ('Postgres via API') checava o /health da FastAPI, que e um servico
     separado e fica vermelho mesmo com o Postgres saudavel, confundindo o diagnostico."""
     try:
-        engine = create_engine(NL_TO_SQL_ENGINE_URL, connect_args={"connect_timeout": timeout})
+        engine = create_engine(_nl_to_sql.ENGINE_URL, connect_args={"connect_timeout": timeout})
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         return True
@@ -405,113 +358,13 @@ def rag_responder(pergunta):
     return resposta, documentos
 
 
-# ── NL-to-SQL (adaptado de nl_to_sql/nl_to_sql.py) ───────────────────────────────────────
-def _nl_to_sql_limpar(resposta):
-    sql = resposta.strip()
-    sql = re.sub(r"^```sql\s*|```$", "", sql, flags=re.MULTILINE).strip()
-    sql = sql.rstrip(";") + ";"
-    return sql
-
-
-def nl_to_sql_gerar(pergunta_nl):
-    prompt = f"""Voce e um especialista em SQL PostgreSQL. Traduza a pergunta abaixo em uma consulta SQL
-usando APENAS as tabelas e colunas listadas no esquema. Responda SOMENTE com o SQL, sem explicacao,
-sem markdown, sem ```sql. A query deve ser um SELECT (nunca INSERT/UPDATE/DELETE/DROP).
-
-REGRA CRITICA DE SINTAXE: as colunas com letras maiusculas (ex: StopGroup, Machine_ID, Program_path)
-DEVEM ser escritas entre aspas duplas exatamente como no esquema (ex: "StopGroup", "Machine_ID"),
-porque o PostgreSQL e case-sensitive dentro de aspas duplas e minusculiza tudo sem elas.
-
-REGRA DE SIMPLICIDADE: prefira consultas de UMA UNICA TABELA. So use JOIN se a pergunta
-exigir explicitamente combinar dados de duas tabelas diferentes. Nao invente JOINs.
-
-REGRA DE RESPOSTA COMPLETA: se a pergunta pedir "qual/quem mais/menos" (maximo, minimo, ranking),
-o SELECT deve incluir tanto a coluna categorica QUANTO a metrica agregada usada para ordenar (ex:
-SELECT "StopGroup", SUM("StopDuration(min)") AS total ... ORDER BY total DESC) -- nunca ordene por
-uma metrica sem tambem retorna-la, senao a resposta fica sem o numero. Traga tambem as proximas
-2-3 linhas (LIMIT 4 ou 5, nao LIMIT 1), para dar contexto comparativo com os demais valores.
-
-REGRA CRITICA DE GROUP BY: se a pergunta comparar duas categorias especificas (ex: "Planned" vs
-"Unplanned", "manual" vs "automatico"), identifique QUAL COLUNA contem esses valores literais no
-esquema (ex: "Planned"/"Unplanned" sao valores de "StopType", NAO de "StopGroup") e faca o
-GROUP BY exatamente por essa coluna. Nao filtre por essa coluna (WHERE) e agrupe por outra --
-isso responde a pergunta errada mesmo com SQL sintaticamente valido. Exemplo CORRETO para
-"Planned vs Unplanned consomem mais minutos": SELECT "StopType", SUM("StopDuration(min)") AS
-total FROM oee_downtime_raw GROUP BY "StopType" ORDER BY total DESC.
-
-REGRA CRITICA DE AGREGACAO PRE-CALCULADA: antes de usar COUNT(*)/SUM()/AVG() para "ranquear"
-ou "contar quantos", verifique se a tabela do esquema JA TEM uma coluna com esse numero pronto
-(ex: "n_anomalias", "n_registros", "pontos_mudanca_regime", "power_avg_medio", "sum", "count",
-"mean" ja sao totais pre-agregados, uma linha por categoria). Se a coluna pronta existir, use
-ORDER BY direto nela -- NUNCA GROUP BY + COUNT(*)/COUNT(coluna) sobre uma tabela que ja e o
-resultado agregado, porque isso so conta "1 por categoria" (numero de linhas da tabela), nao o
-total real. Exemplos CORRETOS: "ranqueie os componentes por numero de anomalias" ->
-SELECT componente, n_anomalias FROM cnc_resumo_anomalias_por_componente ORDER BY n_anomalias DESC;
-"ranqueie os assets por mudancas de regime" -> SELECT asset, pontos_mudanca_regime FROM
-manufacturing_regime_a ORDER BY pontos_mudanca_regime DESC.
-
-=== ESQUEMA ===
-{NL_TO_SQL_ESQUEMA}
-
-=== PERGUNTA ===
-{pergunta_nl}
-
-SQL:"""
-    return _nl_to_sql_limpar(call_ollama(prompt))
-
-
-def nl_to_sql_corrigir(pergunta_nl, sql_ruim, erro):
-    """Self-repair: reenvia o SQL que falhou + o erro ao LLM pedindo correcao (1 tentativa)."""
-    prompt = f"""Voce e um especialista em SQL PostgreSQL. A consulta abaixo FALHOU ao executar.
-Corrija-a usando APENAS as tabelas/colunas do esquema. Responda SOMENTE com o SQL corrigido,
-sem explicacao, sem markdown. Colunas com maiusculas vao entre aspas duplas; prefira uma unica
-tabela; so SELECT.
-
-=== ESQUEMA ===
-{NL_TO_SQL_ESQUEMA}
-
-=== PERGUNTA ORIGINAL ===
-{pergunta_nl}
-
-=== SQL QUE FALHOU ===
-{sql_ruim}
-
-=== ERRO DO POSTGRES ===
-{erro}
-
-SQL corrigido:"""
-    return _nl_to_sql_limpar(call_ollama(prompt))
-
-
-def nl_to_sql_validar(sql):
-    sql_normalizado = sql.strip().lower()
-    if not sql_normalizado.startswith("select"):
-        raise ValueError(f"Query rejeitada por seguranca (nao e SELECT): {sql}")
-    proibidos = ["insert", "update", "delete", "drop", "alter", "truncate", "grant", "create"]
-    for palavra in proibidos:
-        if re.search(rf"\b{palavra}\b", sql_normalizado):
-            raise ValueError(f"Query rejeitada por conter palavra proibida '{palavra}': {sql}")
-    return True
-
-
+# ── NL-to-SQL (wrappers finos sobre nl_to_sql/nl_to_sql.py, injetando o call_ollama deste
+# dashboard -- ver comentario no import de _nl_to_sql acima) ─────────────────────────────
 def nl_to_sql_perguntar(pergunta_nl):
-    """Gera e roda o SQL. Se a execucao falhar (coluna/tabela inventada, JOIN invalido), tenta
-    UMA correcao via nl_to_sql_corrigir (self-repair) antes de desistir -- essa funcao existia
-    no codigo mas nunca era chamada, entao erros de SQL sempre iam direto pro usuario sem
-    aproveitar a segunda chance (achado real de teste adversarial, 2026-07-12)."""
-    sql = nl_to_sql_gerar(pergunta_nl)
-    nl_to_sql_validar(sql)
-    engine = create_engine(NL_TO_SQL_ENGINE_URL)
-    try:
-        with engine.connect() as conn:
-            resultado = pd.read_sql(text(sql), conn)
-        return sql, resultado
-    except Exception as erro_original:
-        sql_corrigido = nl_to_sql_corrigir(pergunta_nl, sql, str(erro_original))
-        nl_to_sql_validar(sql_corrigido)
-        with engine.connect() as conn:
-            resultado = pd.read_sql(text(sql_corrigido), conn)
-        return sql_corrigido, resultado
+    """Gera e roda o SQL (esquema/prompt/self-repair vindos de nl_to_sql.py), usando o
+    call_ollama deste dashboard (seletor Rapido/Qualidade/Maxima qualidade) em vez do
+    call_ollama fixo de nl_to_sql.py."""
+    return _nl_to_sql.perguntar(pergunta_nl, chamar_llm=call_ollama)
 
 
 # Roteamento (gates + rotear_pergunta) -- EXTRAIDO para dashboard/roteador.py (2026-08-07),

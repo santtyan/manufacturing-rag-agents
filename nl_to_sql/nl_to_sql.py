@@ -204,15 +204,17 @@ def _montar_exemplos_txt(pergunta_nl):
         return ""
 
 
-def gerar_sql(pergunta_nl, usar_few_shot=True):
+def gerar_sql(pergunta_nl, usar_few_shot=True, chamar_llm=call_ollama):
     """Traduz a pergunta em SQL: monta o prompt (esquema + regras + exemplos few-shot
     opcionais) e pede ao LLM. Não executa a query -- só gera o texto do SQL.
 
-    Assinatura e comportamento INTOCADOS por design -- usada pela producao real
-    (perguntar()/perguntar_com_dba()). Sempre usa o ESQUEMA fixo do Harbor."""
+    chamar_llm: injetavel (default call_ollama deste modulo) para que consumidores com
+    logica propria de selecao de modelo/fallback (ex: dashboard/app.py, seletor
+    Rapido/Qualidade/Maxima qualidade) reusem gerar_sql/corrigir_sql/perguntar sem
+    duplicar o prompt nem o ESQUEMA -- so injetam seu proprio call_ollama."""
     exemplos_txt = _montar_exemplos_txt(pergunta_nl) if usar_few_shot else ""
     prompt = _montar_prompt_gerar_sql(pergunta_nl, ESQUEMA, exemplos_txt)
-    return _limpar_sql(call_ollama(prompt))
+    return _limpar_sql(chamar_llm(prompt))
 
 
 def gerar_sql_com_schema(pergunta_nl, esquema, usar_few_shot=False):
@@ -254,13 +256,13 @@ Lembre-se: colunas com maiusculas vao entre aspas duplas; prefira uma unica tabe
 SQL corrigido:"""
 
 
-def corrigir_sql(pergunta_nl, sql_ruim, erro):
+def corrigir_sql(pergunta_nl, sql_ruim, erro, chamar_llm=call_ollama):
     """Self-repair: reenvia ao LLM o SQL que falhou + a mensagem de erro, pedindo correcao.
     Sobe muito a taxa de sucesso do modelo local, que erra sintaxe/colunas na primeira tentativa.
 
-    Assinatura e comportamento INTOCADOS -- usada pela producao real (perguntar())."""
+    chamar_llm: ver docstring de gerar_sql() -- mesmo motivo de injetabilidade."""
     prompt = _montar_prompt_corrigir_sql(pergunta_nl, ESQUEMA, sql_ruim, erro)
-    return _limpar_sql(call_ollama(prompt))
+    return _limpar_sql(chamar_llm(prompt))
 
 
 def corrigir_sql_com_schema(pergunta_nl, esquema, sql_ruim, erro):
@@ -303,10 +305,12 @@ def _executar(sql):
         return pd.read_sql(text(sql), conn)
 
 
-def perguntar(pergunta_nl, tentar_corrigir=True):
+def perguntar(pergunta_nl, tentar_corrigir=True, chamar_llm=call_ollama):
     """Gera SQL, valida (so SELECT) e executa. Se falhar e tentar_corrigir, faz UMA rodada de
-    self-repair reenviando o erro ao LLM. Retorna (sql_final, DataFrame)."""
-    sql = gerar_sql(pergunta_nl)
+    self-repair reenviando o erro ao LLM. Retorna (sql_final, DataFrame).
+
+    chamar_llm: ver docstring de gerar_sql() -- mesmo motivo de injetabilidade."""
+    sql = gerar_sql(pergunta_nl, chamar_llm=chamar_llm)
     try:
         resultado = _executar(sql)
         return sql, resultado
@@ -314,7 +318,7 @@ def perguntar(pergunta_nl, tentar_corrigir=True):
         if not tentar_corrigir:
             raise
         # Self-repair: uma unica tentativa de correcao.
-        sql_corrigido = corrigir_sql(pergunta_nl, sql, str(erro))
+        sql_corrigido = corrigir_sql(pergunta_nl, sql, str(erro), chamar_llm=chamar_llm)
         resultado = _executar(sql_corrigido)  # se falhar de novo, propaga
         return sql_corrigido, resultado
 
