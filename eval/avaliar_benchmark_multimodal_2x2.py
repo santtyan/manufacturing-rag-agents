@@ -85,11 +85,18 @@ def reciprocal_rank(relevancias_ordenadas):
     return 0.0
 
 
-def selecionar_top_p(candidatos_com_score, limiar=TOP_P_LIMIAR):
+def selecionar_top_p(candidatos_com_score, limiar=None):
     """Corte por massa cumulativa de score normalizado -- analogo de nucleus sampling (top-p de
     geracao de texto) aplicado a scores de similaridade de retrieval em vez de probabilidade de
     token. `candidatos_com_score`: lista de (id, score) ja ordenada por score decrescente, com
-    score >= 0 (scores negativos sao clipados a 0 antes de normalizar)."""
+    score >= 0 (scores negativos sao clipados a 0 antes de normalizar).
+
+    limiar (calibracao, item 4 da rodada de fechamento da fila de trabalho, 2026-09-09): default
+    None usa TOP_P_LIMIAR do modulo, mas pode ser sobrescrito por chamada -- necessario porque o
+    achado real do benchmark 2x2 mostrou que o limiar fixo 0,85 funciona bem no ViDoRe (corpus
+    maior) mas piora MUITO no corpus Harbor (so 4 imagens, scores concentrados)."""
+    if limiar is None:
+        limiar = TOP_P_LIMIAR
     scores = [max(s, 0.0) for _, s in candidatos_com_score]
     total = sum(scores)
     if total == 0:
@@ -125,7 +132,7 @@ def estagio1_retrieval(corpus_docs, perguntas, chroma_dir, colecao, k_candidatos
 
 
 # ── Estagio 2: rerank caro (ColModernVBERT), so sobre os candidatos filtrados ───────────────
-def estagio2_rerank(candidatos_estagio1, imagens_por_id, perguntas, estrategia="top_k"):
+def estagio2_rerank(candidatos_estagio1, imagens_por_id, perguntas, estrategia="top_k", top_p_limiar=None):
     """candidatos_estagio1: lista paralela a `perguntas`, cada item e a lista de (doc_id, score)
     do estagio 1 para aquela pergunta. imagens_por_id: dict doc_id -> Path da imagem.
 
@@ -146,7 +153,7 @@ def estagio2_rerank(candidatos_estagio1, imagens_por_id, perguntas, estrategia="
         if estrategia == "top_k":
             selecionados = candidatos[:TOP_K_RERANK]
         elif estrategia == "top_p":
-            selecionados = selecionar_top_p(candidatos)
+            selecionados = selecionar_top_p(candidatos, limiar=top_p_limiar)
         else:
             raise ValueError(f"estrategia desconhecida: {estrategia}")
 
@@ -219,6 +226,12 @@ def main():
     parser.add_argument("--n-queries-vidore", type=int, default=None,
                          help="limitar quantas queries do ViDoRe avaliar (custo do rerank multimodal "
                               "escala linear com isso, ~36s por imagem rerankeada em CPU); default: todas")
+    parser.add_argument("--top-p-limiar", type=float, default=None,
+                         help="sobrescreve TOP_P_LIMIAR (0,85 default) -- calibracao por tamanho de "
+                              "corpus, ver achado real na skill rag-multimodal")
+    parser.add_argument("--so-harbor", action="store_true",
+                         help="pula o corpus ViDoRe (caro, ~36s/imagem) -- so roda o corpus proprio "
+                              "do Harbor (4 imagens, rapido), util para calibrar top_p_limiar")
     args = parser.parse_args()
 
     resultados_finais = []
@@ -233,10 +246,11 @@ def main():
         n = args.n_queries_vidore
         corpus_vidore = (corpus_docs, imagens_por_id, perguntas[:n], alvos[:n])
 
-    for nome_corpus, dados_corpus, chroma_dir, colecao in [
-        ("ViDoRe subset (60 pag.)", corpus_vidore, EVAL_DIR / "chroma_db_vidore_subset", "vidore_subset_v1"),
-        ("Corpus Harbor (4 img.)", carregar_corpus_harbor(), HARBOR_ROOT / "rag" / "chroma_db_multimodal", "imagens_harbor_multimodal_v1"),
-    ]:
+    corpora = [("Corpus Harbor (4 img.)", carregar_corpus_harbor(), HARBOR_ROOT / "rag" / "chroma_db_multimodal", "imagens_harbor_multimodal_v1")]
+    if not args.so_harbor:
+        corpora.insert(0, ("ViDoRe subset (60 pag.)", corpus_vidore, EVAL_DIR / "chroma_db_vidore_subset", "vidore_subset_v1"))
+
+    for nome_corpus, dados_corpus, chroma_dir, colecao in corpora:
         if dados_corpus is None:
             print(f"\n[{nome_corpus}] pulado -- dados nao encontrados (ver docstring do script).")
             continue
@@ -256,9 +270,10 @@ def main():
         resultados_finais.append(resumir(f"{nome_corpus} | rerank top-k={TOP_K_RERANK}", m1, tempo_topk, n_cand_topk, unidade="imagem(ns) rerankeada(s)"))
 
         # Estagio 1+2 com top-p (corte por massa cumulativa de score)
-        rankings_topp, tempo_topp, n_cand_topp = estagio2_rerank(candidatos_por_pergunta, imagens_por_id, perguntas, estrategia="top_p")
+        limiar_efetivo = args.top_p_limiar if args.top_p_limiar is not None else TOP_P_LIMIAR
+        rankings_topp, tempo_topp, n_cand_topp = estagio2_rerank(candidatos_por_pergunta, imagens_por_id, perguntas, estrategia="top_p", top_p_limiar=args.top_p_limiar)
         m2 = calcular_metricas(rankings_topp, alvos)
-        resultados_finais.append(resumir(f"{nome_corpus} | rerank top-p={TOP_P_LIMIAR}", m2, tempo_topp, n_cand_topp, unidade="imagem(ns) rerankeada(s)"))
+        resultados_finais.append(resumir(f"{nome_corpus} | rerank top-p={limiar_efetivo}", m2, tempo_topp, n_cand_topp, unidade="imagem(ns) rerankeada(s)"))
 
     print("\n" + "=" * 74)
     print("RESUMO COMPARATIVO")
