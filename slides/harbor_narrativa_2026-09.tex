@@ -122,6 +122,7 @@
       \midrule
       Roteamento (golden set, 67 perguntas) & 56/67 & 55/67$^*$ \\
       Faithfulness médio & 64\% & 64\% \\
+      Hallucination Rate (nº de alucinações) & 4 & \alert{3} \\
       Divergências de rota (roteador migrado) & --- & \alert{0/67} \\
       \bottomrule
     \end{tabular}
@@ -132,7 +133,7 @@
 
   \pause
   \textbf{O que isso significou:} migração estrutural, não comportamental --- mesmos
-  prompts, mesmos 11 gates, mesmo teto de 1 tentativa. Só a orquestração virou grafo.
+  prompts, mesmos 11 gates, mesmo teto de 1 tentativa.
 
   \pause
   \begin{decisaobloco}{Decisão}
@@ -258,6 +259,39 @@
     2/2 sucessos em 112,6s vs. 1/2 em 258,2s (2,3x mais lento, 3x mais tokens de saída).
     \textbf{Mantido qwen2.5:7b} --- raciocínio longo não compensa em self-repair de SQL.
   \end{numerobloco}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────
+% ATO 5 — até onde a régua alcança
+% ─────────────────────────────────────────────────────────────────────
+\begin{frame}{Ato 5 --- Até onde a régua alcança (e onde não alcança)}
+  \small
+  \begin{numerobloco}{Cobertura por categoria (vocabulário CERISE)}
+    \begin{center}
+    \begin{tabular}{lll}
+      \toprule
+      \textbf{Categoria} & \textbf{Estado} & \textbf{O que temos} \\
+      \midrule
+      Recuperação & \textcolor{ceriseroxo}{completa} & Recall@k, Precision@k, MRR, nDCG@k \\
+      LLM         & parcial & Faithfulness, Hallucination Rate \\
+      Sistema     & parcial & Tokens, latência (só nos agentes) \\
+      Ferramentas & \alert{lacuna} & sem SQL/Tool Selection Accuracy formal \\
+      Industrial  & \alert{lacuna} & sem Diagnosis/Root Cause Accuracy \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que falta, nomeado:} Answer Relevancy e BERTScore (categoria LLM); latência no
+  dashboard de produção, não só nos agentes de teste (Sistema); e as duas categorias
+  inteiras --- Ferramentas e Industrial --- que hoje não têm nenhuma métrica formal.
+
+  \pause
+  \begin{decisaobloco}{Por que isso está no documento}
+    Uma apresentação que só mostra o que foi medido esconde o tamanho real do que ainda
+    não sabemos. As lacunas acima são a fila de trabalho, não omissões.
+  \end{decisaobloco}
 \end{frame}
 
 % ─────────────────────────────────────────────────────────────────────
