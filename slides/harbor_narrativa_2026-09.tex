@@ -1,0 +1,288 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{booktabs}
+\usepackage{xcolor}
+
+% Tema CERISE — mesma identidade visual dos outros slides do projeto.
+\definecolor{cerisemagenta}{HTML}{A6186B}
+\definecolor{ceriserosa}{HTML}{E6186D}
+\definecolor{cerisecoral}{HTML}{F5642D}
+\definecolor{ceriseroxo}{HTML}{5B1A6B}
+
+\setbeamercolor{title}{fg=cerisemagenta}
+\setbeamercolor{frametitle}{fg=white,bg=cerisemagenta}
+\setbeamercolor{structure}{fg=cerisemagenta}
+\setbeamercolor{block title}{fg=white,bg=ceriseroxo}
+\setbeamercolor{block body}{bg=cerisemagenta!5}
+\setbeamercolor{alerted text}{fg=cerisecoral}
+\setbeamercolor{item}{fg=cerisemagenta}
+
+\newenvironment{numerobloco}[1]{\begin{block}{#1}}{\end{block}}
+\newenvironment{decisaobloco}[1]{\begin{alertblock}{#1}}{\end{alertblock}}
+
+\title{Medir antes de decidir}
+\subtitle{Como o Harbor ganhou instrumentação --- e o que ela revelou}
+\author{Yan Santos Leite}
+\date{8--9 de setembro de 2026}
+
+\begin{document}
+
+\frame{\titlepage}
+
+% ─────────────────────────────────────────────────────────────────────
+% ATO 0 — a tese
+% ─────────────────────────────────────────────────────────────────────
+\begin{frame}{A pergunta que organiza tudo}
+  \begin{numerobloco}{O problema}
+    Até 8 de setembro, o Harbor não conseguia responder a uma pergunta básica sobre si
+    mesmo: \emph{``essa mudança melhorou o sistema?''} --- não havia trace, não havia
+    custo medido, não havia comparação antes/depois.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que fizemos, em duas etapas:}
+  \begin{enumerate}
+    \item Construímos a capacidade de medir (trace, custo por chamada, relatório de
+      replicação).
+    \item Usamos essa capacidade em cinco decisões reais --- e em \alert{duas delas} a
+      resposta foi \emph{não}.
+  \end{enumerate}
+
+  \pause
+  \begin{decisaobloco}{A tese deste documento}
+    Instrumentação não serve para confirmar o que já queríamos fazer. Serve para
+    descobrir o que \emph{não} devemos fazer --- e isso só tem valor se a gente aceitar
+    o ``não'' quando ele aparece.
+  \end{decisaobloco}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────
+% ATO 1 — construir a régua
+% ─────────────────────────────────────────────────────────────────────
+\begin{frame}{Ato 1 --- Construir a régua}
+  \small
+  \begin{numerobloco}{Três peças novas}
+    \begin{itemize}
+      \item \texttt{shared/trace.py} --- esquema espelhando \texttt{gen\_ai.*}
+        (OpenTelemetry) mais uma camada de proveniência (evidências, relações
+        SUPPORT/CONTRADICT).
+      \item \texttt{shared/ollama\_client.py} --- captura tokens e modelo em toda
+        chamada. Antes: 13 pontos do código descartavam essa informação silenciosamente.
+      \item \texttt{shared/rollout\_card.py} --- relatório de replicação gerado a partir
+        dos traces.
+    \end{itemize}
+  \end{numerobloco}
+
+  \pause
+  \textbf{Por que isso vem primeiro:} sem tokens medidos, ``LangGraph é mais caro?'' é
+  opinião. Sem trace, ``o agente se corrigiu?'' é impressão. Toda comparação nos atos
+  seguintes depende desta etapa existir.
+\end{frame}
+
+\begin{frame}{Ato 1 --- A régua em uso: agente ReAct sobre benchmark}
+  \small
+  \begin{numerobloco}{Duas tarefas, com trace completo}
+    \begin{center}
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Tarefa} & \textbf{Execuções} & \textbf{Sucesso} & \textbf{Tokens (in/out)} \\
+      \midrule
+      SQL (self-repair)     & 3 & 1/3 & 27.163 / 1.342 \\
+      HotpotQA (replicação) & 2 & 1/2 & --- \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+    \footnotesize Amostra pequena --- valida o padrão de trace, não sustenta conclusão
+    estatística sobre o modelo.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que o trace revelou:} 2 das 3 execuções SQL travaram no \emph{mesmo} erro de
+  sintaxe, repetido, sem o modelo usar a Observation de erro para se corrigir. Sem
+  trace, isso apareceria como ``falhou'' --- com trace, sabemos \emph{por quê}.
+
+  \pause
+  \begin{decisaobloco}{Regra que ficou}
+    Todo experimento com agente entrega três artefatos: código, trace e relatório de
+    replicação. Um resultado sem trace não é resultado.
+  \end{decisaobloco}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────
+% ATO 2 — a régua diz sim
+% ─────────────────────────────────────────────────────────────────────
+\begin{frame}{Ato 2 --- Quando a régua diz sim: migração para LangGraph}
+  \small
+  \begin{numerobloco}{Self-repair e roteador, medidos antes e depois}
+    \begin{center}
+    \begin{tabular}{lcc}
+      \toprule
+      \textbf{Métrica} & \textbf{Antes} & \textbf{Depois} \\
+      \midrule
+      Roteamento (golden set, 67 perguntas) & 56/67 & 55/67$^*$ \\
+      Faithfulness médio & 64\% & 64\% \\
+      Divergências de rota (roteador migrado) & --- & \alert{0/67} \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+    \footnotesize $^*$ pergunta de fronteira que oscila \emph{também} no roteador
+    original --- instabilidade do desempate por LLM, não regressão.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} migração estrutural, não comportamental --- mesmos
+  prompts, mesmos 11 gates, mesmo teto de 1 tentativa. Só a orquestração virou grafo.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    Ambos promovidos para produção. O item de maior risco do roadmap (portar 9+ gates
+    sem perder cobertura) fechou com zero divergências medidas.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Ato 2 --- O que a régua não pega: bugs só visíveis em produção}
+  \small
+  \begin{numerobloco}{O achado}
+    Os testes automatizados passavam. O dashboard real (\texttt{streamlit run app.py})
+    quebrava com \texttt{ModuleNotFoundError} --- três bugs de import em cadeia.
+  \end{numerobloco}
+
+  \pause
+  \textbf{Causa:} os testes sempre rodaram com o root do projeto já no \texttt{sys.path}
+  por acidente. O Streamlit, rodando de dentro de \texttt{dashboard/}, não tem esse
+  privilégio --- e aí o nome \texttt{nl\_to\_sql} vira ambíguo entre ``módulo solto'' e
+  ``pacote'', dependendo de quem importa primeiro.
+
+  \pause
+  \begin{decisaobloco}{Lição incorporada}
+    Métrica verde não substitui abrir o sistema e usar. Fix: carregar os módulos por
+    caminho de arquivo explícito (\texttt{importlib}), eliminando a ambiguidade.
+  \end{decisaobloco}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────
+% ATO 3 — a régua diz não
+% ─────────────────────────────────────────────────────────────────────
+\begin{frame}{Ato 3 --- Quando a régua diz não (I): Agentic RAG}
+  \small
+  \begin{numerobloco}{A hipótese e o número}
+    Um \emph{critic node} avaliaria se o texto recuperado responde à pergunta; se não,
+    reformularia a query e buscaria de novo (padrão Self-RAG/CRAG).
+    \begin{center}
+    Recall@1 (15 perguntas): 12/15 chamada única $\to$ \alert{11/15} com critic node.
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{Causa raiz investigada:} o documento certo \emph{é} recuperado --- mas o chunk
+  específico às vezes não contém a resposta (está em outra seção do mesmo arquivo).
+  Reformular a \emph{query} não resolve um problema de \emph{chunking}, e pode afastar do
+  documento que já havia sido encontrado.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    Não promovido. Fica como protótipo medido e documentado --- com a causa raiz
+    registrada, para quem retomar não repetir o mesmo caminho.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Ato 3 --- Quando a régua diz não (II): Contextual Retrieval}
+  \small
+  \begin{numerobloco}{A hipótese e o número}
+    Prependar a cada chunk um resumo gerado por LLM situando-o no documento (técnica da
+    Anthropic, adaptada para Ollama local).
+    \begin{center}
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Métrica} & \textbf{Sem} & \textbf{Com} & \textbf{Diferença} \\
+      \midrule
+      Recall@5    & 98,0\% & 98,0\% & idêntico \\
+      Precision@5 & 50,0\% & \alert{46,4\%} & $-3,6$pp \\
+      MRR         & 0,899  & 0,907  & $+0,008$ \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{Causa provável:} os manuais do Harbor têm 40--181 linhas. A literatura original
+  mede ganho em documentos longos --- textos curtos já carregam contexto suficiente, e o
+  resumo extra dilui a precisão lexical do BM25.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    Não promovido, mas mantido como flag de ablação --- vale revisitar se o corpus crescer
+    com documentos longos. Diferente do Agentic RAG, aqui não há regressão de recall.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Ato 3 --- Quando a régua está quebrada: calibração de top-p}
+  \small
+  \begin{numerobloco}{O que parecia ser}
+    O benchmark multimodal mostrava top-p com desempenho ruim no corpus pequeno
+    (nDCG@5 = 0,286). Hipótese inicial: limiar mal calibrado para poucos documentos.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que era de verdade:} testamos os limiares 0,7, 0,85 e 0,99 --- \alert{resultado
+  idêntico nos três}. O 1º estágio chama \texttt{buscar(usar\_rerank=False)}, que devolve
+  \texttt{score=0.0} para todos os candidatos. Não havia massa de score para o limiar
+  cortar; a variável nunca foi exercida.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    Nem sim nem não --- a medição estava medindo a coisa errada. Item de continuidade:
+    dar ao 1º estágio um sinal de score real antes de tentar qualquer calibração.
+  \end{decisaobloco}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────
+% ATO 4 — o que a régua ensinou sobre escolhas
+% ─────────────────────────────────────────────────────────────────────
+\begin{frame}{Ato 4 --- Escolhas que a medição sustentou}
+  \small
+  \begin{numerobloco}{TF-IDF vs. BM25 (agosto)}
+    Empate no pipeline completo (98\%/44\%/0,866 vs. 98\%/43\%/0,866). BM25 perde no
+    lexical isolado (94\% vs. 98\%). \textbf{Mantido TF-IDF.}
+  \end{numerobloco}
+
+  \begin{numerobloco}{Python puro vs. LangChain no RAG (setembro)}
+    Recall@5 e MRR idênticos; Precision@5 sobe 11,4pp --- mas o ganho vem do
+    \emph{algoritmo} BM25+RRF, não do framework. \textbf{Migrado assim mesmo}, por
+    consistência com LangGraph nos módulos seguintes --- razão declarada, não disfarçada
+    de ganho técnico.
+  \end{numerobloco}
+
+  \begin{numerobloco}{qwen2.5:7b vs. DeepSeek-R1:7b}
+    2/2 sucessos em 112,6s vs. 1/2 em 258,2s (2,3x mais lento, 3x mais tokens de saída).
+    \textbf{Mantido qwen2.5:7b} --- raciocínio longo não compensa em self-repair de SQL.
+  \end{numerobloco}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────
+% Fechamento
+% ─────────────────────────────────────────────────────────────────────
+\begin{frame}{O que fica}
+  \begin{numerobloco}{Cinco decisões, três respostas diferentes}
+    \begin{itemize}
+      \item \textbf{Sim:} migração do self-repair e do roteador para LangGraph.
+      \item \textbf{Não:} Agentic RAG e Contextual Retrieval --- medidos, documentados,
+        não promovidos.
+      \item \textbf{A pergunta estava errada:} calibração de top-p.
+    \end{itemize}
+  \end{numerobloco}
+
+  \pause
+  \textbf{Próximos passos:} dar score real ao 1º estágio do benchmark multimodal;
+  instrumentar trace no dashboard de produção; \emph{checkpointer} no agente ReAct;
+  avaliar diagnóstico em camadas e NL-to-SQL (os itens de maior risco do roadmap).
+
+  \pause
+  \begin{decisaobloco}{A parte que importa}
+    Dois de cinco resultados foram negativos --- e isso é o argumento mais forte deste
+    documento. Uma régua que só confirma o que a gente já queria não é régua.
+  \end{decisaobloco}
+\end{frame}
+
+\end{document}
