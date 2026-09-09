@@ -53,3 +53,12 @@ eval/traces/*.jsonl
 eval/fitas_replay/
 eval/vidore_subset/
 eval/chroma_db_vidore_subset/
+
+# Artefatos de build LaTeX (regeneraveis a partir do .tex via pdflatex)
+slides/*.aux
+slides/*.nav
+slides/*.out
+slides/*.snm
+slides/*.toc
+slides/*.log
+slides/*.pdf

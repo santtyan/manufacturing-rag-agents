@@ -36,33 +36,64 @@
 \begin{frame}{Por que migrar}
   \begin{itemize}
     \item O roteador (\texttt{dashboard/roteador.py}) e o self-repair do NL-to-SQL
-      (\texttt{DBA-Agent}) vão usar \textbf{LangGraph} em breve, para branching condicional
-      e um padrão de \emph{critic node} (CRAG/Self-RAG).
-    \item Ter o RAG já em LangChain evita uma segunda migração quando esses módulos
-      precisarem consumir o retriever dentro de um grafo único.
-    \item Cada módulo só migra depois de medido — nunca "porque LangChain é melhor" sem
+      (\texttt{DBA-Agent}) usam \textbf{LangGraph} para branching condicional e um padrão
+      de \emph{critic node} (CRAG/Self-RAG).
+    \item Ter o RAG já em LangChain evitou uma segunda migração quando esses módulos
+      passaram a consumir o retriever dentro de um grafo.
+    \item Cada módulo só migra depois de medido — nunca ``porque LangChain é melhor'' sem
       número que sustente.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Ordem de migração (por risco crescente)}
+\begin{frame}{Ordem de migração (por risco crescente) — estado em 2026-09-09}
   \begin{enumerate}
     \item \textbf{RAG híbrido} — \alert{migrado} (2026-09-08)
-    \item Self-repair / DBA-Agent — não iniciado
-    \item Roteador + answerability gates — não iniciado
+    \item \textbf{Self-repair / DBA-Agent} — \alert{migrado} (2026-09-09), sem regressão
+    \item \textbf{Roteador + answerability gates} — \alert{migrado} (2026-09-09), 0
+      divergências em 67 perguntas do golden set
     \item Diagnóstico em camadas (regra $\to$ Isolation Forest $\to$ LLM) — não iniciado,
       baixo retorno esperado
-    \item NL-to-SQL — não iniciado, maior risco (validação determinística própria precisa
-      ser preservada)
+    \item NL-to-SQL (geração em si) — não iniciado, maior risco (validação determinística
+      própria precisa ser preservada)
   \end{enumerate}
 \end{frame}
 
+\begin{frame}{RAG híbrido: TF-IDF vs. BM25}
+  \small
+  \begin{numerobloco}{O que medimos (golden set, 49 perguntas RAG, 2026-08-22)}
+    \begin{center}
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Métrica} & \textbf{TF-IDF (produção)} & \textbf{BM25} \\
+      \midrule
+      Recall@5 (hybrid+rerank) & 98\%   & 98\%   \\
+      Precision@5 (hybrid+rerank) & 44\% & 43\%  \\
+      MRR (hybrid+rerank)      & 0,866  & 0,866  \\
+      Recall (lexical isolado) & 98\%   & 94\%   \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} empate estatístico no pipeline completo — o Cross-Encoder
+  absorve a diferença que aparece no lexical isolado (BM25 perde: 94\% vs 98\%). BM25 tem
+  $\sim$15\% menos latência, mas isso não compensa qualidade pior no isolado.
+
+  \pause
+  \begin{decisaobloco}{O que decidimos}
+    Mantivemos TF-IDF como \emph{default} — o resultado não justificou a troca. BM25
+    continua disponível via \texttt{lexico="bm25"} se o corpus crescer bastante.
+  \end{decisaobloco}
+\end{frame}
+
 \begin{frame}{RAG híbrido: Python puro vs. LangChain}
+  \small
   \begin{numerobloco}{O que medimos (golden set, 49 perguntas de rota RAG, 2026-09-08)}
     \begin{center}
     \begin{tabular}{lccc}
       \toprule
-      \textbf{Métrica} & \textbf{Produção (TF-IDF)} & \textbf{LangChain fiel} & \textbf{LangChain BM25+RRF} \\
+      \textbf{Métrica} & \textbf{Prod. (TF-IDF)} & \textbf{LC fiel} & \textbf{LC BM25+RRF} \\
       \midrule
       Recall@5    & 98,0\%  & 98,0\%  & 98,0\%  \\
       Precision@5 & 38,4\%  & 38,4\%  & \alert{49,8\%} \\
@@ -74,21 +105,107 @@
 
   \pause
   \textbf{O que isso significou:} o ganho de qualidade (+11,4pp de Precision@5) vem do
-  \alert{algoritmo} BM25+RRF, não do framework LangChain — a versão "fiel" (mesmo algoritmo,
+  \alert{algoritmo} BM25+RRF, não do framework LangChain — a versão ``fiel'' (mesmo algoritmo,
   framework trocado) empata exatamente com a produção em Recall@5/MRR.
 
   \pause
   \begin{decisaobloco}{O que decidimos}
-    Migramos mesmo assim, por consistência com o roteador e o self-repair (LangGraph em
-    breve) — não pelo ganho isolado de retrieval. Usamos a implementação BM25+RRF
-    (framework + o ganho real juntos), não a versão "fiel".
+    Migramos mesmo assim, por consistência com o roteador e o self-repair (ambos LangGraph
+    logo em seguida) — não pelo ganho isolado de retrieval. Usamos a implementação BM25+RRF
+    (framework + o ganho real juntos), não a versão ``fiel''.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Self-repair NL-to-SQL: Python puro vs. LangGraph}
+  \small
+  \begin{numerobloco}{O que medimos (harness completo, 67 perguntas, 2026-09-09)}
+    \begin{center}
+    \begin{tabular}{lcc}
+      \toprule
+      \textbf{Métrica} & \textbf{Antes (baseline)} & \textbf{Depois (LangGraph)} \\
+      \midrule
+      Roteamento correto & 56/67  & 55/67$^*$ \\
+      Faithfulness médio & 64\%   & 64\%   \\
+      Alucinações         & 4      & 3      \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+    \footnotesize $^*$ pergunta de fronteira (\texttt{cnc-cam3}) oscila mesmo no roteador
+    \emph{original} — instabilidade do LLM, não regressão.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} o self-repair virou um grafo de estados explícito,
+  reusando os mesmos prompts e o mesmo teto de 1 tentativa — mudança estrutural, não de
+  comportamento. Confirmado com 5 testes automatizados e teste manual do dashboard real.
+
+  \pause
+  \begin{decisaobloco}{O que decidimos}
+    Promovido para produção. Mantido o teto de 1 tentativa do original — o protótipo com
+    teto de 6 mostrou o modelo local repetindo o mesmo erro sem se corrigir de fato.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Roteador: Python puro vs. LangGraph}
+  \small
+  \begin{numerobloco}{O que medimos (golden set completo, 67 perguntas)}
+    \begin{center}
+    \begin{tabular}{lc}
+      \toprule
+      \textbf{Cenário} & \textbf{Divergências} \\
+      \midrule
+      Sem desempate por LLM (\texttt{usar\_llm=False}) & 0/67 \\
+      Com desempate por LLM real (\texttt{usar\_llm=True}) & 0/67 \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} os 11 \emph{answerability gates} determinísticos e o
+  desempate por LLM foram reusados sem reescrever nenhuma regra — só a orquestração virou
+  um \texttt{StateGraph} de 2 nós (gates em cascata + desempate condicional) em vez da
+  cadeia de \texttt{if} original.
+
+  \pause
+  \begin{decisaobloco}{O que decidimos}
+    Promovido para produção. Item de maior risco/esforço do roadmap (9+ gates a portar sem
+    perder cobertura) fechado sem nenhuma regressão medida.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Achado ao testar em produção real: bugs de import}
+  \begin{numerobloco}{O problema}
+    \small
+    \texttt{streamlit run app.py} (fora do root do projeto no \texttt{sys.path}) quebrou
+    com \texttt{ModuleNotFoundError} em cadeia — nome de módulo ambíguo entre ``módulo
+    solto'' e ``pacote'', dependendo de quem importa primeiro.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} testes automatizados sempre rodaram com o root do
+  projeto já no \texttt{sys.path} por acidente — escondendo o bug até o teste manual.
+
+  \pause
+  \begin{decisaobloco}{O que decidimos}
+    \small
+    Carregar os módulos migrados por \textbf{caminho de arquivo explícito}
+    (\texttt{importlib.util.spec\_from\_file\_location}) — elimina a ambiguidade,
+    confirmado nos dois cenários e no dashboard ao vivo.
   \end{decisaobloco}
 \end{frame}
 
 \begin{frame}{Próximos passos}
   \begin{itemize}
-    \item Item 2: self-repair / DBA-Agent $\to$ LangGraph \emph{critic node}
-      (padrão CRAG/Self-RAG) — validar branching condicional antes do roteador.
+    \item Diagnóstico em camadas $\to$ avaliar se vale migrar (baixo retorno esperado).
+    \item NL-to-SQL (geração) $\to$ maior risco, validação determinística própria precisa
+      ser preservada.
+    \item Agentic RAG (retrieval adaptativo) — protótipo medido, \alert{resultado negativo}
+      (Recall@1 caiu de 12/15 para 11/15), não promovido; causa raiz: chunk certo às vezes
+      não está no topo do documento certo, reformular a query não resolve isso.
+    \item Contextual Retrieval — protótipo medido, resultado misto (MRR +0,008,
+      Precision@5 $-3,6$pp), não promovido; manuais curtos não se beneficiam tanto quanto
+      a literatura original (documentos longos) prevê.
     \item Regra que não muda: nenhuma migração é aceita se regredir
       \texttt{eval/rodar\_golden.py} (roteamento/faithfulness) ou o golden set.
   \end{itemize}
