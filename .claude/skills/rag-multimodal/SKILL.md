@@ -209,6 +209,50 @@ de produção a partir deste número** — o item de continuidade correto agora 
 um sinal de score real (ex. `usar_rerank=True` também no estágio 1, ou expor o score RRF do
 `EnsembleRetriever`) antes de re-tentar qualquer calibração de `TOP_P_LIMIAR`.
 
+## Item 1 do plano "Evoluir o RAG multimodal" executado: golden set expandido + checks de fidelidade (2026-09-09)
+
+**Motivação**: o golden set de 7 perguntas/4 imagens usado até aqui é matematicamente incapaz
+de detectar qualidade de captioning — com corpus de 4 documentos e k=3, um ranqueador aleatório
+já acerta Recall@3=75% por construção (o baseline de 86% medido estava a 1 pergunta de
+distância do acaso puro), e Precision@3 estava hard-capped em 33% (1 relevante em 3
+devolvidos). Nenhuma comparação de VLM seria interpretável nesse desenho.
+
+**Corpus expandido**: `rag/gerar_imagens_sinteticas.py` de 4 para 26 imagens, com 4 famílias de
+distratores adversariais deliberados (mesmo dado/tipo diferente, eixos trocados, ordenação
+diferente, variáveis novas do mesmo CSV) — desenhados para forçar o sinal a vir do caption, não
+do BM25/nome de arquivo. Ground truth factual de cada imagem em
+`rag/metadados_imagens_ground_truth.py` (tipo, título, eixos, ranking esperado, variáveis
+fonte). `eval/golden_questions_multimodal.json` de 7 para 29 perguntas, incluindo pares
+discriminativos deliberados (ex. ranking ascendente vs. descendente do mesmo gráfico CNC,
+boxplot vs. barra da mesma variável, eixos trocados voltagem/corrente).
+
+**Checks determinísticos de fidelidade de caption** (novo módulo `eval/checks_fidelidade_caption.py`,
+sem LLM-judge — o ground truth é conhecido de antemão porque as imagens são geradas
+programaticamente): `nao_degenerado`, `idioma_pt`, `tipo_grafico_correto`,
+`menciona_eixos_corretos`, `contem_ranking`, `sem_numeros_inventados`. Critério de promoção de
+um VLM novo, definido antes de rodar (não depois de ver o número): **≥90% de taxa média de
+aprovação E 100% em `sem_numeros_inventados`**. 15 testes unitários em
+`tests/test_checks_fidelidade_caption.py`, cada um mapeado a um achado real nas legendas do
+moondream (inclui 2 bugs reais corrigidos no próprio código dos checks durante o
+desenvolvimento: a regra "ignorar números entre 0-1" mascarava exatamente os números
+inventados que o check deveria pegar; a margem de folga fixa `±1` era desproporcional para
+variáveis de amplitude real pequena — corrigida para margem proporcional à amplitude).
+
+**Resultado real, moondream no corpus de 26 imagens**: taxa média de fidelidade **42,3%**, **0
+de 26** legendas passando todos os checks, **19 de 26** sem números inventados. Bem abaixo do
+critério de promoção (≥90%/100%) — o moondream está definitivamente reprovado como VLM de
+produção, não é um julgamento qualitativo, é um número.
+
+**Baseline honesto de retrieval no corpus expandido** (`eval/avaliar_rag_multimodal.py`, sem
+mudança de código — só corpus/golden set maiores): **Recall@3 caiu de 86% para 38%,
+Precision@3 de 29% para 13%, MRR de 0,524 para 0,253**. Essa queda é **esperada e correta**, não
+regressão — o número de 86% era artefato estatístico de um corpus pequeno demais para o k
+usado; 38% é a primeira medição de retrieval multimodal do Harbor que de fato significa algo.
+
+**Conclusão**: o item 1 (pré-requisito do plano) está completo. Trocar o VLM agora (item 3 do
+plano, `granite3.2-vision:2b`/`qwen3-vl:4b`) já produz uma comparação interpretável contra este
+baseline (moondream 42,3%/38%/13%/0,253), ao contrário de antes.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com

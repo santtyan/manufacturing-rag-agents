@@ -1,7 +1,9 @@
 {
   "_meta": {
-    "descricao": "Golden set para avaliar retrieval do RAG multimodal (caption-then-embed) sobre as 4 imagens sinteticas de rag/manuais_imagens/ (geradas por rag/gerar_imagens_sinteticas.py a partir de dados reais dos pipelines 2 e 4). Cada pergunta tem UM id de imagem relevante (documento_relevante) -- mesmo formato de golden set de 1-documento-relevante ja usado em eval/avaliar_retrieval.py, nao o formato multi-relevante do NanoBEIR/BEIR.",
+    "descricao": "Golden set para avaliar retrieval do RAG multimodal (caption-then-embed) sobre as 26 imagens sinteticas de rag/manuais_imagens/ (geradas por rag/gerar_imagens_sinteticas.py a partir de dados reais dos pipelines 2 e 4). Cada pergunta tem UM id de imagem relevante (documento_relevante) -- mesmo formato de golden set de 1-documento-relevante ja usado em eval/avaliar_retrieval.py, nao o formato multi-relevante do NanoBEIR/BEIR.",
     "criado_em": "2026-09-08",
+    "expandido_em": "2026-09-09",
+    "motivo_expansao": "Com corpus de 4 documentos e k=3, um ranqueador aleatorio ja acerta Recall@3=75% por construcao -- o baseline medido de 86% estava a 1 pergunta de distancia do acaso puro e Precision@3 estava hard-capped em 33%. Corpus expandido para 26 imagens com distratores adversariais deliberados (mesmo dado/tipo diferente, eixos trocados, ordenacao diferente, variaveis novas) para o golden set conseguir de fato detectar qualidade de captioning -- ver rag/gerar_imagens_sinteticas.py para o detalhe de cada familia de distrator.",
     "arquitetura_avaliada": "caption-then-embed (rag/rag_multimodal_langchain.py) -- Fase 4 do plano de disciplina experimental PDC: medir antes de trocar de arquitetura (ColPali/embeddings unificados). Sem numero de baseline, trocar seria fe, nao medicao."
   },
   "perguntas": [
@@ -12,8 +14,13 @@
     },
     {
       "id": "mm-cnc-anomalias-ranking",
-      "pergunta": "mostre o ranking de anomalias por componente do CNC",
+      "pergunta": "mostre o ranking de anomalias por componente do CNC, do maior para o menor",
       "documento_relevante": "grafico_anomalias_componentes_cnc"
+    },
+    {
+      "id": "mm-cnc-anomalias-ranking-ascendente",
+      "pergunta": "mostre o ranking de anomalias por componente do CNC, do menor para o maior",
+      "documento_relevante": "grafico_anomalias_cnc_ascendente"
     },
     {
       "id": "mm-pressao-vazao",
@@ -22,23 +29,128 @@
     },
     {
       "id": "mm-pressao-vazao-grafico",
-      "pergunta": "mostre um grafico relacionando pressao e vazao",
+      "pergunta": "mostre um grafico de dispersao relacionando pressao no eixo x e vazao no eixo y",
       "documento_relevante": "grafico_pressao_vazao"
     },
     {
-      "id": "mm-temperatura-classe",
-      "pergunta": "como a temperatura se distribui entre leituras normais e com falha?",
+      "id": "mm-vazao-pressao-eixos-trocados",
+      "pergunta": "mostre um grafico de dispersao relacionando vazao no eixo x e pressao no eixo y",
+      "documento_relevante": "grafico_pressao_vazao_eixos_trocados"
+    },
+    {
+      "id": "mm-temperatura-classe-boxplot",
+      "pergunta": "mostre a distribuicao (boxplot) de temperatura entre leituras normais e com falha",
       "documento_relevante": "grafico_temperatura_por_classe"
     },
     {
-      "id": "mm-vibracao-classe",
-      "pergunta": "existe alguma diferenca de vibracao entre operacao normal e com falha?",
+      "id": "mm-temperatura-classe-barra",
+      "pergunta": "mostre a temperatura media em barras, comparando classe normal e com falha",
+      "documento_relevante": "grafico_temperatura_barras"
+    },
+    {
+      "id": "mm-temperatura-tempo",
+      "pergunta": "como a temperatura varia ao longo das leituras, por classe de operacao?",
+      "documento_relevante": "grafico_temperatura_scatter_tempo"
+    },
+    {
+      "id": "mm-vibracao-classe-boxplot",
+      "pergunta": "mostre a distribuicao (boxplot) de vibracao entre operacao normal e com falha",
       "documento_relevante": "grafico_vibracao_por_classe"
+    },
+    {
+      "id": "mm-vibracao-classe-barra",
+      "pergunta": "mostre a vibracao media em barras, por classe de operacao",
+      "documento_relevante": "grafico_vibracao_barras"
     },
     {
       "id": "mm-vibracao-anomalia",
       "pergunta": "a vibracao ajuda a distinguir leituras anomalas de leituras normais?",
       "documento_relevante": "grafico_vibracao_por_classe"
+    },
+    {
+      "id": "mm-voltagem-corrente",
+      "pergunta": "mostre corrente no eixo x e voltagem no eixo y, por classe",
+      "documento_relevante": "grafico_corrente_voltagem_eixos_trocados"
+    },
+    {
+      "id": "mm-corrente-voltagem",
+      "pergunta": "mostre voltagem no eixo x e corrente no eixo y, por classe",
+      "documento_relevante": "grafico_voltagem_corrente_eixos_trocados"
+    },
+    {
+      "id": "mm-producao-ranking",
+      "pergunta": "qual classe tem a maior taxa de producao media?",
+      "documento_relevante": "grafico_producao_por_classe_ordenado"
+    },
+    {
+      "id": "mm-voltagem-classe",
+      "pergunta": "como a voltagem se distribui entre classe normal e com falha?",
+      "documento_relevante": "grafico_voltagem_por_classe"
+    },
+    {
+      "id": "mm-corrente-classe",
+      "pergunta": "como a corrente eletrica se distribui entre classe normal e com falha?",
+      "documento_relevante": "grafico_corrente_por_classe"
+    },
+    {
+      "id": "mm-som-classe",
+      "pergunta": "existe diferenca no nivel de som entre operacao normal e com falha?",
+      "documento_relevante": "grafico_som_por_classe"
+    },
+    {
+      "id": "mm-umidade-classe",
+      "pergunta": "a umidade varia entre leituras normais e com falha?",
+      "documento_relevante": "grafico_umidade_por_classe"
+    },
+    {
+      "id": "mm-qualidade-oleo-classe",
+      "pergunta": "o indice de qualidade do oleo difere entre classe normal e com falha?",
+      "documento_relevante": "grafico_qualidade_oleo_por_classe"
+    },
+    {
+      "id": "mm-consumo-energia-classe",
+      "pergunta": "o consumo de energia varia entre operacao normal e com falha?",
+      "documento_relevante": "grafico_consumo_energia_por_classe"
+    },
+    {
+      "id": "mm-carga-classe",
+      "pergunta": "o percentual de carga difere entre classe normal e com falha?",
+      "documento_relevante": "grafico_carga_por_classe"
+    },
+    {
+      "id": "mm-energia-vs-carga",
+      "pergunta": "existe relacao entre consumo de energia e percentual de carga?",
+      "documento_relevante": "grafico_energia_vs_carga"
+    },
+    {
+      "id": "mm-som-vs-vibracao",
+      "pergunta": "existe relacao entre nivel de som e nivel de vibracao?",
+      "documento_relevante": "grafico_som_vs_vibracao"
+    },
+    {
+      "id": "mm-anomalia-spindle-tempo",
+      "pergunta": "como a anomalia de temperatura do spindle varia ao longo do tempo?",
+      "documento_relevante": "grafico_anomalia_spindle_tempo"
+    },
+    {
+      "id": "mm-anomalia-eixo-x-tempo",
+      "pergunta": "mostre a serie temporal de anomalia de temperatura do eixo X do CNC",
+      "documento_relevante": "grafico_anomalia_eixo_x_tempo"
+    },
+    {
+      "id": "mm-anomalia-eixo-y-tempo",
+      "pergunta": "mostre a serie temporal de anomalia de temperatura do eixo Y do CNC",
+      "documento_relevante": "grafico_anomalia_eixo_y_tempo"
+    },
+    {
+      "id": "mm-anomalia-eixo-z-tempo",
+      "pergunta": "mostre a serie temporal de anomalia de temperatura do eixo Z do CNC",
+      "documento_relevante": "grafico_anomalia_eixo_z_tempo"
+    },
+    {
+      "id": "mm-anomalia-geral-tempo",
+      "pergunta": "mostre a serie temporal de anomalia de temperatura geral do CNC",
+      "documento_relevante": "grafico_anomalia_geral_tempo"
     }
   ]
 }
