@@ -1,0 +1,50 @@
+[
+  {
+    "nome": "ViDoRe subset (60 pag.) | so retrieval (sem rerank)",
+    "ndcg": 1.0,
+    "recall": 1.0,
+    "mrr": 1.0,
+    "tempo_s": 31.6,
+    "n_unidades": 60
+  },
+  {
+    "nome": "ViDoRe subset (60 pag.) | rerank top-k=5",
+    "ndcg": 0.815,
+    "recall": 1.0,
+    "mrr": 0.667,
+    "tempo_s": 302.0,
+    "n_unidades": 10
+  },
+  {
+    "nome": "ViDoRe subset (60 pag.) | rerank top-p=0.85",
+    "ndcg": 1.0,
+    "recall": 1.0,
+    "mrr": 1.0,
+    "tempo_s": 100.0,
+    "n_unidades": 2
+  },
+  {
+    "nome": "Corpus Harbor (4 img.) | so retrieval (sem rerank)",
+    "ndcg": 0.823,
+    "recall": 1.0,
+    "mrr": 0.56,
+    "tempo_s": 9.2,
+    "n_unidades": 4
+  },
+  {
+    "nome": "Corpus Harbor (4 img.) | rerank top-k=5",
+    "ndcg": 1.0,
+    "recall": 1.0,
+    "mrr": 0.929,
+    "tempo_s": 831.5,
+    "n_unidades": 28
+  },
+  {
+    "nome": "Corpus Harbor (4 img.) | rerank top-p=0.85",
+    "ndcg": 0.286,
+    "recall": 0.286,
+    "mrr": 0.286,
+    "tempo_s": 175.9,
+    "n_unidades": 7
+  }
+]

@@ -171,6 +171,39 @@ Smoke test confirmado: `model.encode_document([imagem])` + `model.encode_query([
 `model.similarity(...)` funcionam ponta a ponta sobre uma imagem real de
 `rag/manuais_imagens/`, com score de similaridade calculado sem erro.
 
+## Benchmark 2 estágios (retrieval + rerank) executado (2026-09-09)
+
+`eval/avaliar_benchmark_multimodal_2x2.py` — desenho de produção real (paper HEAVEN,
+arXiv:2510.22215): retrieval barato (caption-then-embed/E5) filtra candidatos sobre todo o
+corpus, ColModernVBERT só rerankeia o top-k/top-p já filtrado (nunca o corpus inteiro — inviável
+em CPU, ~36s/imagem). Duas estratégias de seleção de candidatos comparadas, análogas a top-k/
+top-p de sampling de geração de texto mas aplicadas a scores de similaridade de retrieval:
+top-k fixo (sempre 5 candidatos) e "top-p" (corte por massa cumulativa de score normalizado,
+limiar 0,85).
+
+**Resultado real** (ViDoRe subset, 2 queries de teste; corpus Harbor, 4 imagens/golden set completo):
+
+| Corpus | Estratégia | nDCG@5 | Custo | Candidatos rerankeados |
+|---|---|---|---|---|
+| ViDoRe (60 pág.) | só retrieval | 1.000 | 31,6s | — |
+| ViDoRe | rerank top-k=5 | 0.815 | 302s | 10 |
+| ViDoRe | rerank top-p=0.85 | 1.000 | 100s | 2 |
+| Harbor (4 img.) | só retrieval | 0.823 | 9,2s | — |
+| Harbor | rerank top-k=5 | **1.000** | 831,5s | 28 |
+| Harbor | rerank top-p=0.85 | **0.286** | 175,9s | 7 |
+
+**ACHADO REAL importante — top-p não é universalmente melhor, e piorou drasticamente no corpus
+pequeno**: no ViDoRe, top-p empatou com "sem rerank" (ambos 1.000) e foi 3x mais barato que
+top-k. No corpus Harbor, top-p **piorou** o resultado (0.286, pior que nem rerankear) enquanto
+top-k acertou tudo (1.000). Causa provável: com só 4 documentos no corpus, os scores do
+retrieval ficam concentrados/próximos, e o limiar de 0,85 corta candidatos demais cedo (média de
+menos de 2 candidatos rerankeados por pergunta no golden set de 4 perguntas) — inclui candidatos
+insuficientes para o rerank corrigir um erro do 1º estágio. **Não é um resultado definitivo**:
+amostra pequena (2 queries ViDoRe, 4 perguntas Harbor) — mas já mostra que o limiar de top-p
+precisa ser calibrado por tamanho de corpus, não usado com o mesmo valor fixo em qualquer escala.
+**Não decidir estratégia de produção a partir deste número** — ampliar a amostra primeiro (ver
+item de roadmap "aumentar escala do subset ViDoRe" no plano de implementação).
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com
