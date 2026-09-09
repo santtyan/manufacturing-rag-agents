@@ -132,6 +132,45 @@ legendas do `moondream` seguem qualitativamente pobres (uma legenda saiu como
 comparar contra qualquer mudança futura (troca de VLM, ou arquitetura), não como veredito de
 que caption-then-embed "funciona bem" no geral.
 
+## Late interaction (ColModernVBERT) instalado e validado (2026-09-09)
+
+Benchmark padrão-ouro 2026 é **ViDoRe** (v3, ACL 2026) e, para RAG multimodal ponta-a-ponta,
+**UNIDOC-BENCH** (arXiv:2510.03663) — compara sob protocolo unificado 4 paradigmas (texto-só,
+imagem-só, fusão texto-imagem, embedding multimodal conjunto); achado central: fusão
+texto-imagem supera abordagens unimodais isoladas.
+
+**Restrição real de ambiente**: ViDoRe v3 completo (26.000+ páginas) e até o subset menor de
+domínio compatível (`vidore_v3_industrial`, 5.244 páginas/2,68GB) são grandes demais para o
+disco disponível (13-22GB livres). A máquina também não tem GPU CUDA
+(`torch.cuda.is_available() == False`), tornando ColQwen2.5 (~3B parâmetros, a variante SOTA de
+ColPali) inviável em CPU. Escolhida a alternativa leve: **ColModernVBERT**
+(`ModernVBERT/colmodernvbert`, 250M parâmetros, ~10x menor que ColPali, só 0,6 pontos de nDCG@5
+abaixo no ViDoRe agregado), via `sentence-transformers[image]>=6.0`.
+
+**Pegadinhas de ambiente novas, encontradas ao instalar (2026-09-09)**:
+1. **Ordem de import de `pandas` vs `sentence_transformers` importa nesta máquina Windows** —
+   `from sentence_transformers import MultiVectorEncoder` (ou `SentenceTransformer`) como
+   PRIMEIRO import pesado do processo causa access violation dentro de `pyarrow/__init__.py`
+   (conflito de DLL nativa entre a versão de `pyarrow` que `sentence_transformers` carrega
+   internamente via `pandas.compat.pyarrow` e alguma inicialização de estado). Reproduzido
+   determinístico 3x. **Fix**: sempre `import pandas` (import puro, sem uso) ANTES de qualquer
+   import de `sentence_transformers` num processo novo. A produção (`rag/rag_hibrido.py`) nunca
+   bateu nisso porque outros módulos do projeto já importam `pandas` antes dela no processo real
+   do dashboard/harness — só apareceu num processo Python isolado rodando só o import.
+2. **Dependências de versão não documentadas no pip install básico**: `ModernVBERT/colmodernvbert`
+   exige `transformers>=5.15` (erro explícito e claro se a versão for menor — instalado
+   `5.16.1`) e o pacote `peft` (LoRA adapter do modelo, erro igualmente claro faltando).
+   `pip install -U "sentence-transformers[image]>=6.0.0"` sozinho não traz nenhum dos dois.
+3. **Custo de indexação bem maior que captioning**: embedar 1 imagem (960x600) levou ~31s em CPU
+   (vs. segundos para gerar 1 legenda via `moondream`) — carregamento do modelo em si levou
+   ~47s (one-time por processo). Nada crítico para um corpus pequeno, mas o `EmbeddingsFilter`/
+   indexação em lote de um corpus real precisa contabilizar esse custo — ColModernVBERT ainda é
+   ~10x mais rápido de indexar que ColPali/ColQwen2.5 completo, mas não é gratuito.
+
+Smoke test confirmado: `model.encode_document([imagem])` + `model.encode_query([pergunta])` +
+`model.similarity(...)` funcionam ponta a ponta sobre uma imagem real de
+`rag/manuais_imagens/`, com score de similaridade calculado sem erro.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com

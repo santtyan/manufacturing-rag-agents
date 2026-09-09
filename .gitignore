@@ -51,3 +51,5 @@ dashboard/log_alucinacoes.jsonl
 Thumbs.db
 eval/traces/*.jsonl
 eval/fitas_replay/
+eval/vidore_subset/
+eval/chroma_db_vidore_subset/
