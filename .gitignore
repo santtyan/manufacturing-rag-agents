@@ -49,5 +49,5 @@ dashboard/log_alucinacoes.jsonl
 # OS
 .DS_Store
 Thumbs.db
-eval/traces/
+eval/traces/*.jsonl
 eval/fitas_replay/

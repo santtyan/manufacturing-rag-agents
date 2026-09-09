@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agents.react import Tool, rodar_react
-from nl_to_sql.nl_to_sql import ESQUEMA, _executar, _limpar_sql, validar_sql_seguro
+from nl_to_sql.nl_to_sql import ESQUEMA, _executar, _limpar_sql
 
 
 def _tool_executar_sql(sql_bruto: str) -> str:
