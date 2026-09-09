@@ -65,13 +65,18 @@ fixada pelo usuário, 2026-09-08).
 
 ### Fazer primeiro — mensurável agora, sem nova infraestrutura
 
-- [ ] **0. Medir se o rerank Cross-Encoder atual ajuda ou atrapalha** — achado 2025-2026: modelos
-      genéricos tipo `ms-marco-MiniLM` (o que o Harbor usa) degradam -0,3% a -3,1% em domínio
-      técnico fora da distribuição de treino. `RAGLangChainBM25RRF.buscar()` já aceita
-      `usar_rerank=True/False` — rodar o golden set de retrieval (`eval/avaliar_retrieval.py`)
-      nos dois modos e comparar Recall@5/MRR. Não decidir manter/remover o rerank sem essa
-      medição — é o item de maior retorno por menor esforço desta lista, porque não exige
-      escrever nenhum código novo, só rodar o que já existe com o parâmetro trocado.
+- [x] **0. Medir se o rerank Cross-Encoder atual ajuda ou atrapalha** (2026-09-08) — rodado
+      `eval/avaliar_retrieval.py` com e sem `--rerank` sobre as 49 perguntas de rota "rag" do
+      golden set atual. **Resultado**: Recall@5 idêntico (98% nos dois modos); Precision@5
+      melhora com rerank (38%→44%); **MRR piora levemente com rerank** (0,898 sem rerank →
+      0,866 com rerank). Não confirma a degradação severa (-0,3% a -3,1%) citada na pesquisa
+      2025-2026 para domínio fora da distribuição, mas também não mostra ganho líquido — o
+      rerank troca um pouco de MRR por mais precisão nos top-5, uma troca neutra a levemente
+      desfavorável no corpus atual (49 perguntas, 9 manuais). **Decisão**: manter o rerank
+      ligado por padrão (a perda de MRR é pequena e a normalização de posição em precision@5
+      pode compensar em uso real), mas não tratar como "obviamente melhor" — resultados em
+      `eval/resultados_retrieval.csv` (sem rerank) e `eval/resultados_retrieval_rerank.csv`
+      (com rerank).
 
 ### Alto retorno, baixo esforço
 
@@ -134,9 +139,9 @@ fixada pelo usuário, 2026-09-08).
 
 - Se o usuário perguntar "em que estágio de RAG o Harbor está" ou pedir para comparar com a
   literatura, responder com a seção "3 gerações" acima, não repesquisar do zero.
-- Se perguntar "o que podemos aplicar agora", a resposta é: **item 0 primeiro** (medir o rerank,
-  zero código novo, maior retorno/menor esforço), depois 1→4 na ordem listada — não repesquisar
-  nem redesenhar a priorização do zero.
+- Se perguntar "o que podemos aplicar agora", a resposta é: **item 0 já medido (2026-09-08)** —
+  próximo é o item 1 (query rewrite), depois 2→4 na ordem listada — não repesquisar nem
+  redesenhar a priorização do zero.
 - Se pedir uma citação/resumo do survey original para slides/relatório, usar
   `references/resumo_survey_rag.md`; se for sobre achados 2025-2026 (query rewrite, RRF,
   reranking fora de domínio), usar `references/resumo_advanced_rag_2025_2026.md` — não citar

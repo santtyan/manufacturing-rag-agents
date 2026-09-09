@@ -141,7 +141,18 @@ seguindo o padrão de `roadmap-slm-multiagente`.
       registrada" acima para o motivo (consistência com LangGraph futuro, não ganho isolado de
       Recall@5/MRR). `ContextualCompressionRetriever` não foi usado — fica como item do roadmap
       `[[roadmap-rag-survey]]` (item 2, context compression), não faz parte deste item.
-- [ ] **2. Self-repair/DBA-Agent → LangGraph critic node (padrão CRAG/Self-RAG)**
+- [ ] **2. Self-repair/DBA-Agent → LangGraph critic node (padrão CRAG/Self-RAG)** — **protótipo
+      existe** desde 2026-09-08 em `agents/tarefa_sql.py` (agente ReAct genérico de
+      `agents/react.py`, LangGraph real, com trace completo), mas é uma implementação PARALELA
+      para a Fase 5 da disciplina experimental do PDC (replicar ReAct + entregar trace), não a
+      migração formal deste item — `nl_to_sql/nl_to_sql.py` continua com o self-repair original
+      em produção (`perguntar()`/`perguntar_com_dba()`), consumido por `dashboard/app.py` e
+      `eval/rodar_golden.py`. Não marcar `[x]` até o protótipo substituir de fato o self-repair
+      de produção com a regra de não regressão do harness aplicada. Achado real do protótipo:
+      o self-repair de produção tem teto de 1 tentativa; o agente ReAct testado com até 6
+      tentativas mostrou o modelo local (qwen2.5:7b) às vezes repetir a MESMA query malformada
+      várias vezes sem usar a Observation de erro para se corrigir — sugere que aumentar o teto
+      de tentativas sozinho, sem melhorar o prompt de correção, não teria ajudado.
 - [ ] **3. Roteador + gates → LangGraph conditional edges, gates portados 1:1**
 - [ ] **4. Diagnóstico em camadas → avaliar se vale migrar (pode ficar como está)**
 - [ ] **5. NL-to-SQL → LangGraph + validação determinística própria mantida em paralelo ao
