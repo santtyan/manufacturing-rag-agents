@@ -111,9 +111,17 @@ Marque `[x]` conforme for implementando, e adicione uma linha de resultado abaix
         proativos").
 - [ ] **2. Avaliação sistemática de custo computacional por modelo** — estender o harness
       (`eval/rodar_golden.py` ou script novo) para medir latência/tokens-por-segundo/uso de
-      memória por modelo (llama3.2:3b vs qwen2.5:7b vs qwen2.5:14b), não só qualidade. Roda
-      no hardware atual, mas cria o método reaproveitável para quando houver hardware
-      compacto disponível.
+      memória por modelo, não só qualidade. Roda no hardware atual, mas cria o método
+      reaproveitável para quando houver hardware compacto disponível.
+      **Modelos disponíveis hoje (2026-09-09)**: `llama3.2:3b`, `llama3.2:1b`,
+      `qwen2.5:7b`, `deepseek-r1:7b`. O `qwen2.5:14b` foi REMOVIDO do disco em 2026-09-09
+      (liberar ~9GB, disco em 98%) — se for reincluí-lo na comparação, rodar `ollama pull`
+      antes e conferir espaço.
+      **Primeira medição parcial já feita** (2026-09-09, ainda não é este item completo):
+      `qwen2.5:7b` vs `deepseek-r1:7b` no self-repair de SQL, 2 perguntas — 2/2 sucessos em
+      112,6s vs 1/2 em 258,2s (2,3x mais lento, ~3x mais tokens de saída). Usa
+      `shared/ollama_client.py` (`.metadados`) como fonte de tokens/latência, que é
+      exatamente a instrumentação que este item precisa estender para o golden set inteiro.
 
 ### Esforço médio (fazer depois dos dois acima)
 

@@ -264,25 +264,36 @@ with st.sidebar:
     st.divider()
     st.subheader("🧠 Modelo do chat")
     # Seletor de 3 niveis (achado real, 2026-07-12): llama3.2:3b e rapido mas erra contas e
-    # ignora instrucoes complexas (varios bugs corrigidos nesta sessao vieram disso). Testamos
-    # qwen2.5:7b (~39-57s em CPU, sem GPU dedicada) e qwen2.5:14b (~59-70s) -- ambos resolvem
-    # os casos que o llama3.2 alucinava, o 14b um pouco mais consistente mas bem mais lento.
-    # Todos viram opcao explicita do usuario, nao substituicao, ja que a demo ao vivo depende
+    # ignora instrucoes complexas (varios bugs corrigidos naquela sessao vieram disso).
+    # qwen2.5:7b (~39-57s em CPU, sem GPU dedicada) resolve os casos que o llama3.2 alucinava.
+    # Todos sao opcao explicita do usuario, nao substituicao, ja que a demo ao vivo depende
     # da latencia.
+    #
+    # ATUALIZADO 2026-09-09: a 3a opcao era qwen2.5:14b, REMOVIDO do disco nesta data para
+    # liberar ~9GB (o disco estava em 98%) -- o seletor continuava oferecendo o modelo, e quem
+    # escolhesse "Maxima qualidade" caia SILENCIOSAMENTE no fallback llama3.2:1b, ou seja,
+    # pedia o melhor modelo e recebia o mais fraco. Trocado por deepseek-r1:7b (instalado e
+    # comparado nesta mesma data). O rotulo NAO diz "maxima qualidade" porque a medicao nao
+    # sustenta isso: no self-repair de SQL (2 perguntas do golden set) o deepseek fez 1/2
+    # sucessos em 258s contra 2/2 em 113s do qwen2.5:7b, gerando ~3x mais tokens de saida --
+    # comportamento esperado de modelo de raciocinio (familia R1), que pensa em voz alta antes
+    # de responder. E outra ferramenta, nao um degrau acima do qwen.
     modo_llm = st.radio(
         "Prioridade",
         ["⚡ Rapido (llama3.2:3b)", "🎯 Qualidade (qwen2.5:7b, mais lento)",
-         "🏆 Maxima qualidade (qwen2.5:14b, mais lento ainda)"],
+         "🧠 Raciocinio (deepseek-r1:7b, o mais lento)"],
         index=0, key="modo_llm",
-        help="Qualidade e Maxima qualidade respondem melhor perguntas que exigem contas/"
-             "comparacoes, mas levam bem mais tempo (rodam em CPU nesta maquina).",
+        help="Qualidade responde melhor perguntas que exigem contas/comparacoes. "
+             "Raciocinio pensa em voz alta antes de responder -- util para perguntas "
+             "abertas, mas mais lento e sem vantagem medida em SQL. Todos rodam em CPU "
+             "nesta maquina.",
     )
-    st.caption("Rapido: poucos segundos. Qualidade: ~40-60s. Maxima qualidade: ~1min ou mais.")
+    st.caption("Rapido: poucos segundos. Qualidade: ~40-60s. Raciocinio: ~2min ou mais.")
 
 
 OLLAMA_MODEL_FALLBACK = "llama3.2:1b"
 OLLAMA_MODEL_QUALIDADE = "qwen2.5:7b"
-OLLAMA_MODEL_MAXIMA_QUALIDADE = "qwen2.5:14b"
+OLLAMA_MODEL_RACIOCINIO = "deepseek-r1:7b"
 
 # temperature=0.2 (nao o default do Ollama, ~0.8): respostas que citam numeros/fatos de um
 # contexto pedem baixa variancia, nao criatividade -- mesmo principio do GPT-4 technical
@@ -297,22 +308,25 @@ def modelo_atual_e_estimativa():
     Ollama local' confundia o usuario -- Ollama e so o runtime/servidor, o modelo que roda
     dentro dele muda conforme o seletor de Prioridade)."""
     modo = st.session_state.get("modo_llm", "")
-    if modo.startswith("🏆"):
-        return OLLAMA_MODEL_MAXIMA_QUALIDADE, "~1min ou mais"
+    if modo.startswith("🧠"):
+        return OLLAMA_MODEL_RACIOCINIO, "~2min ou mais"
     if modo.startswith("🎯"):
         return OLLAMA_MODEL_QUALIDADE, "~40-60s"
     return OLLAMA_MODEL, "poucos segundos"
 
 
 def call_ollama(prompt, timeout=180, temperature=OLLAMA_TEMPERATURE):
-    """Tenta o modelo principal (3B rapido, ou 7B/14B se o usuario escolheu Qualidade/Maxima
-    qualidade na sidebar); se falhar por falta de memoria do servidor Ollama, cai
+    """Tenta o modelo principal (3B rapido, ou qwen2.5:7b/deepseek-r1:7b se o usuario escolheu
+    Qualidade/Raciocinio na sidebar); se falhar por falta de memoria do servidor Ollama, cai
     automaticamente para o modelo 1B (mais estavel) em vez de travar."""
     modo = st.session_state.get("modo_llm", "")
     modelo_principal = OLLAMA_MODEL
-    if modo.startswith("🏆"):
-        modelo_principal = OLLAMA_MODEL_MAXIMA_QUALIDADE
-        timeout = max(timeout, 240)
+    if modo.startswith("🧠"):
+        modelo_principal = OLLAMA_MODEL_RACIOCINIO
+        # 300s (nao 240s): medido em 2026-09-09, o deepseek-r1:7b estourou o timeout de 120s
+        # numa das 2 perguntas de SQL testadas -- modelo de raciocinio gera cadeia longa antes
+        # da resposta, precisa de folga maior que os demais.
+        timeout = max(timeout, 300)
     elif modo.startswith("🎯"):
         modelo_principal = OLLAMA_MODEL_QUALIDADE
         timeout = max(timeout, 180)
