@@ -42,6 +42,41 @@ from rag_hibrido import chunk_texto, MANUAIS_DIR, MODELO_EMBEDDING, MODELO_RERAN
 
 CHROMA_DIR = Path(r"C:\Projetos\Harbor\rag\chroma_db_langchain")
 COLECAO = "manuais_harbor_langchain_bm25rrf"
+MODELO_CONTEXTUALIZACAO = "qwen2.5:7b"
+
+
+def _contextualizar_chunk(chunk: str, documento_completo: str, nome_arquivo: str) -> str:
+    """Contextual Retrieval (Anthropic, arXiv/engineering blog 2024, adaptado para Ollama
+    local -- ver docstring de indexar() para o motivo desta flag existir). Gera um resumo
+    curto (50-100 tokens) situando o chunk dentro do documento completo, e PREPENDA ao texto
+    original do chunk -- o texto final e o que entra tanto no embedding denso quanto no BM25
+    (por isso "Contextual Embeddings" + "Contextual BM25" na nomenclatura original).
+
+    O documento_completo e truncado a 3000 caracteres no prompt para nao inflar o contexto do
+    LLM local com manuais grandes -- suficiente para o modelo entender de que assunto o
+    documento trata, nao precisa do texto inteiro para gerar um resumo situacional curto."""
+    from shared.ollama_client import chamar as chamar_ollama
+
+    prompt = f"""Aqui esta um documento tecnico de manutencao industrial:
+<documento>
+{documento_completo[:3000]}
+</documento>
+
+Aqui esta um trecho especifico desse documento:
+<trecho>
+{chunk}
+</trecho>
+
+Escreva um contexto curto (1-2 frases, maximo 100 palavras) situando este trecho dentro do
+documento, para melhorar sua recuperacao em busca. Responda SOMENTE o contexto, sem repetir o
+trecho."""
+    try:
+        contexto = str(chamar_ollama(prompt, modelo=MODELO_CONTEXTUALIZACAO)).strip()
+        return f"{contexto}\n\n{chunk}" if contexto else chunk
+    except Exception:
+        # Ollama indisponivel/erro -- fail-open, indexa o chunk sem contexto em vez de travar
+        # a indexacao inteira (mesma postura ja usada no DBA-Agent e no RAG agentic).
+        return chunk
 
 
 class RAGHibrido:
@@ -77,7 +112,7 @@ class RAGHibrido:
             self._reranker = HuggingFaceCrossEncoder(model_name=MODELO_RERANK)
         return self._reranker
 
-    def indexar(self, forcar=False, documentos_customizados=None):
+    def indexar(self, forcar=False, documentos_customizados=None, usar_contexto=False):
         """Le os manuais .md, corta em chunks, embeda e indexa no ChromaDB + BM25Retriever
         (em memoria). Se a colecao ja existir e forcar=False, reaproveita o indice persistido
         em disco para o vetor denso (BM25 e sempre reconstruido em memoria -- BM25Retriever
@@ -86,7 +121,16 @@ class RAGHibrido:
         documentos_customizados (opcional): lista de {"id", "texto", "fonte"} para indexar um
         corpus diferente dos manuais .md, SEM chunking -- mesmo contrato do RAGHibrido original,
         usado por benchmarks (ex.: NanoBEIR) que precisam do id original para comparar contra
-        o gold (qrels)."""
+        o gold (qrels).
+
+        usar_contexto (Contextual Retrieval, Anthropic -- item 4 da rodada de fechamento da
+        fila de trabalho, 2026-09-09): se True, prependa a cada chunk um resumo curto gerado
+        por LLM situando o chunk dentro do documento, ANTES de embedar e de indexar no BM25
+        ("Contextual Embeddings" + "Contextual BM25"). Default False -- flag de ablacao, nunca
+        branch de codigo (mesmo padrao ja usado em usar_rerank/usar_hybrid), para medir
+        Recall@5/MRR/Precision@5 com e sem antes de decidir se vira produção. So se aplica ao
+        caminho de chunking automatico dos manuais -- documentos_customizados (benchmarks)
+        nunca sao contextualizados, ja vem prontos por definicao."""
         from langchain_chroma import Chroma
         from langchain_community.retrievers import BM25Retriever
         from langchain_core.documents import Document
@@ -107,8 +151,10 @@ class RAGHibrido:
         else:
             for caminho in sorted(MANUAIS_DIR.glob("*.md")):
                 texto = caminho.read_text(encoding="utf-8").strip()
-                for i, chunk in enumerate(chunk_texto(texto)):
-                    documentos.append(chunk)
+                chunks = chunk_texto(texto)
+                for i, chunk in enumerate(chunks):
+                    chunk_final = _contextualizar_chunk(chunk, texto, caminho.name) if usar_contexto else chunk
+                    documentos.append(chunk_final)
                     metadados.append({"file_name": caminho.name, "chunk_index": i})
                     ids.append(f"{caminho.stem}_{i}")
 
