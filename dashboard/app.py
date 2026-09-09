@@ -11,6 +11,12 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+# Precisa vir ANTES do import de shared.ollama_client -- streamlit run app.py roda a partir de
+# dashboard/, sem o root do projeto no sys.path por padrao (achado real, 2026-09-09: dashboard
+# quebrava com ModuleNotFoundError: No module named 'shared' assim que rag_hibrido_langchain.py
+# passou a importar shared.ollama_client dentro de _contextualizar_chunk()).
+sys.path.insert(0, r"C:\Projetos\Harbor")
+
 from shared.ollama_client import chamar as _chamar_ollama
 import streamlit as st
 from sqlalchemy import create_engine, text
@@ -34,9 +40,13 @@ import rag_gerador
 # (Rapido/Qualidade/Maxima qualidade) que nl_to_sql.py nao tem, entao em vez de importar
 # so as funcoes, injeta o proprio call_ollama do dashboard via parametro chamar_llm.
 sys.path.insert(0, r"C:\Projetos\Harbor\nl_to_sql")
-sys.path.insert(0, r"C:\Projetos\Harbor")
 import nl_to_sql as _nl_to_sql
-from nl_to_sql.nl_to_sql_langgraph import perguntar_com_dba_langgraph
+# Import direto do modulo solto (nao via pacote "nl_to_sql.nl_to_sql_langgraph") -- o import
+# de "nl_to_sql" acima ja resolveu para nl_to_sql/nl_to_sql.py (por causa do sys.path.insert
+# da linha anterior, prioridade sobre o pacote), entao Python ja registrou sys.modules
+# ["nl_to_sql"] como MODULO, nao como pacote -- tentar importar "nl_to_sql.nl_to_sql_langgraph"
+# depois disso falha com "'nl_to_sql' is not a package" (achado real, 2026-09-09).
+from nl_to_sql_langgraph import perguntar_com_dba_langgraph
 
 OUTPUTS = Path(r"C:\Projetos\Harbor\outputs")
 DATASET_ROOT = Path(r"C:\Users\USER\Downloads\Projeto_HarboR-20260707T002634Z-3-001\Projeto_HarboR\Dataset")

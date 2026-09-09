@@ -29,19 +29,37 @@ original (nao adota o teto de 6 do prototipo de benchmark) -- a decisao e sobre 
 
 from __future__ import annotations
 
+import importlib.util
+import sys
+from pathlib import Path
 from typing import TypedDict
 
 from langgraph.graph import StateGraph, START, END
 
-from nl_to_sql.nl_to_sql import (
-    call_ollama,
-    corrigir_sql,
-    gerar_sql,
-    verificar_resultado_responde,
-    _executar,
-    _limpar_sql,
-    ESQUEMA,
-)
+# Carregamento explicito por CAMINHO DE ARQUIVO (nao por nome de import) -- o nome "nl_to_sql"
+# e ambiguo neste projeto: existe tanto o MODULO nl_to_sql/nl_to_sql.py quanto, desde que este
+# arquivo (nl_to_sql_langgraph.py) passou a viver dentro do PACOTE nl_to_sql/ (com
+# __init__.py), o proprio pacote "nl_to_sql". Dependendo de qual consumidor importa primeiro
+# (dashboard/app.py registra "nl_to_sql" como modulo via sys.path na pasta; pytest, rodando da
+# raiz, registra "nl_to_sql" como pacote via import absoluto), `from nl_to_sql import
+# call_ollama` resolve para coisas diferentes -- e falha na metade dos casos (achado real,
+# 2026-09-09, dois bugs sucessivos: "'nl_to_sql' is not a package" e depois "cannot import
+# name 'call_ollama' from 'nl_to_sql' [pacote vazio]"). Carregar por caminho de arquivo via
+# importlib elimina a ambiguidade -- sempre pega nl_to_sql/nl_to_sql.py, nao importa o que
+# outro consumidor ja registrou em sys.modules["nl_to_sql"].
+_caminho_nl_to_sql = Path(__file__).resolve().parent / "nl_to_sql.py"
+_spec = importlib.util.spec_from_file_location("_nl_to_sql_impl", _caminho_nl_to_sql)
+_nl_to_sql_impl = importlib.util.module_from_spec(_spec)
+sys.modules["_nl_to_sql_impl"] = _nl_to_sql_impl
+_spec.loader.exec_module(_nl_to_sql_impl)
+
+call_ollama = _nl_to_sql_impl.call_ollama
+corrigir_sql = _nl_to_sql_impl.corrigir_sql
+gerar_sql = _nl_to_sql_impl.gerar_sql
+verificar_resultado_responde = _nl_to_sql_impl.verificar_resultado_responde
+_executar = _nl_to_sql_impl._executar
+_limpar_sql = _nl_to_sql_impl._limpar_sql
+ESQUEMA = _nl_to_sql_impl.ESQUEMA
 
 
 class EstadoSQL(TypedDict, total=False):

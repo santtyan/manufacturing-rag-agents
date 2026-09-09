@@ -44,19 +44,33 @@ do resultado de outro, sao checagens independentes em ordem de prioridade).
 
 from __future__ import annotations
 
+import importlib.util
+import sys
+from pathlib import Path
 from typing import TypedDict
 
 from langgraph.graph import StateGraph, START, END
 
-from dashboard.roteador import (
-    pede_interpretacao_recall,
-    pede_confirmacao_alarme_automatico,
-    pede_ranking_assets_duas_empresas,
-    pede_downtime_dataset_errado,
-    pede_matriz_confusao_precalculada,
-    rotear_por_keyword,
-    rotear_por_llm,
-)
+# Carregamento explicito por CAMINHO DE ARQUIVO (nao "from dashboard.roteador import ...") --
+# mesmo problema de ambiguidade de nome ja resolvido em nl_to_sql_langgraph.py: "dashboard" so
+# e um pacote importavel quando o root do projeto esta no sys.path (ex.: pytest rodando da
+# raiz); quando dashboard/app.py roda via `streamlit run app.py` de dentro da propria pasta
+# dashboard/, "dashboard" nunca chega a ser registrado como pacote, e
+# "from dashboard.roteador import ..." falha com ModuleNotFoundError (achado real, 2026-09-09).
+# Carregar por caminho de arquivo elimina a dependencia de como o sys.path foi montado.
+_caminho_roteador = Path(__file__).resolve().parent / "roteador.py"
+_spec = importlib.util.spec_from_file_location("_roteador_impl", _caminho_roteador)
+_roteador_impl = importlib.util.module_from_spec(_spec)
+sys.modules["_roteador_impl"] = _roteador_impl
+_spec.loader.exec_module(_roteador_impl)
+
+pede_interpretacao_recall = _roteador_impl.pede_interpretacao_recall
+pede_confirmacao_alarme_automatico = _roteador_impl.pede_confirmacao_alarme_automatico
+pede_ranking_assets_duas_empresas = _roteador_impl.pede_ranking_assets_duas_empresas
+pede_downtime_dataset_errado = _roteador_impl.pede_downtime_dataset_errado
+pede_matriz_confusao_precalculada = _roteador_impl.pede_matriz_confusao_precalculada
+rotear_por_keyword = _roteador_impl.rotear_por_keyword
+rotear_por_llm = _roteador_impl.rotear_por_llm
 
 
 class EstadoRoteador(TypedDict, total=False):
