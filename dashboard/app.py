@@ -34,7 +34,9 @@ import rag_gerador
 # (Rapido/Qualidade/Maxima qualidade) que nl_to_sql.py nao tem, entao em vez de importar
 # so as funcoes, injeta o proprio call_ollama do dashboard via parametro chamar_llm.
 sys.path.insert(0, r"C:\Projetos\Harbor\nl_to_sql")
+sys.path.insert(0, r"C:\Projetos\Harbor")
 import nl_to_sql as _nl_to_sql
+from nl_to_sql.nl_to_sql_langgraph import perguntar_com_dba_langgraph
 
 OUTPUTS = Path(r"C:\Projetos\Harbor\outputs")
 DATASET_ROOT = Path(r"C:\Users\USER\Downloads\Projeto_HarboR-20260707T002634Z-3-001\Projeto_HarboR\Dataset")
@@ -351,20 +353,33 @@ def rag_responder(pergunta):
     return resposta, documentos
 
 
-# ── NL-to-SQL (wrappers finos sobre nl_to_sql/nl_to_sql.py, injetando o call_ollama deste
-# dashboard -- ver comentario no import de _nl_to_sql acima) ─────────────────────────────
+# ── NL-to-SQL (wrappers finos sobre nl_to_sql/nl_to_sql_langgraph.py, injetando o call_ollama
+# deste dashboard -- ver comentario no import de _nl_to_sql acima) ───────────────────────────
 def nl_to_sql_perguntar(pergunta_nl):
-    """Gera e roda o SQL (esquema/prompt/self-repair vindos de nl_to_sql.py), usando o
-    call_ollama deste dashboard (seletor Rapido/Qualidade/Maxima qualidade) em vez do
-    call_ollama fixo de nl_to_sql.py."""
-    return _nl_to_sql.perguntar(pergunta_nl, chamar_llm=call_ollama)
+    """Gera e roda o SQL via o grafo LangGraph do self-repair (nl_to_sql_langgraph.py,
+    migracao de 2026-09-09 -- mesmos prompts/logica de nl_to_sql.py, so a orquestracao mudou
+    de if/try/except para StateGraph), usando o call_ollama deste dashboard (seletor
+    Rapido/Qualidade/Maxima qualidade) em vez do call_ollama fixo de nl_to_sql.py.
+
+    usar_dba_agent=False: o dashboard NUNCA teve o DBA-Agent ligado antes desta migracao (so
+    usava perguntar(), sem segunda opiniao) -- mantido assim deliberadamente aqui, ativar essa
+    camada e uma decisao de produto separada (mais latencia/custo por pergunta SQL), que
+    precisa de medicao propria de orcamento de latencia do chat antes de ligar, nao algo para
+    mudar de graca junto com uma migracao estrutural de framework."""
+    resultado = perguntar_com_dba_langgraph(pergunta_nl, usar_dba_agent=False, chamar_llm=call_ollama)
+    return resultado["sql"], resultado["resultado"]
 
 
 # Roteamento (gates + rotear_pergunta) -- EXTRAIDO para dashboard/roteador.py (2026-08-07),
 # mesmo padrao de rag_gerador.py: modulo compartilhado entre este dashboard e o harness de
 # avaliacao (eval/rodar_golden.py), fonte unica de verdade, sem risco de desatualizar uma
 # copia. Ver docstring de roteador.py para o problema real que isso resolveu.
-from roteador import rotear_pergunta  # noqa: E402
+#
+# MIGRADO para LangGraph em 2026-09-09 (dashboard/roteador_langgraph.py) -- validado sem
+# nenhuma divergencia contra o roteador original nas 67 perguntas do golden set, tanto no
+# caminho deterministico (usar_llm=False) quanto com o desempate por LLM real ligado. Nenhum
+# gate/regra mudou, so a orquestracao (StateGraph em vez de cadeia de if).
+from roteador_langgraph import rotear_pergunta_langgraph as rotear_pergunta  # noqa: E402
 
 
 BADGE_ROTA = {

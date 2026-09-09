@@ -32,7 +32,7 @@ _sys.path.insert(0, str(Path(__file__).parent.parent / "dashboard"))
 _sys.path.insert(0, str(Path(__file__).parent.parent))
 from verificacao import numeros_nao_fundamentados
 import rag_gerador
-from roteador import rotear_pergunta
+from roteador_langgraph import rotear_pergunta_langgraph as rotear_pergunta
 from shared.ollama_client import chamar as _chamar_ollama
 
 BASE = Path(r"C:\Projetos\Harbor")
@@ -380,8 +380,10 @@ def _responder_sql(pergunta):
     resultado da query em texto: um numero que a resposta cite mas nao esteja na tabela retornada
     e candidato a alucinacao, igual ao padrao ja usado nas rotas contexto/rag."""
     _sys.path.insert(0, r"C:\Projetos\Harbor\nl_to_sql")
+    _sys.path.insert(0, r"C:\Projetos\Harbor")
     try:
-        from nl_to_sql import perguntar_com_dba, resposta_amigavel
+        from nl_to_sql import resposta_amigavel
+        from nl_to_sql.nl_to_sql_langgraph import perguntar_com_dba_langgraph as perguntar_com_dba
         r = perguntar_com_dba(pergunta)
         contexto = f"SQL executado: {r['sql']}\nResultado:\n{r['resultado'].to_string()}"
         resposta = resposta_amigavel(pergunta, r["sql"], r["resultado"])
