@@ -141,19 +141,35 @@ seguindo o padrão de `roadmap-slm-multiagente`.
       registrada" acima para o motivo (consistência com LangGraph futuro, não ganho isolado de
       Recall@5/MRR). `ContextualCompressionRetriever` não foi usado — fica como item do roadmap
       `[[roadmap-rag-survey]]` (item 2, context compression), não faz parte deste item.
-- [ ] **2. Self-repair/DBA-Agent → LangGraph critic node (padrão CRAG/Self-RAG)** — **protótipo
-      existe** desde 2026-09-08 em `agents/tarefa_sql.py` (agente ReAct genérico de
-      `agents/react.py`, LangGraph real, com trace completo), mas é uma implementação PARALELA
-      para a Fase 5 da disciplina experimental do PDC (replicar ReAct + entregar trace), não a
-      migração formal deste item — `nl_to_sql/nl_to_sql.py` continua com o self-repair original
-      em produção (`perguntar()`/`perguntar_com_dba()`), consumido por `dashboard/app.py` e
-      `eval/rodar_golden.py`. Não marcar `[x]` até o protótipo substituir de fato o self-repair
-      de produção com a regra de não regressão do harness aplicada. Achado real do protótipo:
-      o self-repair de produção tem teto de 1 tentativa; o agente ReAct testado com até 6
-      tentativas mostrou o modelo local (qwen2.5:7b) às vezes repetir a MESMA query malformada
-      várias vezes sem usar a Observation de erro para se corrigir — sugere que aumentar o teto
-      de tentativas sozinho, sem melhorar o prompt de correção, não teria ajudado.
-- [ ] **3. Roteador + gates → LangGraph conditional edges, gates portados 1:1**
+- [x] **2. Self-repair/DBA-Agent → LangGraph critic node (padrão CRAG/Self-RAG)** — promovido
+      para produção em 2026-09-09 como `nl_to_sql/nl_to_sql_langgraph.py`
+      (`perguntar_com_dba_langgraph`), um `StateGraph` explícito reusando os mesmos prompts/
+      funções do original (`gerar_sql`, `corrigir_sql`, `verificar_resultado_responde`) — mudança
+      estrutural, não de comportamento. Mantido o teto de 1 tentativa de correção do original
+      (não o teto de 6 do protótipo `agents/tarefa_sql.py` — achado real: o modelo local repete
+      o mesmo erro sem se corrigir de verdade, aumentar o teto sozinho não ajudaria). Harness
+      rodado antes/depois: 56/67 → 55/67 roteamento (investigado a fundo — 1 pergunta de
+      fronteira, `cnc-cam3`, oscila entre rotas mesmo no roteador ORIGINAL não migrado, 9/10 e
+      1/10 em teste intercalado — instabilidade pré-existente do desempate por LLM, não
+      regressão), faithfulness 64%→64% (idêntico), alucinações 4→3. Consumidores atualizados:
+      `dashboard/app.py` (com `usar_dba_agent=False`, preservando o comportamento que o chat
+      sempre teve — nunca tinha DBA-Agent ligado) e `eval/rodar_golden.py` (com DBA-Agent
+      ligado, como sempre teve). 5 testes unitários (mock de LLM). Confirmado funcionando no
+      dashboard real (`streamlit run app.py`), incluindo a correção de 3 bugs de import
+      descobertos só nesse teste manual (ver skill `slide-progresso-sessao`/plano de
+      implementação para o detalhe — `sys.path`/`sys.modules` ambíguo entre módulo solto e
+      pacote, corrigido com `importlib.util.spec_from_file_location`).
+- [x] **3. Roteador + gates → LangGraph conditional edges, gates portados 1:1** — promovido
+      para produção em 2026-09-09 como `dashboard/roteador_langgraph.py`
+      (`rotear_pergunta_langgraph`), `StateGraph` de 2 nós (gates determinísticos em cascata +
+      desempate condicional por LLM) reusando as 11 funções `pede_*` e `rotear_por_llm`
+      originais sem reescrever nenhuma regra. **0 divergências em 67/67 perguntas do golden
+      set**, tanto com `usar_llm=False` (caminho determinístico) quanto com `usar_llm=True`
+      (desempate por Ollama real, 10 tentativas intercaladas por pergunta de fronteira). Era o
+      item de maior risco/esforço da tabela (9+ gates a portar sem perder cobertura) — fechado
+      sem nenhuma regressão medida. Consumidores atualizados: `dashboard/app.py`,
+      `eval/rodar_golden.py`. 7 testes unitários, incluindo equivalência completa contra o
+      golden set no caminho determinístico.
 - [ ] **4. Diagnóstico em camadas → avaliar se vale migrar (pode ficar como está)**
 - [ ] **5. NL-to-SQL → LangGraph + validação determinística própria mantida em paralelo ao
       `sql_db_query_checker`**

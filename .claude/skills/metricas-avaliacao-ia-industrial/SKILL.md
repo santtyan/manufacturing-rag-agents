@@ -25,6 +25,10 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
 - ❌ nDCG no RAG de texto — `eval/avaliar_retrieval.py` ainda só tem Recall/Precision/MRR. Se
   for adicionar, reusar a função `ndcg_at_k` já escrita em `avaliar_benchmark_multimodal_2x2.py`
   em vez de reimplementar.
+- ✅ Recall@5/Precision@5/MRR medidos também para duas técnicas avançadas de RAG nesta rodada
+  (2026-09-09): Agentic RAG (`rag/rag_agentic.py`, resultado negativo, não promovido) e
+  Contextual Retrieval (`rag_hibrido_langchain.py::indexar(usar_contexto=True)`, resultado
+  misto, não promovido) — ver `roadmap-rag-survey` itens 3 e 5 para os números completos.
 
 ### LLM
 - ✅ Faithfulness: métrica central de `eval/rodar_golden.py` (números esperados citados na resposta).
@@ -35,11 +39,18 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
 
 ### Ferramentas
 - 🔶 SQL Accuracy: BIRD-SQL/Spider (`eval/avaliar_bird_sql.py`, `eval/avaliar_spider_sql.py`)
-  medem execução correta, não sob o nome formal "SQL Accuracy".
+  medem execução correta, não sob o nome formal "SQL Accuracy". Também medido indiretamente via
+  `tests/test_nl_to_sql_langgraph.py` (5 testes cobrindo sucesso de primeira, self-repair,
+  rejeição do DBA-Agent, ablação) e a comparação DeepSeek vs. qwen2.5:7b (2026-09-09): sucesso
+  2/2 vs 1/2 numa amostra de 2 perguntas — ainda não é "SQL Accuracy" formal sobre golden set
+  inteiro, mas mais evidência que antes.
 - ❌ Cypher Accuracy — não aplicável, Harbor não usa grafo/Neo4j.
-- ❌ Tool Selection Accuracy — o mais próximo é "rota_ok" do roteamento
-  (`eval/rodar_golden.py`), mas mede roteamento entre 3 fontes (contexto/RAG/SQL), não seleção
-  de tool dentro de um agente (ex.: `agents/react.py` nunca teve essa métrica calculada).
+- 🔶 Tool Selection Accuracy — "rota_ok" do roteamento (`eval/rodar_golden.py`) segue medindo
+  roteamento entre 3 fontes, não seleção de tool dentro de um agente. Porém
+  `tests/test_roteador_langgraph.py::test_equivalencia_completa_golden_set_sem_llm` (2026-09-09)
+  é o primeiro teste determinístico real de decisão de rota no projeto — ainda não é Tool
+  Selection Accuracy formal de agente (`agents/react.py` continua sem essa métrica), mas é a
+  peça mais próxima disso hoje.
 
 ### Industrial
 - 🔶 Diagnosis Accuracy: a API de 3 camadas existe (`api/main.py`), mas sem métrica agregada
@@ -51,10 +62,14 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
 
 ### Sistema
 - ✅ Custo/Tokens (desde 2026-09-08): `shared/ollama_client.py`, captura
-  `gen_ai_usage_input_tokens`/`gen_ai_usage_output_tokens` em toda chamada Ollama.
+  `gen_ai_usage_input_tokens`/`gen_ai_usage_output_tokens` em toda chamada Ollama. Aplicado
+  nesta rodada (2026-09-09) para comparar `qwen2.5:7b` vs. `deepseek-r1:7b` (tokens de entrada/
+  saída, duração total) — primeiro uso real desse dado para decisão de modelo, não só captura.
 - 🔶 Latência/Tempo de resposta: `shared/trace.py` tem `duracao_s` por passo e
   `duracao_total_s` por execução, mas só instrumentado nos agentes (`agents/`), não no
-  dashboard/chat de produção real (`dashboard/app.py` ainda não grava latência em lugar nenhum).
+  dashboard/chat de produção real (`dashboard/app.py` ainda não grava latência em lugar
+  nenhum) — lacuna confirmada ainda aberta em 2026-09-09, mesmo depois de self-repair e
+  roteador terem sido migrados e promovidos para produção no dashboard.
 - ❌ GPU — não medido; a própria máquina de desenvolvimento não tem GPU CUDA disponível
   (`torch.cuda.is_available() == False`, confirmado 2026-09-09), então localmente nem faria
   sentido medir isso ainda — só relevante se/quando o projeto rodar em hardware com GPU.

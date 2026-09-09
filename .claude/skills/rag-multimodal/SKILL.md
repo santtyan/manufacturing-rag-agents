@@ -195,14 +195,19 @@ limiar 0,85).
 **ACHADO REAL importante — top-p não é universalmente melhor, e piorou drasticamente no corpus
 pequeno**: no ViDoRe, top-p empatou com "sem rerank" (ambos 1.000) e foi 3x mais barato que
 top-k. No corpus Harbor, top-p **piorou** o resultado (0.286, pior que nem rerankear) enquanto
-top-k acertou tudo (1.000). Causa provável: com só 4 documentos no corpus, os scores do
-retrieval ficam concentrados/próximos, e o limiar de 0,85 corta candidatos demais cedo (média de
-menos de 2 candidatos rerankeados por pergunta no golden set de 4 perguntas) — inclui candidatos
-insuficientes para o rerank corrigir um erro do 1º estágio. **Não é um resultado definitivo**:
-amostra pequena (2 queries ViDoRe, 4 perguntas Harbor) — mas já mostra que o limiar de top-p
-precisa ser calibrado por tamanho de corpus, não usado com o mesmo valor fixo em qualquer escala.
-**Não decidir estratégia de produção a partir deste número** — ampliar a amostra primeiro (ver
-item de roadmap "aumentar escala do subset ViDoRe" no plano de implementação).
+top-k acertou tudo (1.000).
+
+**CAUSA RAIZ REAL, investigada e corrigida em 2026-09-09** (a hipótese anterior — "limiar mal
+calibrado por causa de scores concentrados" — estava errada): o script testou `TOP_P_LIMIAR`
+0,7, 0,85 e 0,99 no corpus Harbor e obteve **resultado idêntico nos três** (sempre 7 candidatos
+rerankeados). Isso não é questão de calibração — é que `estagio1_retrieval()` chama
+`rag.buscar(..., usar_rerank=False, ...)`, e sem rerank `RAGHibrido.buscar()` **não popula
+score real** (todos os candidatos vêm com `score=0.0`, confirmado diretamente). `selecionar_top_p`
+sempre cai no caso "sem sinal, retorna só 1 candidato" — a variável que o limiar deveria
+controlar nunca é exercida, porque não há massa de score para cortar. **Não decidir estratégia
+de produção a partir deste número** — o item de continuidade correto agora é dar ao 1º estágio
+um sinal de score real (ex. `usar_rerank=True` também no estágio 1, ou expor o score RRF do
+`EnsembleRetriever`) antes de re-tentar qualquer calibração de `TOP_P_LIMIAR`.
 
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 

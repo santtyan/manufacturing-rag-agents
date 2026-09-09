@@ -97,15 +97,36 @@ fixada pelo usuário, 2026-09-08).
 
 ### Esforço médio
 
-- [ ] **3. Retrieval adaptativo real dentro do RAG, via LangGraph critic node** (V-C, padrão
-      Self-RAG/FLARE) — um grafo LangGraph onde um nó avalia o score do primeiro resultado e
-      decide se refina a query e busca de novo. Mesmo padrão do item 2 da skill
-      `[[migrar-para-langchain]]` (self-repair/DBA-Agent) — implementar UMA VEZ, servindo os
-      dois roadmaps, não duplicar. LangGraph tem cookbook nativo de CRAG/Self-RAG.
+- [x] **3. Retrieval adaptativo real dentro do RAG, via LangGraph critic node** (V-C, padrão
+      Self-RAG/FLARE) — implementado em 2026-09-09 como `rag/rag_agentic.py`
+      (`buscar_agentic`), grafo com 2 nós: busca via `RAGHibrido.buscar()` + um LLM juiz
+      (mesmo padrão do DBA-Agent, não score de reranker — ver docstring do módulo para o
+      motivo, score do Cross-Encoder se mostrou péssimo preditor de acerto) que avalia se o
+      texto recuperado responde à pergunta; se não, reformula a query e busca de novo (1 vez).
+      **Resultado medido: PIOROU** (Recall@1 sobre 15 perguntas do golden set: 12/15 chamada
+      única → 11/15 agentic). Causa raiz investigada: o documento certo é recuperado, mas às
+      vezes o chunk específico não contém a resposta (está em outra seção do mesmo arquivo) —
+      reformular a query não resolve um problema de chunking, e pode afastar do documento já
+      encontrado. **Não promovido para produção** — fica documentado como protótipo medido,
+      não como substituto de `RAGHibrido.buscar()`. 3 testes unitários. O design correto
+      precisaria, ao rejeitar um chunk, tentar um chunk vizinho do MESMO documento antes de
+      reformular a query inteira (não implementado, item de continuidade futura).
 - [ ] **4. Multi-query (query expansion) via `EnsembleRetriever` com múltiplas queries** (III-C-1)
       — gerar 2-3 variações da pergunta via `ChatOllama`, rodar cada uma contra o
       `RAGLangChainBM25RRF`, fundir com RRF (mesmo mecanismo já usado para sparse+dense, agora
       aplicado a variações de query).
+- [x] **5. Contextual Retrieval (Anthropic), adaptado para Ollama local** — implementado em
+      2026-09-09 como `rag_hibrido_langchain.py::indexar(usar_contexto=True)`, flag de
+      ablação (nunca branch de código) que prependa um resumo curto gerado por `qwen2.5:7b` a
+      cada chunk antes de embedar e de indexar no BM25. **Resultado medido no golden set
+      completo (50 perguntas RAG): Recall@5 idêntico (98,0%), MRR levemente melhor (0,907 vs
+      0,899), Precision@5 PIOROU (46,4% vs 50,0%)**. Causa provável: manuais do Harbor são
+      curtos (40-181 linhas cada) — a pesquisa original já indicava que o ganho da técnica
+      cresce com o tamanho do documento; documentos curtos já carregam contexto suficiente por
+      si só. **Não promovido para produção** (resultado misto, não justifica o custo de 1
+      chamada de LLM por chunk na indexação) — diferente do item 3 acima, aqui não há
+      regressão de recall, então vale revisitar se o corpus crescer com documentos mais longos.
+      3 testes unitários.
 
 ### Baixo retorno hoje / avaliar depois
 
