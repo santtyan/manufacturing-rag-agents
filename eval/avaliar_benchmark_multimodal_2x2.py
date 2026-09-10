@@ -114,7 +114,13 @@ def selecionar_top_p(candidatos_com_score, limiar=None):
 # ── Estagio 1: retrieval barato (caption-then-embed, producao atual) ────────────────────────
 def estagio1_retrieval(corpus_docs, perguntas, chroma_dir, colecao, k_candidatos=K_CANDIDATOS_1O_ESTAGIO):
     """Retorna, por pergunta, a lista ordenada de (doc_id, score) recuperada pelo RAG hibrido
-    (E5 + TF-IDF/BM25, sem rerank) -- o "encoder single-vector barato" do desenho HEAVEN."""
+    (E5 + TF-IDF/BM25, sem rerank) -- o "encoder single-vector barato" do desenho HEAVEN.
+
+    usar_score_rrf=True (item 2 do plano "Evoluir o RAG multimodal", 2026-09-09): ACHADO REAL
+    corrigido -- sem essa flag, buscar() sempre devolvia score=0.0 aqui (EnsembleRetriever/RRF
+    do LangChain nao expoe score quando usar_rerank=False), fazendo selecionar_top_p() sempre
+    cair no caso "sem sinal, 1 candidato" independente de TOP_P_LIMIAR. Ver rag_hibrido_langchain.py
+    para a implementacao do RRF explicito."""
     sys.path.insert(0, str(HARBOR_ROOT / "rag"))
     from rag_hibrido_langchain import RAGHibrido
 
@@ -125,7 +131,8 @@ def estagio1_retrieval(corpus_docs, perguntas, chroma_dir, colecao, k_candidatos
 
     resultados_por_pergunta = []
     for pergunta in perguntas:
-        candidatos = rag.buscar(pergunta, k=k_candidatos, usar_rerank=False, usar_hybrid=True, k_candidatos=k_candidatos)
+        candidatos = rag.buscar(pergunta, k=k_candidatos, usar_rerank=False, usar_hybrid=True,
+                                 k_candidatos=k_candidatos, usar_score_rrf=True)
         pares = [(c.get("id") or c.get("fonte", "").rsplit(".", 1)[0], c.get("score", 0.0)) for c in candidatos]
         resultados_por_pergunta.append(pares)
     return resultados_por_pergunta, tempo_indexacao
@@ -148,6 +155,9 @@ def estagio2_rerank(candidatos_estagio1, imagens_por_id, perguntas, estrategia="
     tempo_total_rerank = 0.0
     n_candidatos_total = 0
     rankings_finais = []
+    n_candidatos_por_pergunta = []  # item 4 do plano (2026-09-09): log explicito por pergunta --
+    # a ausencia desse log foi o que deixou o bug de score=0.0 passar despercebido atraves de
+    # 3 valores de TOP_P_LIMIAR testados sem ninguem notar que o numero de candidatos nunca mudava.
 
     for candidatos, pergunta in zip(candidatos_estagio1, perguntas):
         if estrategia == "top_k":
@@ -159,6 +169,7 @@ def estagio2_rerank(candidatos_estagio1, imagens_por_id, perguntas, estrategia="
 
         ids_selecionados = [doc_id for doc_id, _ in selecionados]
         n_candidatos_total += len(ids_selecionados)
+        n_candidatos_por_pergunta.append(len(ids_selecionados))
 
         t0 = time.time()
         imagens = [Image.open(imagens_por_id[doc_id]).convert("RGB") for doc_id in ids_selecionados]
@@ -169,6 +180,10 @@ def estagio2_rerank(candidatos_estagio1, imagens_por_id, perguntas, estrategia="
 
         ranking = sorted(zip(ids_selecionados, scores), key=lambda x: -x[1])
         rankings_finais.append([doc_id for doc_id, _ in ranking])
+
+    if estrategia == "top_p":
+        print(f"  n_candidatos_selecionados por pergunta (top_p, limiar={top_p_limiar or TOP_P_LIMIAR}): "
+              f"{n_candidatos_por_pergunta} (media={statistics.mean(n_candidatos_por_pergunta):.1f})")
 
     return rankings_finais, tempo_total_rerank, n_candidatos_total
 
