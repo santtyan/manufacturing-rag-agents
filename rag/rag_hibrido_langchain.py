@@ -189,9 +189,29 @@ class RAGHibrido:
         self._vectorstore.add_texts(texts=documentos, metadatas=metadados_com_id, ids=ids)
         return self._vectorstore._collection.count()
 
-    def buscar(self, pergunta, k=3, score_min=0.75, usar_rerank=True, usar_hybrid=True, k_candidatos=10):
+    def buscar(self, pergunta, k=3, score_min=0.75, usar_rerank=True, usar_hybrid=True,
+               k_candidatos=10, usar_score_rrf=False):
         """Retorna os k trechos mais relevantes: [{texto, fonte, id, score}, ...]. Mesma
-        assinatura/contrato de retorno de rag/rag_hibrido.py::RAGHibrido.buscar()."""
+        assinatura/contrato de retorno de rag/rag_hibrido.py::RAGHibrido.buscar().
+
+        score_min: parametro morto, nunca usado no corpo da funcao -- achado real ao investigar
+        o bug de score=0.0 abaixo (2026-09-09, plano 'Evoluir o RAG multimodal', item 2).
+        Mantido na assinatura por compatibilidade de interface com consumidores existentes
+        (nenhum passa score_min hoje, confirmado via grep antes desta mudanca), mas nao filtra
+        nada -- nao remover silenciosamente sem avisar quem eventualmente passar esse argumento
+        esperando que ele funcione.
+
+        usar_score_rrf (2026-09-09, item 2 do plano acima): quando usar_hybrid=True e
+        usar_rerank=False, o EnsembleRetriever (RRF) do LangChain nao expoe score nenhum --
+        ACHADO REAL: candidatos sempre vinham com score=0.0 literal, o que invalidava qualquer
+        calibracao de limiar de score rio abaixo (ex. selecionar_top_p() do benchmark 2x2
+        multimodal sempre caia no caso "sem sinal, retorna 1 candidato", fazendo TOP_P_LIMIAR
+        0,7/0,85/0,99 produzirem resultado identico). Com a flag ligada, o RRF e recalculado
+        explicitamente aqui (chamando os dois retrievers em separado e fundindo por
+        1/(60+rank), mesma constante k=60 que o EnsembleRetriever usa internamente) para expor
+        o score fundido de verdade. Default False -- flag de ablacao (mesmo padrao de
+        usar_contexto em indexar()): comportamento de producao (dashboard, avaliar_retrieval.py,
+        NanoBEIR) fica inalterado ate medicao confirmar nao-regressao."""
         from langchain_classic.retrievers import EnsembleRetriever
 
         if self._vectorstore is None:
@@ -200,18 +220,49 @@ class RAGHibrido:
         n_buscar = max(k_candidatos, k) if (usar_rerank or usar_hybrid) else k
         retriever_denso = self._vectorstore.as_retriever(search_kwargs={"k": n_buscar})
 
-        if usar_hybrid:
+        if usar_hybrid and usar_score_rrf:
+            self._bm25.k = n_buscar
+            docs_densos = retriever_denso.invoke(pergunta)
+            docs_bm25 = self._bm25.invoke(pergunta)
+
+            # RRF explicito: 1/(60+rank), rank comecando em 1 -- mesma constante k=60 default
+            # do EnsembleRetriever do LangChain (nao documentada como parametrizavel na versao
+            # instalada), fundindo os dois ranks por chave "_id" (unico entre os dois lados,
+            # ver metadados_com_id em indexar()).
+            RRF_K = 60
+            scores_rrf = {}
+            docs_por_id = {}
+            for rank, d in enumerate(docs_densos, start=1):
+                doc_id = d.metadata.get("_id")
+                scores_rrf[doc_id] = scores_rrf.get(doc_id, 0.0) + 1.0 / (RRF_K + rank)
+                docs_por_id[doc_id] = d
+            for rank, d in enumerate(docs_bm25, start=1):
+                doc_id = d.metadata.get("_id")
+                scores_rrf[doc_id] = scores_rrf.get(doc_id, 0.0) + 1.0 / (RRF_K + rank)
+                docs_por_id.setdefault(doc_id, d)
+
+            ids_ordenados = sorted(scores_rrf, key=scores_rrf.get, reverse=True)[:n_buscar]
+            candidatos = [
+                {"texto": docs_por_id[i].page_content, "fonte": docs_por_id[i].metadata["file_name"],
+                 "id": i, "score": round(scores_rrf[i], 6)}
+                for i in ids_ordenados
+            ]
+        elif usar_hybrid:
             self._bm25.k = n_buscar
             ensemble = EnsembleRetriever(retrievers=[retriever_denso, self._bm25], weights=[0.5, 0.5])
             docs = ensemble.invoke(pergunta)
+            candidatos = [
+                {"texto": d.page_content, "fonte": d.metadata["file_name"],
+                 "id": d.metadata.get("_id"), "score": 0.0}
+                for d in docs[:n_buscar]
+            ]
         else:
             docs = retriever_denso.invoke(pergunta)
-
-        candidatos = [
-            {"texto": d.page_content, "fonte": d.metadata["file_name"],
-             "id": d.metadata.get("_id"), "score": 0.0}
-            for d in docs[:n_buscar]
-        ]
+            candidatos = [
+                {"texto": d.page_content, "fonte": d.metadata["file_name"],
+                 "id": d.metadata.get("_id"), "score": 0.0}
+                for d in docs[:n_buscar]
+            ]
 
         if not usar_rerank:
             return candidatos[:k]

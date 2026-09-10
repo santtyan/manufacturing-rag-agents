@@ -290,6 +290,30 @@ iteração nesta máquina (sem GPU CUDA). **Não rodar o harness completo (26 im
 qualidade. Se decidir seguir, rodar em background (`nohup ... &`, como já feito com o
 moondream) e não bloquear a sessão interativa esperando.
 
+## Item 2 do plano executado: score RRF real atrás de flag (2026-09-09)
+
+Causa raiz já documentada acima (bug do benchmark 2x2) corrigida em `rag_hibrido_langchain.py::buscar()`:
+novo parâmetro `usar_score_rrf` (default `False`, flag de ablação, mesmo padrão de
+`usar_contexto`). Quando `True` e `usar_hybrid=True`, o RRF é recalculado explicitamente
+(retriever denso e BM25Retriever chamados em separado, fundidos por `1/(60+rank)`, mesma
+constante `k=60` do `EnsembleRetriever`), expondo o score fundido real em vez do `score: 0.0`
+literal que sempre existiu quando `usar_rerank=False`.
+
+**Confirmado sem regressão** contra o RAG de texto de produção: com a flag desligada
+(comportamento inalterado), `eval/avaliar_retrieval.py` deu Recall@5=98%/Precision@5=38%/
+MRR=0,898 — idêntico ao baseline conhecido. Teste ad-hoc direto na classe LangChain confirmou
+que ligar a flag **não muda o ranking** (mesmo Recall/Precision/MRR), mas passa a expor **52
+scores distintos** em vez de 1 valor fixo — o sinal que o benchmark 2x2/calibração de top-p
+precisava e não tinha.
+
+Achado registrado também: `score_min` (parâmetro da assinatura de `buscar()`) nunca é usado no
+corpo da função — documentado na docstring como parâmetro morto, mantido por compatibilidade
+de interface (nenhum consumidor real passa esse argumento hoje).
+
+**Próximo passo (item 4 do plano)**: re-rodar a calibração de `TOP_P_LIMIAR` do benchmark 2x2
+com `usar_score_rrf=True` no 1º estágio — agora um experimento válido, porque o limiar
+finalmente tem massa de score real para cortar.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com
