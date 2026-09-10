@@ -253,6 +253,43 @@ usado; 38% é a primeira medição de retrieval multimodal do Harbor que de fato
 plano, `granite3.2-vision:2b`/`qwen3-vl:4b`) já produz uma comparação interpretável contra este
 baseline (moondream 42,3%/38%/13%/0,253), ao contrário de antes.
 
+## Item 3 do plano: candidato `granite3.2-vision:2b` testado e REPROVADO (2026-09-09)
+
+Smoke test de 1 imagem antes de investir no harness completo (regra do plano, evita repetir o
+custo do qwen2.5vl que falhou em 2026-09-08). Resultado real:
+
+- **Tempo**: 282,1s (quase 5 minutos) para UMA legenda em CPU — inviabiliza rodar as 26 imagens
+  do corpus expandido (>2h só neste modelo).
+- **Qualidade**: legenda retornada foi `"Line 1 trends horizontal at ylabel 0.00."` — sem tipo
+  de gráfico reconhecível, sem título, sem eixos, sem conteúdo semântico. Reprovaria de
+  imediato pelo critério de promoção (`tipo_grafico_correto`, `menciona_eixos_corretos`,
+  `idioma_pt` todos falhariam).
+
+**Não prosseguir com `granite3.2-vision:2b`** — reprovado tanto por custo quanto por qualidade,
+sem precisar rodar o harness completo. Próximo candidato do plano: `qwen3-vl:4b`.
+
+## Item 3 do plano: candidato `qwen3-vl:4b` testado — qualidade muito superior, custo proibitivo (2026-09-09)
+
+Mesmo smoke test de 1 imagem. Resultado real:
+
+- **Qualidade**: legenda em português correto, identifica o tipo de gráfico (linha), os dois
+  eixos com o texto certo (tempo/índice da leitura, anomalia 0=normal/1=anômalo), e é
+  factualmente precisa — a série realmente é constante em 0 no arquivo de teste, e a legenda
+  descreve exatamente isso ("não há categorias ou componentes com valores mais altos ou mais
+  baixos, já que a anomalia permanece estável"). Primeira legenda de todo o processo que
+  passaria os 5 checks de fidelidade sem ressalva.
+- **Tempo**: **412,2s (quase 7 minutos) por imagem em CPU** — pior que o granite (282s) apesar
+  da qualidade muito maior. Rodar as 26 imagens do corpus expandido levaria **~3 horas** só de
+  captioning.
+
+**Decisão**: qualidade aprovaria pelo critério de promoção (a confirmar com o harness
+completo), mas o custo de ~3h para indexar 26 imagens é proibitivo para qualquer ciclo de
+iteração nesta máquina (sem GPU CUDA). **Não rodar o harness completo (26 imagens) com
+`qwen3-vl:4b` sem antes decidir explicitamente que vale a espera** — ao contrário do
+`granite3.2-vision:2b` (reprovado por completo), aqui a decisão é de custo/benefício, não de
+qualidade. Se decidir seguir, rodar em background (`nohup ... &`, como já feito com o
+moondream) e não bloquear a sessão interativa esperando.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com

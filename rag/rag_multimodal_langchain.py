@@ -66,7 +66,7 @@ def gerar_legenda(caminho_imagem, modelo=MODELO_VLM):
     return resposta.content.strip()
 
 
-def gerar_legendas(pasta=IMAGENS_DIR):
+def gerar_legendas(pasta=IMAGENS_DIR, modelo=MODELO_VLM):
     """Gera legenda de cada imagem em `pasta` via VLM (Ollama) e retorna a lista de
     documentos_customizados pronta para indexar. Etapa SEPARADA de indexar_imagens() -- achado
     real (2026-09-08): rodar captioning via Ollama e depois carregar sentence-transformers/torch
@@ -76,7 +76,7 @@ def gerar_legendas(pasta=IMAGENS_DIR):
     processos Python separados evita o problema -- ver bloco __main__."""
     documentos_customizados = []
     for caminho in sorted(pasta.glob("*.png")):
-        legenda = gerar_legenda(caminho)
+        legenda = gerar_legenda(caminho, modelo=modelo)
         documentos_customizados.append({
             "id": caminho.stem,
             "texto": legenda,
@@ -99,6 +99,15 @@ def indexar_imagens(documentos_customizados, forcar=False):
     return rag
 
 
+def _caminho_cache(modelo):
+    """Cache por modelo (item 3 do plano 'Evoluir o RAG multimodal', 2026-09-09): com multiplos
+    VLMs sendo comparados pelo criterio de promocao, um cache unico (legendas_cache.json) viraria
+    sobrescrita silenciosa entre execucoes de --captionar com modelos diferentes. Nome do modelo
+    sanitizado (":" nao e valido em nome de arquivo Windows)."""
+    nome_seguro = modelo.replace(":", "_").replace("/", "_")
+    return Path(rf"C:\Projetos\Harbor\rag\legendas_cache_{nome_seguro}.json")
+
+
 if __name__ == "__main__":
     import sys
     import json
@@ -107,9 +116,12 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1 and sys.argv[1] == "--captionar":
         # Etapa 1 (processo A): so gera e salva as legendas, sem tocar em torch/sentence-transformers.
-        docs = gerar_legendas()
-        CACHE_LEGENDAS.write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"\n{len(docs)} legendas salvas em {CACHE_LEGENDAS}")
+        # Modelo opcional: python rag_multimodal_langchain.py --captionar <modelo>
+        modelo = sys.argv[2] if len(sys.argv) > 2 else MODELO_VLM
+        docs = gerar_legendas(modelo=modelo)
+        destino = _caminho_cache(modelo) if modelo != MODELO_VLM else CACHE_LEGENDAS
+        destino.write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"\n{len(docs)} legendas salvas em {destino}")
     else:
         # Etapa 2 (processo B): le as legendas do cache e indexa/busca, sem tocar em Ollama.
         docs = json.loads(CACHE_LEGENDAS.read_text(encoding="utf-8"))
