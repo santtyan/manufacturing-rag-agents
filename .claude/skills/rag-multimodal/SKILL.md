@@ -314,6 +314,48 @@ de interface (nenhum consumidor real passa esse argumento hoje).
 com `usar_score_rrf=True` no 1º estágio — agora um experimento válido, porque o limiar
 finalmente tem massa de score real para cortar.
 
+## Item 4 do plano: recalibração de top-p iniciada, mas INTERROMPIDA — captioning qwen3-vl também não completou (2026-09-10)
+
+Depois do item 2 (score RRF real) pronto, o benchmark 2x2 (`eval/avaliar_benchmark_multimodal_2x2.py`)
+foi ajustado para de fato exercer `usar_score_rrf=True` no 1º estágio, mais log de
+`n_candidatos_selecionados` por pergunta na estratégia top_p (código commitado em `592dccf`,
+tinha ficado só local numa queda de sessão anterior — resgatado depois). Em paralelo, o
+captioning completo do `qwen3-vl:4b` sobre as 26 imagens (~3h esperadas) foi iniciado para medir
+o item 3 de verdade.
+
+**Nenhum dos dois terminou.** Dois processos em background (captioning + benchmark 2x2 com
+rerank ColModernVBERT) caíram junto com o fim da sessão/desligamento da máquina — `nohup`/
+`disown` mantém o processo vivo enquanto a sessão do agente roda, mas **não sobrevive a fechar o
+terminal por completo nem a desligar o computador**. Um relançamento intermediário também
+encontrou o Ollama recusando conexão (`ConnectError`) — sintoma pontual, resolvido relançando
+depois de confirmar `curl localhost:11434/api/tags` respondendo.
+
+**Único resultado real obtido antes da interrupção** (rodando `--so-harbor`, corpus de 26
+imagens, ainda com `usar_score_rrf` desligado nessa rodada específica — antes do ajuste acima):
+
+| Corpus | Estratégia | nDCG@5 | Recall@5 | MRR | Custo |
+|---|---|---|---|---|---|
+| Harbor (26 img.) | só retrieval (sem rerank) | 0,380 | 48% | 0,314 | 78,9s (3,03s/doc) |
+
+Consistente com o Recall@3=38% já medido no item 1 (mesma ordem de grandeza, k diferente) — não
+é achado novo, é confirmação. O rerank top-k/top-p sobre essas 26 imagens não chegou a rodar até
+o fim (processo interrompido no carregamento do ColModernVBERT).
+
+**Estado real ao final desta rodada de trabalho — nenhum destes está pronto**:
+- Cache `rag/legendas_cache_qwen3-vl_4b.json` — **não existe**, captioning nunca completou.
+- Recalibração de `TOP_P_LIMIAR` (0,7/0,85/0,99) com score real — **não rodou**, só o "só
+  retrieval" da tabela acima chegou a terminar.
+- Critério de promoção do `qwen3-vl:4b` (≥90% fidelidade/100% sem números inventados) —
+  **não avaliado no corpus completo**, só no smoke test de 1 imagem (ver seção acima).
+
+**Próximo passo real, ao retomar**: relançar o captioning do zero (`python
+rag/rag_multimodal_langchain.py --captionar`, modelo `qwen3-vl:4b`, ~3h) via `nohup ... &` +
+`disown`, confirmar Ollama no ar antes (`curl localhost:11434/api/tags`), e **evitar rodar o
+benchmark 2x2 (rerank ColModernVBERT) em paralelo** — rodar os dois processos pesados ao mesmo
+tempo pareceu contribuir para a instabilidade desta rodada (não confirmado como causa raiz, mas
+suficientemente suspeito para não repetir sem necessidade). Depois do captioning completar:
+checks de fidelidade → avaliação de retrieval → só então a recalibração de top-p.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com
