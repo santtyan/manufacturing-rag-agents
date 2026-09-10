@@ -66,23 +66,46 @@ def gerar_legenda(caminho_imagem, modelo=MODELO_VLM):
     return resposta.content.strip()
 
 
-def gerar_legendas(pasta=IMAGENS_DIR, modelo=MODELO_VLM):
+def gerar_legendas(pasta=IMAGENS_DIR, modelo=MODELO_VLM, caminho_checkpoint=None):
     """Gera legenda de cada imagem em `pasta` via VLM (Ollama) e retorna a lista de
     documentos_customizados pronta para indexar. Etapa SEPARADA de indexar_imagens() -- achado
     real (2026-09-08): rodar captioning via Ollama e depois carregar sentence-transformers/torch
     NO MESMO PROCESSO causa segmentation fault (exit 139) nesta maquina, mesmo com cada etapa
     funcionando perfeitamente isolada. Causa provavel: conflito de alocacao nativa entre o
     cliente HTTP do Ollama e o backend de tensor do PyTorch carregado depois. Rodar como dois
-    processos Python separados evita o problema -- ver bloco __main__."""
+    processos Python separados evita o problema -- ver bloco __main__.
+
+    Achado real (2026-09-10): com um VLM grande (qwen3-vl:4b, ~412s/imagem, ~3h para 26
+    imagens), o processo caiu duas vezes no meio da rodada (queda de sessao do agente,
+    desligamento da maquina) sem nunca chegar ao `return` -- perdendo todo o progresso porque o
+    cache so era gravado no final. `caminho_checkpoint`, se passado, grava a legenda em disco
+    apos CADA imagem e pula as que ja constam nele ao retomar."""
+    import json
+
     documentos_customizados = []
+    ja_processadas = {}
+    if caminho_checkpoint is not None and caminho_checkpoint.exists():
+        ja_processadas = {d["id"]: d for d in json.loads(caminho_checkpoint.read_text(encoding="utf-8"))}
+
     for caminho in sorted(pasta.glob("*.png")):
-        legenda = gerar_legenda(caminho, modelo=modelo)
-        documentos_customizados.append({
-            "id": caminho.stem,
-            "texto": legenda,
-            "fonte": caminho.name,
-        })
-        print(f"[{caminho.name}] legenda: {legenda[:100]}...")
+        if caminho.stem in ja_processadas:
+            doc = ja_processadas[caminho.stem]
+            print(f"[{caminho.name}] ja no checkpoint, pulando: {doc['texto'][:100]}...")
+        else:
+            legenda = gerar_legenda(caminho, modelo=modelo)
+            doc = {
+                "id": caminho.stem,
+                "texto": legenda,
+                "fonte": caminho.name,
+            }
+            print(f"[{caminho.name}] legenda: {legenda[:100]}...")
+            if caminho_checkpoint is not None:
+                ja_processadas[caminho.stem] = doc
+                caminho_checkpoint.write_text(
+                    json.dumps(list(ja_processadas.values()), ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        documentos_customizados.append(doc)
     return documentos_customizados
 
 
@@ -118,8 +141,8 @@ if __name__ == "__main__":
         # Etapa 1 (processo A): so gera e salva as legendas, sem tocar em torch/sentence-transformers.
         # Modelo opcional: python rag_multimodal_langchain.py --captionar <modelo>
         modelo = sys.argv[2] if len(sys.argv) > 2 else MODELO_VLM
-        docs = gerar_legendas(modelo=modelo)
         destino = _caminho_cache(modelo) if modelo != MODELO_VLM else CACHE_LEGENDAS
+        docs = gerar_legendas(modelo=modelo, caminho_checkpoint=destino)
         destino.write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n{len(docs)} legendas salvas em {destino}")
     else:
