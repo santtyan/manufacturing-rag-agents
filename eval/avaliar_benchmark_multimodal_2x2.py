@@ -224,10 +224,11 @@ def carregar_corpus_vidore():
     return corpus_docs, imagens_por_id, perguntas, alvos
 
 
-def carregar_corpus_harbor():
-    if not CACHE_LEGENDAS_HARBOR.exists() or not GOLDEN_HARBOR.exists():
+def carregar_corpus_harbor(caminho_cache_legendas=None):
+    caminho_cache_legendas = caminho_cache_legendas or CACHE_LEGENDAS_HARBOR
+    if not caminho_cache_legendas.exists() or not GOLDEN_HARBOR.exists():
         return None
-    corpus_docs = json.loads(CACHE_LEGENDAS_HARBOR.read_text(encoding="utf-8"))
+    corpus_docs = json.loads(caminho_cache_legendas.read_text(encoding="utf-8"))
     golden = json.loads(GOLDEN_HARBOR.read_text(encoding="utf-8"))["perguntas"]
     imagens_por_id = {d["id"]: IMAGENS_HARBOR / d["fonte"] for d in corpus_docs}
     perguntas = [pq["pergunta"] for pq in golden]
@@ -247,6 +248,11 @@ def main():
     parser.add_argument("--so-harbor", action="store_true",
                          help="pula o corpus ViDoRe (caro, ~36s/imagem) -- so roda o corpus proprio "
                               "do Harbor (4 imagens, rapido), util para calibrar top_p_limiar")
+    parser.add_argument("--cache-legendas", type=Path, default=None,
+                         help="sobrescreve rag/legendas_cache.json -- usar com o cache de outro "
+                              "VLM (ex. rag/legendas_cache_qwen3-vl_4b.json) para recalibrar "
+                              "top_p_limiar com legendas de melhor qualidade (item 3 do plano "
+                              "'Evoluir o RAG multimodal', 2026-09-10)")
     args = parser.parse_args()
 
     resultados_finais = []
@@ -261,7 +267,7 @@ def main():
         n = args.n_queries_vidore
         corpus_vidore = (corpus_docs, imagens_por_id, perguntas[:n], alvos[:n])
 
-    corpora = [("Corpus Harbor (4 img.)", carregar_corpus_harbor(), HARBOR_ROOT / "rag" / "chroma_db_multimodal", "imagens_harbor_multimodal_v1")]
+    corpora = [("Corpus Harbor (4 img.)", carregar_corpus_harbor(args.cache_legendas), HARBOR_ROOT / "rag" / "chroma_db_multimodal", "imagens_harbor_multimodal_v1")]
     if not args.so_harbor:
         corpora.insert(0, ("ViDoRe subset (60 pag.)", corpus_vidore, EVAL_DIR / "chroma_db_vidore_subset", "vidore_subset_v1"))
 
