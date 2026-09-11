@@ -117,7 +117,13 @@ def sem_numeros_inventados(legenda: str, limites_plausiveis: dict) -> bool:
     origem. `limites_plausiveis`: dict var -> (min, max) ja calculado a partir do CSV real.
     Heuristica conservadora: só reprova se o numero for claramente fora de QUALQUER faixa
     conhecida (evita falso positivo em numeros de contexto, ex: "classe 1")."""
-    numeros = [float(n) for n in re.findall(r"-?\d+\.?\d*", legenda)]
+    # Achado real (2026-09-10): o VLM escreve decimais em pt-BR (virgula), ex. "0,099 V" -- um
+    # regex so com ponto decimal quebra "0,099" em dois numeros falsos ("0" e "099"), inflando
+    # falsos positivos de "numero inventado" quando o numero na verdade estava correto.
+    numeros = [
+        float(n.replace(",", "."))
+        for n in re.findall(r"-?\d+(?:[.,]\d+)?", legenda)
+    ]
     if not numeros or not limites_plausiveis:
         return True  # sem numero para checar, ou sem faixa conhecida -- nao reprova
     todas_faixas = list(limites_plausiveis.values())
@@ -127,10 +133,13 @@ def sem_numeros_inventados(legenda: str, limites_plausiveis: dict) -> bool:
     # 0,78-0,81, mas uma folga de +-1 cobria ate 2,2, deixando "0.6"/"0.4" inventados passarem
     # como "plausiveis").
     for n in numeros:
-        if n in (0, 1, 2, 3):
+        if n in (0, 1, 2, 3, 4, 5):
             continue  # indices/contadores pequenos comuns em contexto (ex: "classe 1",
             # "2 categorias") -- mas NAO ignora decimais como 0.6/0.4, que sao valores
-            # reportados como dado, nao indices (achado real: "frequency 0.6/0.4" inventado)
+            # reportados como dado, nao indices (achado real: "frequency 0.6/0.4" inventado).
+            # Achado real (2026-09-10): "5" tambem aparece sempre no titulo "CNC 5 eixos" do
+            # corpus deste dataset -- sem isso, 5 imagens reprovavam por citar o nome do
+            # equipamento, nao um dado inventado.
         dentro_de_alguma_faixa = any(
             (mn - (mx - mn) * margem) <= n <= (mx + (mx - mn) * margem)
             for mn, mx in todas_faixas

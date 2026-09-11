@@ -1,0 +1,132 @@
+[
+  {
+    "id": "grafico_anomalia_eixo_x_tempo",
+    "texto": "Este é um gráfico de linha que ilustra a anomalia de temperatura ao longo do tempo, com eixo X representando o tempo (índice da leitura) e eixo Y medindo a anomalia (0=normal, 1=anômalo). O título especifica \"Anomalia de temperatura ao longo do tempo — Eixo X (CNC 5 eixos)\". A linha horizontal constante em 0.00 indica que a anomalia permanece normal em todos os pontos do tempo analisado. Portanto, não há categorias ou componentes com valores mais altos ou mais baixos, já que a anomalia é uniformemente zero.",
+    "fonte": "grafico_anomalia_eixo_x_tempo.png"
+  },
+  {
+    "id": "grafico_anomalia_eixo_y_tempo",
+    "texto": "Este é um gráfico de linha que ilustra a anomalia de temperatura ao longo do tempo, com título \"Anomalia de temperatura ao longo do tempo — Eixo Y (CNC 5 eixos)\". O eixo horizontal representa o tempo (índice da leitura) e o vertical a anomalia, definida como 0=normal e 1=anômalo. A anomalia permanece estável em 0.00 durante todo o período analisado, sem variações significativas. Portanto, não há valores mais altos ou mais baixos, já que a linha horizontal indica ausência de desvios.",
+    "fonte": "grafico_anomalia_eixo_y_tempo.png"
+  },
+  {
+    "id": "grafico_anomalia_eixo_z_tempo",
+    "texto": "Este é um gráfico de linha que exibe a anomalia de temperatura ao longo do tempo, com título \"Anomalia de temperatura ao longo do tempo — Eixo Z (CNC 5 eixos)\". O eixo horizontal representa o tempo (índice da leitura), enquanto o eixo vertical indica a anomalia (0 = normal, 1 = anômalo). A maioria dos valores permanece próxima de 0 até o índice 40.000, quando a anomalia atinge 1.0, indicando um evento abrupto. A curva é predominantemente plana, com um pico isolado no final do período analisado.",
+    "fonte": "grafico_anomalia_eixo_z_tempo.png"
+  },
+  {
+    "id": "grafico_anomalia_geral_tempo",
+    "texto": "Este é um gráfico de linha que ilustra a anomalia de temperatura ao longo do tempo, com título \"Anomalia de temperatura ao longo do tempo — Geral (CNC 5 eixos)\". O eixo horizontal representa o tempo (índice da leitura), variando de 0 a 50.000, enquanto o eixo vertical mede a anomalia, com 0 indicando normal e valores positivos/negativos representando anomalias. A linha permanece constantemente em 0.00, indicando ausência de variações significativas na anomalia. Portanto, todos os pontos têm valores iguais, sem categorias com anomalias mais altas ou mais baixas.",
+    "fonte": "grafico_anomalia_geral_tempo.png"
+  },
+  {
+    "id": "grafico_anomalia_spindle_tempo",
+    "texto": "Este é um gráfico de série temporal que ilustra a anomalia de temperatura ao longo do tempo para o Spindle de uma máquina CNC com 5 eixos. O eixo x representa o tempo (índice da leitura), enquanto o eixo y mede a anomalia, com 0 indicando normal e 1 anômalo. Os valores mais altos (1.0) ocorrem em intervalos específicos de tempo, como 10.000, 20.000 e 30.000, destacando eventos anômalos. A maioria dos pontos tem valor zero, indicando condições normais durante o período analisado.",
+    "fonte": "grafico_anomalia_spindle_tempo.png"
+  },
+  {
+    "id": "grafico_anomalias_cnc_ascendente",
+    "texto": "Este é um gráfico de barras que ilustra as anomalias de temperatura por componente, ordenadas do menor para o maior valor (CNC 5 eixos). O eixo vertical representa o \"Número de leituras anômalas\" e o eixo horizontal lista os componentes: X Axis motor, Y Axis Motor, General, Spindle motor e Z Axis Motor. O Z Axis Motor apresenta o maior número de anomalias (superior a 1600), enquanto X Axis motor, Y Axis Motor e General têm valores mínimos (zero). O Spindle motor registra um valor intermediário, com aproximadamente 250 anomalias.",
+    "fonte": "grafico_anomalias_cnc_ascendente.png"
+  },
+  {
+    "id": "grafico_anomalias_componentes_cnc",
+    "texto": "Este é um gráfico de barras que exibe o \"Número de leituras anômalas\" (eixo vertical) em relação aos componentes de uma CNC com 5 eixos (eixo horizontal). O título indica que se trata de anomalias de temperatura por componente. O componente \"Z Axis Motor\" apresenta o valor mais alto, com aproximadamente 1600 leituras anômalas, enquanto o \"Spindle motor\" tem o segundo maior valor, cerca de 250. Os componentes \"X Axis motor\", \"Y Axis Motor\" e \"General\" possuem valores mínimos (praticamente zero), destacando-se como os com menores anomalias.",
+    "fonte": "grafico_anomalias_componentes_cnc.png"
+  },
+  {
+    "id": "grafico_carga_por_classe",
+    "texto": "Este é um gráfico de barras que",
+    "fonte": "grafico_carga_por_classe.png"
+  },
+  {
+    "id": "grafico_consumo_energia_por_classe",
+    "texto": "Este gráfico é um diagrama de caixa que ilustra o consumo de energia por classe de operação. O título é \"Consumo de energia por classe de operação\", com eixo x representando as classes (Fault e Normal) e eixo y medindo o consumo em kWh. A classe Fault apresenta valores mais altos (cerca de 1.499 kWh) enquanto a classe Normal tem valores mais baixos (cerca de 1.492 kWh).",
+    "fonte": "grafico_consumo_energia_por_classe.png"
+  },
+  {
+    "id": "grafico_corrente_por_classe",
+    "texto": "Este é um gráfico de barras horizontais intitulado \"Corrente por classe de operação\". O eixo horizontal representa as classes de operação (Fault e Normal), enquanto o eixo vertical mede a corrente em amperes (A). A classe Fault apresenta valores mais altos de corrente (5.56 A), enquanto a classe Normal tem valores mais baixos (5.50 A). A comparação direta evidencia uma diferença significativa na magnitude da corrente entre as categorias.",
+    "fonte": "grafico_corrente_por_classe.png"
+  },
+  {
+    "id": "grafico_corrente_voltagem_eixos_trocados",
+    "texto": "Este é um gráfico de dispersão que relaciona voltagem (eixo vertical) e corrente (eixo horizontal), intitulado \"Voltagem vs. corrente por classe de operação\". A categoria \"Normal\" (pontos roxos) apresenta valores mais altos de voltagem (até 0,099 V) em correntes mais baixas (5,50 A), enquanto a categoria \"Fault\" (pontos laranja) tem valores mais baixos de voltagem (até 0,086 V) em correntes mais altas (5,56 A). A escala do eixo y varia de 0,086 a 0,099 V, e do eixo x de 5,50 a 5,56 A.",
+    "fonte": "grafico_corrente_voltagem_eixos_trocados.png"
+  },
+  {
+    "id": "grafico_energia_vs_carga",
+    "texto": "Este é um gráfico de dispersão que compara o consumo de energia (eixo y) com a carga porcentual (eixo x). O título indica \"Consumo de energia vs. carga por classe de operação\". Os pontos laranja (Fault) apresentam valores mais altos de consumo, com o máximo em 1.499 kWh, enquanto os pontos roxos (Normal) têm valores mais baixos, com o mínimo em ~1.492 kWh. A carga varia entre 69.65% e 69.95%, evidenciando que a classe Fault tem maior consumo mesmo em cargas elevadas.",
+    "fonte": "grafico_energia_vs_carga.png"
+  },
+  {
+    "id": "grafico_pressao_vazao",
+    "texto": "Este é um gráfico de dispersão que relaciona pressão (eixo x, em bar) e vazão (eixo y, em L/min), com o título \"Pressão vs. vazão por classe de operação\". A categoria \"Normal\" apresenta valores mais altos de pressão (3.5025 bar) e vazão (12.045 L/min), enquanto a categoria \"Fault\" tem valores mais baixos de pressão (3.5005 bar) e vazão (12.02 L/min). Os pontos indicam que a operação normal está associada a pressões e vazões elevadas, contrastando com a classe Fault, que mostra desempenho reduzido. A correlação positiva entre pressão e vazão é observada nas classes de operação.",
+    "fonte": "grafico_pressao_vazao.png"
+  },
+  {
+    "id": "grafico_pressao_vazao_eixos_trocados",
+    "texto": "Este é um gráfico de dispersão que relaciona vazão (eixo x) e pressão (eixo y) por classe de operação. O título do gráfico é \"Vazão vs. pressão por classe de operação\". O eixo horizontal indica a vazão em litros por minuto (L/min) e o eixo vertical a pressão em bar. A classe \"Normal\" apresenta valores mais altos em vazão (12.045 L/min) e pressão (3.5025 bar), enquanto a classe \"Fault\" tem valores mais baixos em ambas as variáveis (12.020 L/min e 3.5005 bar).",
+    "fonte": "grafico_pressao_vazao_eixos_trocados.png"
+  },
+  {
+    "id": "grafico_producao_por_classe_ordenado",
+    "texto": "Este é um gráfico de barras que apresenta a \"Taxa de produção média por classe, do maior para o menor\". O eixo horizontal (x) categoriza as classes \"Normal\" e \"Fault\", enquanto o eixo vertical (y) mede a \"Taxa de produção média\" variando de 0 a 40. Ambas as classes (\"Normal\" e \"Fault\") têm a mesma taxa de produção média, atingindo 40, o que indica ausência de diferença entre elas. Portanto, nenhuma categoria é mais alta ou mais baixa em comparação com a outra.",
+    "fonte": "grafico_producao_por_classe_ordenado.png"
+  },
+  {
+    "id": "grafico_qualidade_oleo_por_classe",
+    "texto": "Este é um gráfico de caixa que compara o índice de qualidade do óleo entre as classes \"Fault\" e \"Normal\". O título indica que o eixo x representa a classe de operação e o eixo y o índice de qualidade do óleo. A classe \"Fault\" apresenta valores mais altos (cerca de 0.855), enquanto \"Normal\" tem valores mais baixos (cerca de 0.851). A distribuição dos dados evidencia que a qualidade do óleo é superior na classe \"Fault\".",
+    "fonte": "grafico_qualidade_oleo_por_classe.png"
+  },
+  {
+    "id": "grafico_som_por_classe",
+    "texto": "Este é um gráfico de barras horizontal que compara o nível de som (em dB) entre as classes de operação \"Fault\" e \"Normal\". O título é \"Nível de som por classe de operação\", com eixo x representando as classes (Fault e Normal) e eixo y indicando o valor do som (dB). A classe \"Normal\" apresenta valores mais altos (cerca de 64.82 dB), enquanto a classe \"Fault\" tem valores mais baixos (cerca de 64.74 dB).",
+    "fonte": "grafico_som_por_classe.png"
+  },
+  {
+    "id": "grafico_som_vs_vibracao",
+    "texto": "Este é um gráfico de dispersão que compara o som (dB) com a vibração (nível) por classe de operação. O título \"Som vs. vibração por classe de operação\" indica a relação entre as variáveis, com o eixo y representando o som (dB) e o eixo x a vibração (nível). A categoria \"Normal\" (pontos roxos) apresenta valores mais altos de som (64.82 dB) e a \"Fault\" (pontos laranjas) tem vibração mais elevada (0.810), evidenciando diferenças entre as classes.",
+    "fonte": "grafico_som_vs_vibracao.png"
+  },
+  {
+    "id": "grafico_temperatura_barras",
+    "texto": "O gráfico é um gráfico de barras que compara a temperatura média do sensor entre as classes de operação Fault e Normal. O título é \"Temperatura média do sensor por classe de operação\", com eixo x representando as classes (Fault e Normal) e eixo y a temperatura média em °C. Ambas as classes apresentam valores semelhantes, com a temperatura média de aproximadamente 70°C. Não há diferença significativa entre as classes em termos de temperatura média do sensor.",
+    "fonte": "grafico_temperatura_barras.png"
+  },
+  {
+    "id": "grafico_temperatura_por_classe",
+    "texto": "Este é um gráfico de caixa (box plot) que compara a temperatura do sensor entre as classes de operação \"Fault\" e \"Normal\". O título indica que a temperatura é medida em graus Celsius, com eixos verticais representando a temperatura (69,4°C a 70,1°C) e horizontais as classes de operação. A classe \"Normal\" apresenta valores mais altos (centro da caixa em ~70,1°C), enquanto a classe \"Fault\" tem valores mais baixos (centro da caixa em ~69,4°C). As linhas verdes indicam a mediana e a amplitude dos dados para cada categoria.",
+    "fonte": "grafico_temperatura_por_classe.png"
+  },
+  {
+    "id": "grafico_temperatura_scatter_tempo",
+    "texto": "Este é um gráfico de dispersão que exibe a temperatura do sensor em função do índice da leitura, com eixos rotulados \"Índice da leitura\" (horizontal) e \"Temperatura (°C)\" (vertical). O título especifica que os dados são organizados por classe, identificando \"Fault\" (pontos laranja) e \"Normal\" (pontos roxos). Os valores mais baixos de temperatura (69,4°C) pertencem à classe Fault, enquanto os mais altos (70,1°C) são da classe Normal. A distribuição evidencia variação significativa na temperatura entre as classes ao longo das leituras.",
+    "fonte": "grafico_temperatura_scatter_tempo.png"
+  },
+  {
+    "id": "grafico_umidade_por_classe",
+    "texto": "Este é um gráfico de caixa que compara a umidade entre as classes \"Fault\" e \"Normal\". O título é \"Umidade por classe de operação\", com eixo x representando as classes e eixo y indicando a umidade em porcentagem. A classe \"Normal\" apresenta valores mais altos, com umidade média de aproximadamente 55,070%, enquanto a classe \"Fault\" tem valores mais baixos, com umidade média de cerca de 55,035%.",
+    "fonte": "grafico_umidade_por_classe.png"
+  },
+  {
+    "id": "grafico_vibracao_barras",
+    "texto": "Este é um gráfico de barras que apresenta a \"Vibração média por classe de operação\". O eixo horizontal (x) categoriza os tipos de operação em \"Fault\" e \"Normal\", enquanto o eixo vertical (y) mede a \"Vibração média (nível)\". A classe \"Fault\" exibe uma vibração média mais alta (aproximadamente 0,8), enquanto a classe \"Normal\" tem um valor ligeiramente menor (aproximadamente 0,78). Portanto, a categoria \"Fault\" é associada a níveis de vibração mais elevados em comparação com \"Normal\".",
+    "fonte": "grafico_vibracao_barras.png"
+  },
+  {
+    "id": "grafico_vibracao_por_classe",
+    "texto": "Este é um gráfico de barras horizontais que compara o nível de vibração entre as classes de operação Fault e Normal. O título é \"Nível de vibração por classe de operação\", com o eixo x representando as classes (Fault e Normal) e o eixo y medindo o nível de vibração. A classe Fault apresenta valores mais altos (cerca de 0,810) em comparação com a classe Normal (cerca de 0,785). O gráfico evidencia uma diferença significativa na intensidade de vibração entre as classes.",
+    "fonte": "grafico_vibracao_por_classe.png"
+  },
+  {
+    "id": "grafico_voltagem_corrente_eixos_trocados",
+    "texto": "Este é um gráfico de dispersão que relaciona corrente (A) com voltagem (V), intitulado \"Corrente vs. voltagem por classe de operação\". O eixo vertical mede a corrente, variando de 5.50 a 5.56 A, e o eixo horizontal indica a voltagem, entre 0.086 e 0.098 V. A categoria \"Fault\" apresenta valores mais altos de corrente (5.56 A) e menor voltagem (0.086 V), enquanto \"Normal\" tem valores mais baixos de corrente (5.50 A) e maior voltagem (0.098 V).",
+    "fonte": "grafico_voltagem_corrente_eixos_trocados.png"
+  },
+  {
+    "id": "grafico_voltagem_por_classe",
+    "texto": "Este é um gráfico de barras que compara a voltagem por classe de operação. O título é \"Voltagem por classe de operação\", com eixo x representando as classes \"Fault\" e \"Normal\" e eixo y indicando a voltagem em volts. A classe \"Normal\" apresenta valores mais altos (cerca de 0,098 V), enquanto a classe \"Fault\" tem valores mais baixos (cerca de 0,086 V).",
+    "fonte": "grafico_voltagem_por_classe.png"
+  }
+]
