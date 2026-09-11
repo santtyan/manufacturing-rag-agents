@@ -270,6 +270,11 @@ sem precisar rodar o harness completo. Próximo candidato do plano: `qwen3-vl:4b
 
 ## Item 3 do plano: candidato `qwen3-vl:4b` testado — qualidade muito superior, custo proibitivo (2026-09-09)
 
+**Superado pelo resultado do corpus completo em 2026-09-10, ver seção "Item 3 do plano:
+CONCLUÍDO" mais abaixo** — a decisão de custo/benefício aqui foi tomada (rodar mesmo assim), e
+o resultado real do harness completo (77,5% de fidelidade, reprovado no critério de promoção)
+está documentado lá. Seção mantida como registro histórico do smoke test que embasou a decisão.
+
 Mesmo smoke test de 1 imagem. Resultado real:
 
 - **Qualidade**: legenda em português correto, identifica o tipo de gráfico (linha), os dois
@@ -314,47 +319,83 @@ de interface (nenhum consumidor real passa esse argumento hoje).
 com `usar_score_rrf=True` no 1º estágio — agora um experimento válido, porque o limiar
 finalmente tem massa de score real para cortar.
 
-## Item 4 do plano: recalibração de top-p iniciada, mas INTERROMPIDA — captioning qwen3-vl também não completou (2026-09-10)
+## Item 3 do plano: CONCLUÍDO — qwen3-vl:4b captionou o corpus completo, reprovado no critério de promoção (2026-09-10)
 
-Depois do item 2 (score RRF real) pronto, o benchmark 2x2 (`eval/avaliar_benchmark_multimodal_2x2.py`)
-foi ajustado para de fato exercer `usar_score_rrf=True` no 1º estágio, mais log de
-`n_candidatos_selecionados` por pergunta na estratégia top_p (código commitado em `592dccf`,
-tinha ficado só local numa queda de sessão anterior — resgatado depois). Em paralelo, o
-captioning completo do `qwen3-vl:4b` sobre as 26 imagens (~3h esperadas) foi iniciado para medir
-o item 3 de verdade.
+Terceira tentativa foi a que completou (as 2 primeiras caíram por queda de sessão/desligamento,
+ver seção anterior) — só depois de `gerar_legendas()` em `rag/rag_multimodal_langchain.py` ganhar
+um parâmetro `caminho_checkpoint` que grava a legenda em disco após CADA imagem e pula as já
+processadas ao retomar. Sem isso, qualquer queda no meio das ~3h perdia tudo.
 
-**Nenhum dos dois terminou.** Dois processos em background (captioning + benchmark 2x2 com
-rerank ColModernVBERT) caíram junto com o fim da sessão/desligamento da máquina — `nohup`/
-`disown` mantém o processo vivo enquanto a sessão do agente roda, mas **não sobrevive a fechar o
-terminal por completo nem a desligar o computador**. Um relançamento intermediário também
-encontrou o Ollama recusando conexão (`ConnectError`) — sintoma pontual, resolvido relançando
-depois de confirmar `curl localhost:11434/api/tags` respondendo.
+4 das 26 imagens deram resposta VAZIA e silenciosa do Ollama na primeira rodada completa (sem
+erro/traceback) — intermitente, não reproduzível: todas completaram em 1-4 tentativas de
+reprocessamento isolado (`grafico_anomalia_spindle_tempo` precisou de 4). Cache final:
+`rag/legendas_cache_qwen3-vl_4b.json`, 26/26 preenchidas.
 
-**Único resultado real obtido antes da interrupção** (rodando `--so-harbor`, corpus de 26
-imagens, ainda com `usar_score_rrf` desligado nessa rodada específica — antes do ajuste acima):
+**Resultado dos checks de fidelidade** (`eval/checks_fidelidade_caption.py`), depois de também
+corrigir **2 bugs de falso positivo** encontrados no próprio check `sem_numeros_inventados`
+(commit `b70ebda`):
+1. Regex `\d+\.?\d*` não reconhecia vírgula decimal pt-BR — "0,099" virava dois números falsos
+   "0" e "099". Fix: `-?\d+(?:[.,]\d+)?` + `.replace(",", ".")`.
+2. "5" de "CNC 5 eixos" (nome do equipamento, repetido no título de todo o corpus deste
+   dataset) contava como número de dado inventado. Fix: lista de índices ignorados ampliada de
+   `(0,1,2,3)` para `(0,1,2,3,4,5)`.
 
-| Corpus | Estratégia | nDCG@5 | Recall@5 | MRR | Custo |
-|---|---|---|---|---|---|
-| Harbor (26 img.) | só retrieval (sem rerank) | 0,380 | 48% | 0,314 | 78,9s (3,03s/doc) |
+| Estágio | Taxa média | Passou tudo | Sem números inventados |
+|---|---|---|---|
+| moondream (baseline) | 42,3% | — | 0/26 |
+| qwen3-vl bruto (com vazios, bug regex) | 66,5% | 6/26 | 13/26 |
+| qwen3-vl corpus completo sem vazios | 76,4% | 11/26 | 15/26 |
+| qwen3-vl com os 2 bugs do check corrigidos | **77,5%** | **13/26** | **17/26** |
 
-Consistente com o Recall@3=38% já medido no item 1 (mesma ordem de grandeza, k diferente) — não
-é achado novo, é confirmação. O rerank top-k/top-p sobre essas 26 imagens não chegou a rodar até
-o fim (processo interrompido no carregamento do ColModernVBERT).
+**RESULTADO FINAL: reprovado pelo critério de promoção** (≥90% de taxa média E 100% sem números
+inventados) — mas melhoria real e substancial confirmada sobre o moondream (42,3%→77,5%),
+número já confiável (não inflado por bug de metodologia). Restam pelo menos 2 casos de
+alucinação numérica GENUÍNA confirmada contra o CSV de origem: voltagem reportada em
+~0,086-0,099 V quando o valor real de `Voltage_V` é ~220,19-220,20 V (3 ordens de grandeza de
+erro) — vale investigar se é troca de rótulo de eixo ou confusão de escala do VLM, caso o item
+3 seja retomado com outro candidato de VLM no futuro.
 
-**Estado real ao final desta rodada de trabalho — nenhum destes está pronto**:
-- Cache `rag/legendas_cache_qwen3-vl_4b.json` — **não existe**, captioning nunca completou.
-- Recalibração de `TOP_P_LIMIAR` (0,7/0,85/0,99) com score real — **não rodou**, só o "só
-  retrieval" da tabela acima chegou a terminar.
-- Critério de promoção do `qwen3-vl:4b` (≥90% fidelidade/100% sem números inventados) —
-  **não avaliado no corpus completo**, só no smoke test de 1 imagem (ver seção acima).
+**Conclusão prática**: nenhum VLM local testado até agora atinge o critério formal — consistente
+com a literatura de VLMs pequenos alucinando valores numéricos específicos em gráficos técnicos.
+Não relançar captioning de novo salvo se aparecer um VLM candidato novo.
 
-**Próximo passo real, ao retomar**: relançar o captioning do zero (`python
-rag/rag_multimodal_langchain.py --captionar`, modelo `qwen3-vl:4b`, ~3h) via `nohup ... &` +
-`disown`, confirmar Ollama no ar antes (`curl localhost:11434/api/tags`), e **evitar rodar o
-benchmark 2x2 (rerank ColModernVBERT) em paralelo** — rodar os dois processos pesados ao mesmo
-tempo pareceu contribuir para a instabilidade desta rodada (não confirmado como causa raiz, mas
-suficientemente suspeito para não repetir sem necessidade). Depois do captioning completar:
-checks de fidelidade → avaliação de retrieval → só então a recalibração de top-p.
+## Item 4 do plano: recalibração de top-p RETOMADA, mas travada em custo de rerank em CPU (2026-09-10/11)
+
+Com o cache do qwen3-vl pronto, `eval/avaliar_benchmark_multimodal_2x2.py` ganhou o argumento
+`--cache-legendas` (commit `3d9b9bc`) para recalibrar `TOP_P_LIMIAR` com legendas de um VLM
+diferente do padrão, sem precisar sobrescrever `rag/legendas_cache.json` manualmente.
+
+**Achado real de custo**: rodando `--so-harbor --cache-legendas rag/legendas_cache_qwen3-vl_4b.json
+--top-p-limiar 0.7`, o corpus Harbor agora tem 26 imagens (não mais 4 como o nome do corpus no
+código ainda sugere) — o rerank `ColModernVBERT` em CPU pura custou **48,76s/imagem** (145
+imagens rerankeadas = 7070,6s ≈ 2h só para top-k=5). A sessão achou que o processo tinha travado
+(log sem output por 2h20min) e matou-o por engano — na verdade estava processando de verdade
+(CPU real sendo consumida) e terminou sozinho com exit code 0 no instante exato do kill. Ver
+[[feedback_confirmar_cpu_antes_matar_processo]] para a regra geral extraída disso.
+
+Resultado parcial obtido antes do kill (rodada anterior, corpus de 4 imagens, referência):
+nDCG@5=1,0/Recall@5=100%/MRR=0,929 para top-k=5 (948,2s) — mas **não é o número do corpus de 26
+imagens com legendas do qwen3-vl**, que não chegou a ser salvo (`eval/resultados_benchmark_multimodal_2x2.json`
+continua com o resultado antigo de 4 imagens).
+
+**Pesquisa de estado da arte feita** (ver [[gargalo_rerank_multimodal_cpu_2026-09-10]] para o
+detalhe completo): ONNX/`optimum-onnx` daria ~3,23x de speedup em CPU mas já **descartado**
+(exige `transformers<4.58`, incompatível com `sentence-transformers 6.x` de produção — não
+reabrir essa decisão). `FlashRank` é candidato a reranker ONNX-nativo que não colide com essa
+restrição, mas suporte a modelos ColBERT-style multimodal não confirmado — checar antes de
+investir tempo. O próprio paper do ColModernVBERT promete ~7x speedup vs. modelos parecidos em
+CPU, o que sugere que 48,76s/imagem pode não ser o teto físico do modelo.
+
+**Próximo passo real, ao retomar**:
+1. Profiling isolado de 1 imagem (cronometrar load/encode_document/encode_query/similarity em
+   separado) antes de rodar tudo de novo — descobrir se há gordura para cortar.
+2. Se não houver bug óbvio: aceitar o custo, mas rodar em background com `flush=True` explícito
+   nos prints (ou `python -u`) em vez de confiar no buffering padrão de `nohup > log.txt` — foi
+   isso que tornou impossível diferenciar "travado" de "processando" nesta rodada.
+3. Adicionar um `--n-queries-harbor` (hoje só existe `--n-queries-vidore`) para calibrar em
+   subset pequeno antes de rodar a bateria completa dos 3 limiares.
+4. Avaliar FlashRank como reranker alternativo SE o profiling confirmar que o custo está mesmo
+   no rerank em si.
 
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 

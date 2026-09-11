@@ -1,0 +1,213 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{booktabs}
+\usepackage{xcolor}
+
+% Tema CERISE — mesma identidade visual dos outros slides do projeto.
+\definecolor{cerisemagenta}{HTML}{A6186B}
+\definecolor{ceriserosa}{HTML}{E6186D}
+\definecolor{cerisecoral}{HTML}{F5642D}
+\definecolor{ceriseroxo}{HTML}{5B1A6B}
+
+\setbeamercolor{title}{fg=cerisemagenta}
+\setbeamercolor{frametitle}{fg=white,bg=cerisemagenta}
+\setbeamercolor{structure}{fg=cerisemagenta}
+\setbeamercolor{block title}{fg=white,bg=ceriseroxo}
+\setbeamercolor{block body}{bg=cerisemagenta!5}
+\setbeamercolor{alerted text}{fg=cerisecoral}
+\setbeamercolor{item}{fg=cerisemagenta}
+
+\newenvironment{numerobloco}[1]{\begin{block}{#1}}{\end{block}}
+\newenvironment{decisaobloco}[1]{\begin{alertblock}{#1}}{\end{alertblock}}
+
+\title{Progresso do Harbor}
+\subtitle{RAG multimodal: trocar o VLM e recalibrar o rerank}
+\author{Yan Santos Leite}
+\date{10--11 de setembro de 2026}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Resumo}
+  \begin{itemize}
+    \item Continuação direta do slide anterior (8--9/09): com o score real do 1º
+      estágio corrigido, esta sessão fechou o \textbf{item 3} do plano (trocar o VLM
+      de captioning) e avançou o \textbf{item 4} (recalibrar o rerank), até esbarrar
+      num custo de CPU que travou a sessão por engano.
+    \item \textbf{qwen3-vl:4b} é uma melhoria real sobre o \texttt{moondream}
+      (42,3\%$\to$77,5\% de fidelidade), mas \textbf{reprovado} pelo critério de
+      promoção definido no plano — resultado negativo tratado como informação válida,
+      não como falha.
+    \item Dois bugs de metodologia corrigidos na própria régua de avaliação — sem eles,
+      o número de fidelidade estava sendo subestimado.
+    \item Um incidente operacional real (achamos que um processo tinha travado e o
+      matamos por engano) virou uma regra permanente de como diagnosticar processos
+      longos daqui pra frente.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Item 3 do plano: trocar o VLM de captioning}
+  \small
+  \begin{numerobloco}{Como foi feito}
+    Captioning das 26 imagens do corpus via \texttt{qwen3-vl:4b} (Ollama local) —
+    terceira tentativa foi a que completou. As duas primeiras caíram no meio (queda de
+    sessão, desligamento da máquina) porque o cache só era gravado no fim do processo,
+    perdendo horas de progresso a cada queda.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que corrigimos para que funcionasse:} \texttt{gerar\_legendas()} ganhou
+  checkpoint incremental — grava a legenda em disco após cada imagem e pula as já
+  processadas ao retomar. 4 das 26 imagens deram resposta vazia e silenciosa do Ollama
+  na primeira rodada (intermitente, não reprodutível) — todas completaram em 1--4
+  tentativas de reprocessamento isolado.
+
+  \pause
+  \begin{decisaobloco}{Por que este VLM e não outro}
+    \texttt{granite3.2-vision:2b} já havia sido reprovado (282s/imagem, legenda vazia
+    ou sem sentido). \texttt{qwen3-vl:4b} foi o próximo candidato por qualidade
+    aprovada em smoke test de 1 imagem — decisão de custo/benefício assumida
+    explicitamente antes de rodar o corpus completo (~3h de captioning).
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Item 3: resultado de fidelidade — melhoria real, mas reprovado}
+  \small
+  \begin{numerobloco}{O que medimos (6 checks determinísticos, sem LLM-judge)}
+    \begin{center}
+    \footnotesize
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{VLM} & \textbf{Taxa média} & \textbf{Passou tudo} & \textbf{Sem núm. invent.} \\
+      \midrule
+      moondream (baseline)         & 42,3\%          & --    & 0/26 \\
+      qwen3-vl bruto               & 66,5\%          & 6/26  & 13/26 \\
+      qwen3-vl, corpus completo    & 76,4\%          & 11/26 & 15/26 \\
+      qwen3-vl, checks corrigidos  & \textbf{77,5\%} & \textbf{13/26} & \textbf{17/26} \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+    \footnotesize Fonte: \texttt{eval/checks\_fidelidade\_caption.py}. Critério de
+    promoção do plano: $\geq$90\% de taxa média E 100\% sem números inventados.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} melhoria substancial e real sobre o baseline
+  (quase o dobro de fidelidade), mas nenhum VLM local testado até agora atinge o
+  padrão exigido — consistente com a literatura de VLMs pequenos alucinando valores
+  numéricos específicos em gráficos técnicos.
+
+  \pause
+  \begin{decisaobloco}{O que decidimos}
+    \texttt{qwen3-vl:4b} \textbf{reprovado} pelo critério de promoção. Não relançar
+    captioning de novo, salvo se aparecer um VLM candidato novo — a régua de decisão
+    (o critério $\geq$90\%/100\%) é mais confiável agora que os bugs de metodologia
+    abaixo foram corrigidos.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Dois bugs de metodologia corrigidos na própria régua}
+  \footnotesize
+  \begin{numerobloco}{Bug 1: vírgula decimal pt-BR}
+    O regex de extração de número não reconhecia vírgula — ``0,099'' virava dois
+    números falsos, ``0'' e ``099''. O VLM escrevia o decimal \emph{corretamente} em
+    português e era punido por isso.
+  \end{numerobloco}
+  \begin{numerobloco}{Bug 2: ``5'' de ``CNC 5 eixos''}
+    O nome do equipamento (repetido no título de todo o corpus) era contado como
+    número de dado inventado, em vez de contexto textual.
+  \end{numerobloco}
+
+  \pause
+  \textbf{Por que isso importa:} sem esses fixes, a fidelidade estava
+  \emph{subestimada} — a diferença entre 66,5\% e 77,5\% é toda atribuível a corrigir
+  a régua, não a mudar o VLM.
+
+  \pause
+  \begin{decisaobloco}{Achado que sobrevive aos fixes: alucinação real confirmada}
+    Em 2 imagens de dispersão corrente$\times$voltagem, o VLM reportou voltagem
+    ``$\sim$0,09~V'' quando o valor real é \textbf{$\sim$220,2~V} — 3 ordens de
+    grandeza de erro. Não é falso positivo do check; é alucinação genuína.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Item 4: recalibração do rerank — travada em custo de CPU}
+  \small
+  \begin{numerobloco}{O que tentamos}
+    Com o cache do \texttt{qwen3-vl} pronto, adicionamos \texttt{--cache-legendas} ao
+    benchmark 2$\times$2 para recalibrar \texttt{TOP\_P\_LIMIAR} (0,7/0,85/0,99) sem
+    reescrever o cache padrão manualmente.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que aconteceu:} o corpus Harbor cresceu de 4 para 26 imagens no item 3 —
+  o rerank via \texttt{ColModernVBERT} em CPU pura (sem CUDA nesta máquina) custou
+  \textbf{48,76s/imagem} (145 imagens rerankeadas $\approx$ 2h só para top-k=5).
+  Assumimos, errado, que o processo tinha travado (2h20min sem nenhuma linha de log) e
+  o matamos — na verdade ele processava normalmente e terminou sozinho com sucesso no
+  instante exato do kill.
+
+  \pause
+  \begin{decisaobloco}{O que decidimos}
+    Antes de rodar de novo: profiling isolado de 1 imagem para achar onde o tempo vai.
+    A própria literatura do \texttt{ColModernVBERT} promete $\sim$7$\times$ de
+    aceleração sobre modelos parecidos em CPU — 48,76s/imagem pode não ser o teto
+    físico do modelo, vale investigar antes de trocar de arquitetura.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Pesquisa exploratória para acelerar o rerank em CPU}
+  \footnotesize
+  \textit{Levantamento via busca web nesta sessão — nenhum paper foi lido na íntegra,
+  nenhuma alternativa foi implementada ou testada. São hipóteses a validar.}
+  \begin{itemize}
+    \item \textbf{ONNX/\texttt{optimum-onnx}}: $\sim$3,23$\times$ de aceleração citada
+      na literatura geral de INT8 em CPU, mas \textbf{já descartado neste projeto} —
+      exige \texttt{transformers<4.58}, incompatível com o
+      \texttt{sentence-transformers 6.x} de produção. Decisão já validada, não reabrir.
+    \item \textbf{ModernVBERT} (arXiv:2510.01149) reivindica $\sim$7$\times$ de
+      aceleração sobre modelos de desempenho parecido — sugere que 48,76s/imagem pode
+      não ser o teto físico do modelo, mas não foi confirmado por profiling próprio.
+    \item \textbf{FlashRank}: reranker ONNX-nativo citado como opção CPU-rápida;
+      suporte a modelos ColBERT-style multimodal não confirmado.
+    \item \textbf{KaLM-Reranker-V1} (arXiv:2606.22807) e \textbf{miniReranker}
+      (arXiv:2606.10759): arquiteturas de 2026 que trocam late interaction por reuso de
+      representação, sem avaliação própria no domínio do Harbor.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Achado operacional: log vazio não é sinônimo de travado}
+  \begin{numerobloco}{O que aconteceu}
+    Um processo em background sem nenhuma linha de log por 2h20min foi assumido como
+    travado e morto. Medindo o consumo de CPU real antes de matar (delta de CPU entre
+    duas leituras), já era possível confirmar que o processo processava ativamente —
+    o log vazio era só efeito de \emph{buffering} do stdout do processo em background,
+    não travamento.
+  \end{numerobloco}
+
+  \pause
+  \begin{decisaobloco}{Regra permanente adotada}
+    Antes de matar um processo longo sem output novo: medir delta de CPU real primeiro
+    (não decidir só pela ausência de log). Ao rodar algo assim de novo, usar
+    \texttt{flush=True} explícito nos \texttt{print()} (ou \texttt{python -u}) em vez
+    de confiar no buffering padrão de \texttt{nohup > log.txt}.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Próximos passos}
+  \begin{itemize}
+    \item Profiling isolado de 1 imagem (load / \texttt{encode\_document} /
+      \texttt{encode\_query} / \texttt{similarity}) antes de rodar a recalibração de
+      novo — decidir se vale otimizar o que já existe antes de trocar de reranker.
+    \item Adicionar \texttt{--n-queries-harbor} ao benchmark (hoje só existe o
+      equivalente para o corpus ViDoRe) para calibrar em subset pequeno antes da
+      bateria completa dos 3 limiares.
+    \item Avaliar FlashRank como reranker alternativo, \emph{se} o profiling confirmar
+      que o custo está mesmo no rerank em si.
+    \item Item 5 do plano (experimento decisivo) segue bloqueado até o item 4 fechar.
+  \end{itemize}
+\end{frame}
+
+\end{document}
