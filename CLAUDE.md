@@ -51,6 +51,14 @@ python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 - **`nl_to_sql/nl_to_sql.py`** — traduz pergunta em português para SQL via Ollama, valida que só é `SELECT`, executa no Postgres (`harbor_manufatura`), com self-repair e um "DBA-Agent" de segunda opinião. `ESQUEMA` no topo do arquivo documenta cada tabela por dataset de origem — **nunca cruzar tabelas de datasets diferentes** (ex.: company_A e company_B do dataset 3 usam schemas de status incompatíveis).
 - **`eval/rag_gerador.py`** — geração de resposta RAG compartilhada entre `dashboard/app.py` e o harness, pelo mesmo motivo do roteador.
 
+### Migrações LangGraph em andamento (coexistindo com o original)
+
+Seguem a regra fixada em `migrar-para-langchain`: nenhuma migração troca o import de produção antes de validada pelo harness (`eval/rodar_golden.py`) sem regressão — por isso existem lado a lado com o módulo original, não o substituem ainda.
+
+- **`dashboard/roteador_langgraph.py`** — o roteamento de `dashboard/roteador.py` como grafo de estados explícito. Reusa as 11 funções `pede_*` e a lógica de `rotear_por_keyword()`/`rotear_por_llm()` originais sem reescrever nenhum gate; só a orquestração vira grafo.
+- **`nl_to_sql/nl_to_sql_langgraph.py`** — o self-repair de `nl_to_sql.py` (gerar→executar→corrigir→reexecutar→verificar DBA→...) como `StateGraph`, reusando os mesmos prompts e funções (`gerar_sql`, `corrigir_sql`, `verificar_resultado_responde`, `validar_sql_seguro`).
+- **`rag/rag_agentic.py`** — retrieval adaptativo (padrão Self-RAG/FLARE) sobre `RAGHibrido.buscar()` (`rag/rag_hibrido_langchain.py`), via LangGraph critic node com LLM juiz (não score de Cross-Encoder — achado real 2026-09-09: score de reranker é péssimo preditor de acerto).
+
 ### Serviços
 
 - **`dashboard/app.py`** (Streamlit, porta 8501) — chat principal, consome `dashboard/roteador.py` + `rag/rag_hibrido_langchain.py` + `nl_to_sql/nl_to_sql.py`. Contém `st.set_page_config()` em nível de módulo, por isso não é importável fora do Streamlit — é o motivo de `roteador.py` e `rag_gerador.py` terem sido extraídos como módulos separados.
