@@ -24,7 +24,7 @@
 \title{Medir antes de decidir}
 \subtitle{Como o Harbor ganhou instrumentação --- e o que ela revelou}
 \author{Yan Santos Leite}
-\date{8--9 de setembro de 2026}
+\date{8--11 de setembro de 2026}
 
 \begin{document}
 
@@ -45,8 +45,8 @@
   \begin{enumerate}
     \item Construímos a capacidade de medir (trace, custo por chamada, relatório de
       replicação).
-    \item Usamos essa capacidade em cinco decisões reais --- e em \alert{duas delas} a
-      resposta foi \emph{não}.
+    \item Usamos essa capacidade numa série de decisões reais --- e em \alert{várias
+      delas} a resposta foi \emph{não}.
   \end{enumerate}
 
   \pause
@@ -238,6 +238,77 @@
   \end{decisaobloco}
 \end{frame}
 
+\begin{frame}{Ato 3 --- Consertada a régua: 0,7 vence, e uma pergunta melhor aparece (10--11/09)}
+  \small
+  \begin{numerobloco}{Com score real, a calibração finalmente respondeu}
+    \begin{center}
+    \footnotesize
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Limiar} & \textbf{nDCG@5} & \textbf{Recall@5} & \textbf{Custo} \\
+      \midrule
+      sem rerank         & 0,864          & 93\%          & 38--62s \\
+      \textbf{top-p=0,7} & \textbf{0,889} & \textbf{97\%} & \textbf{$\sim$3015s} \\
+      top-p=0,85         & 0,802          & 86\%          & $\sim$6734s \\
+      top-p=0,99         & 0,780          & 86\%          & $\sim$7055s \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+    \footnotesize Corpus Harbor (26 imagens), score RRF real, legendas \texttt{qwen3-vl}.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} 0,7 venceu em todas as métricas e ainda foi mais barato
+  --- limiares mais permissivos incluem candidatos ruidosos e pioram o resultado, contra
+  a intuição de que ``mais candidatos'' ajudaria.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    \texttt{TOP\_P\_LIMIAR} atualizado de 0,85 (chute nunca validado) para 0,7. Mas essa
+    calibração usou o \emph{mesmo} VLM nos dois lados --- a pergunta que faltava responder
+    é se o rerank compensa \emph{trocar} de VLM, não só ajustar o limiar.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Ato 3 --- O experimento decisivo: rerank não compensa captioning ruim}
+  \small
+  \begin{numerobloco}{A pergunta e o teste}
+    O desenho de 2 estágios (retrieval barato + rerank caro, padrão HEAVEN,
+    arXiv:2510.22215) promete recuperar qualidade mesmo com um encoder fraco.
+    Comparamos: (A) caption ruim (\texttt{moondream}) + rerank \texttt{top-p=0,7} vs.\
+    (B) caption bom (\texttt{qwen3-vl}) sem nenhum rerank.
+    \begin{center}
+    \footnotesize
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Cenário} & \textbf{nDCG@5} & \textbf{Recall@5} & \textbf{Custo} \\
+      \midrule
+      A) moondream + rerank & 0,436 & 48\% & 4779s \\
+      \textbf{B) qwen3-vl, sem rerank} & \textbf{0,864} & \textbf{93\%} & \textbf{11,8s} \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} (B) supera (A) em todas as métricas por margem larga
+  (quase o dobro de nDCG/Recall) e custa \alert{$\sim$400$\times$ menos} --- o rerank
+  reordena candidatos que o 1º estágio já selecionou a partir da legenda; se a legenda
+  não descreve o conteúdo real da imagem, o rerank não tem o que resgatar.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    O esforço futuro prioriza achar/aprovar um VLM de qualidade suficiente (nenhum
+    testado até agora atinge o critério de 90\% de fidelidade), não otimizar o rerank
+    multimodal --- que segue valioso como ganho incremental \emph{sobre} um bom
+    captioning, mas não como substituto para resolver a qualidade da legenda.
+  \end{decisaobloco}
+
+  \pause
+  \footnotesize \textit{Ressalva: comparação com apenas 1 VLM ruim e 1 VLM bom (ainda
+  reprovado formalmente) --- evidência forte neste corpus, não prova formal universal.}
+\end{frame}
+
 % ─────────────────────────────────────────────────────────────────────
 % ATO 4 — o que a régua ensinou sobre escolhas
 % ─────────────────────────────────────────────────────────────────────
@@ -298,24 +369,30 @@
 % Fechamento
 % ─────────────────────────────────────────────────────────────────────
 \begin{frame}{O que fica}
-  \begin{numerobloco}{Cinco decisões, três respostas diferentes}
+  \begin{numerobloco}{Um conjunto de decisões, três respostas diferentes}
     \begin{itemize}
-      \item \textbf{Sim:} migração do self-repair e do roteador para LangGraph.
-      \item \textbf{Não:} Agentic RAG e Contextual Retrieval --- medidos, documentados,
-        não promovidos.
-      \item \textbf{A pergunta estava errada:} calibração de top-p.
+      \item \textbf{Sim:} migração do self-repair e do roteador para LangGraph;
+        top-p=0,7 como limiar de rerank multimodal (depois de consertada a régua).
+      \item \textbf{Não:} Agentic RAG, Contextual Retrieval, e o rerank multimodal como
+        forma de compensar captioning ruim --- todos medidos, documentados, não
+        promovidos.
+      \item \textbf{A pergunta estava errada, depois corrigida:} calibração de top-p
+        (score=0,0 no 1º estágio) $\to$ consertada, respondida, e usada para testar uma
+        pergunta melhor (o experimento decisivo do Ato 3).
     \end{itemize}
   \end{numerobloco}
 
   \pause
-  \textbf{Próximos passos:} dar score real ao 1º estágio do benchmark multimodal;
-  instrumentar trace no dashboard de produção; \emph{checkpointer} no agente ReAct;
-  avaliar diagnóstico em camadas e NL-to-SQL (os itens de maior risco do roadmap).
+  \textbf{Próximos passos:} achar/aprovar um VLM de captioning com qualidade suficiente
+  (prioridade elevada pelo resultado do experimento decisivo); instrumentar trace no
+  dashboard de produção; \emph{checkpointer} no agente ReAct; avaliar diagnóstico em
+  camadas e NL-to-SQL (os itens de maior risco do roadmap).
 
   \pause
   \begin{decisaobloco}{A parte que importa}
-    Dois de cinco resultados foram negativos --- e isso é o argumento mais forte deste
-    documento. Uma régua que só confirma o que a gente já queria não é régua.
+    Boa parte dos resultados medidos nesta narrativa foi negativa --- e isso é o
+    argumento mais forte deste documento. Uma régua que só confirma o que a gente já
+    queria não é régua.
   \end{decisaobloco}
 \end{frame}
 
