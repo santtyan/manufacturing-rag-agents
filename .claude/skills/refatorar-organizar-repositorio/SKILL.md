@@ -28,16 +28,23 @@ Antes de tocar em qualquer arquivo:
 
 ## Passo 2 — Auditar o repositório inteiro
 
-Antes de decidir o que mudar, levante os achados brutos, sem julgar prioridade ainda:
+Antes de decidir o que mudar, levante os achados brutos, sem julgar prioridade ainda. Use
+ferramenta de análise estática como **fonte de evidência adicional, nunca como veredito final**
+— toda dinâmica (glob, plugin, string de config, dispatch por dicionário) escapa de análise
+estática e só é descartada com confirmação manual (busca textual + leitura):
 
-- **Arquivos órfãos**: arquivos que não são importados/referenciados por nenhum outro lugar do
-  código, configuração ou documentação. Confirme com busca textual pelo nome do arquivo/módulo
-  antes de listar como órfão — um arquivo pode ser carregado dinamicamente (glob, plugin,
-  string de config) sem aparecer em um import estático.
-- **Lógica duplicada entre módulos**: a mesma decisão de negócio ou algoritmo reimplementado em
-  dois ou mais lugares. Procure por padrões de definição de função/classe com nomes ou
-  assinaturas parecidas em arquivos diferentes, e leia as duas implementações inteiras antes de
-  marcar como duplicata — não decida só pelo nome.
+- **Arquivos órfãos e código morto**: rode `vulture <pasta> --min-confidence 80` (projeto
+  Python) para achar funções, variáveis e imports sem uso aparente — trate cada resultado como
+  candidato, não como confirmado, e confirme com busca textual pelo nome antes de listar como
+  órfão de fato. Score de confiança abaixo de 100 costuma pegar falso positivo em dispatch
+  dinâmico; leia o contexto antes de aceitar. Repositórios não-Python: use o equivalente da
+  linguagem (ex. `ts-prune`/`knip` para TypeScript) com o mesmo cuidado.
+- **Lógica duplicada entre módulos**: rode `npx jscpd <pasta> --min-lines 10` (funciona
+  cross-linguagem, não só JS/TS) para achar blocos de código repetidos como ponto de partida —
+  mas o output é só sintático (clones tipo 1/2, texto igual ou quase igual). Leia as duas
+  implementações inteiras antes de marcar como duplicata de fato: DRY é sobre **conhecimento**,
+  não sobre sintaxe (ver Passo 3). Também procure manualmente por decisões de negócio
+  reimplementadas com nomes/estrutura diferentes — isso o jscpd não pega.
 - **Nomenclatura inconsistente**: convenções diferentes para a mesma coisa entre pastas (ex.:
   `snake_case` num módulo e `camelCase` em outro sem razão técnica), nomes genéricos demais
   (`utils.py`, `helpers.js`, `misc/`) que viraram gaveta de tudo.
@@ -48,7 +55,11 @@ Antes de decidir o que mudar, levante os achados brutos, sem julgar prioridade a
   dentro dos arquivos.
 
 O resultado deste passo é uma lista de achados concretos, cada um com localização exata (caminho
-de arquivo, e trecho relevante quando aplicável) — ainda sem decidir o que fazer com eles.
+de arquivo, e trecho relevante quando aplicável) — ainda sem decidir o que fazer com eles. Se a
+auditoria for repetida periodicamente neste repositório, registre a contagem de achados por
+categoria (órfãos, duplicações, nice-to-have pendentes) em vez de só o relatório do momento —
+isso transforma dívida técnica em métrica que se acompanha ao longo do tempo, não numa auditoria
+que começa do zero a cada vez.
 
 ## Passo 3 — Priorizar os achados
 
@@ -104,6 +115,9 @@ Pare e não aplique a mudança quando:
 - Não trate "os dois trechos se parecem" como prova suficiente de duplicação — leia as duas
   implementações inteiras antes de unificar.
 - Não pule o baseline reversível mesmo em repositórios pequenos ou mudanças que parecem triviais.
+- Não trate resultado de ferramenta de análise estática (Vulture, jscpd, etc.) como confirmação
+  automática de órfão/duplicata — é candidato, sempre precisa da mesma confirmação manual
+  (busca textual + leitura das duas implementações) que se exigiria sem a ferramenta.
 
 ## Checklist final de aceitação
 

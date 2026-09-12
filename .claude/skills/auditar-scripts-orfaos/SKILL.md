@@ -20,6 +20,13 @@ julgar ainda. Ignore pastas de ambiente virtual/dependências instaladas.
 
 ## Passo 2 — Coletar evidência de uso, com peso por tipo de sinal
 
+Antes da busca manual, rode `vulture <pasta> --min-confidence 80` como triagem inicial — ele
+aponta funções/imports/variáveis sem uso aparente via AST e ajuda a não perder candidato de
+vista. Trate o resultado como ponto de partida, não veredito: confiança abaixo de 100 pega falso
+positivo com frequência (dispatch por dicionário, chamada via string, plugin) e o Vulture não
+sabe nada sobre execução via `subprocess`, `crontab`, CI ou runbook externo — só a busca manual
+abaixo cobre isso.
+
 Para cada candidato, busque evidência de chamada real, na seguinte ordem de força de sinal (do
 mais forte ao mais fraco):
 
@@ -91,6 +98,8 @@ fácil de reverter, nunca apagar direto sem essa confirmação explícita.
   ninguém os importa — eles não têm chamador recorrente por natureza.
 - Não delete nada automaticamente, mesmo com alta confiança de que um script é órfão — sempre
   confirme com o usuário antes de remover do controle de versão.
+- Não trate resultado do Vulture (ou equivalente) como confirmação de órfão — ele não enxerga
+  `subprocess`, cron, CI nem dispatch dinâmico; é triagem, a busca manual do Passo 2 decide.
 
 ## Checklist final de aceitação
 
