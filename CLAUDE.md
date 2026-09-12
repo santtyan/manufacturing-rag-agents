@@ -53,7 +53,7 @@ python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 
 ### Serviços
 
-- **`dashboard/app.py`** (Streamlit, porta 8501) — chat principal, consome `dashboard/roteador.py` + `rag/rag_hibrido.py` + `nl_to_sql/nl_to_sql.py`. Contém `st.set_page_config()` em nível de módulo, por isso não é importável fora do Streamlit — é o motivo de `roteador.py` e `rag_gerador.py` terem sido extraídos como módulos separados.
+- **`dashboard/app.py`** (Streamlit, porta 8501) — chat principal, consome `dashboard/roteador.py` + `rag/rag_hibrido_langchain.py` + `nl_to_sql/nl_to_sql.py`. Contém `st.set_page_config()` em nível de módulo, por isso não é importável fora do Streamlit — é o motivo de `roteador.py` e `rag_gerador.py` terem sido extraídos como módulos separados.
 - **`infra/docker-compose.yml`** — Postgres 16 (`harbor_manufatura`).
 
 **Removidos** (entregas planejadas para reimplementação futura, ver `docs/mapeamento_cronograma.md`): API FastAPI de diagnóstico (`/diagnostico`, 3 camadas — regra determinística → Isolation Forest → veredito LLM, com precedência da regra sobre o LLM quando `CRITICO`) e servidor MCP (`consultar_banco`, `buscar_manual`, `diagnosticar_leitura` via FastMCP stdio), ambos em 2026-09-12; N8N (container + workflows de automação), na sessão seguinte. Os módulos compartilhados que API/MCP consumiam (`dashboard/roteador.py`, `rag/rag_hibrido_langchain.py`, `nl_to_sql/nl_to_sql.py`) continuam em produção via `dashboard/app.py`, sem impacto.
@@ -76,7 +76,11 @@ Fluxos recorrentes já empacotados como skills — usar em vez de reimprovisar o
 - **`gerar-cache-chat`** — pré-gera `dashboard/cache_respostas_chat.json` antes de reunião/demo.
 - **`adicionar-manual-rag`** — adiciona manual novo em `rag/manuais/`, reindexa, valida Recall@k/MRR.
 - **`atualizar-slide-resposta`** — cria/atualiza resposta preparada em `slides/*.md` com números atuais.
+- **`atualizar-slide-migracao-langchain`** — gera/atualiza slides Beamer da migração para LangChain/LangGraph, comparando Python puro x LangChain com números reais por módulo migrado.
 - **`comparar-tfidf-bm25`** — roda o benchmark que compara os dois algoritmos lexicais de `rag_hibrido.py`.
+- **`migrar-para-langchain`** — guia vivo para migrar módulos do Harbor (roteador, RAG híbrido, NL-to-SQL, diagnóstico em camadas) para LangChain/LangGraph, em ordem de risco crescente.
+- **`rag-multimodal`** — guia e checklist de implementação para RAG multimodal (texto + imagem): caption-then-embed com VLM local, rerank ColModernVBERT, calibração de top-p, critério de promoção de VLM.
+- **`roadmap-rag-survey`** — mapeia o RAG do Harbor contra a taxonomia Naive/Advanced/Modular RAG do survey de Gao et al. (arXiv:2312.10997), lista priorizada de técnicas a implementar.
 - **`roadmap-slm-multiagente`** — guia vivo do fit do Harbor com o Projeto 1 do PDC (multiagentes confiáveis + SLMs em português); lista priorizada de itens implementáveis.
 - **`refatorar-organizar-repositorio`** — audita dívida técnica estrutural (duplicação, arquivos órfãos, nomenclatura, organização de pastas) e aplica refatoração com comportamento preservado em mudanças pequenas e reversíveis; skill genérica, não específica do Harbor.
 - **`auditar-scripts-orfaos`** — classifica scripts Python standalone (`if __name__ == "__main__":`) em útil/órfão/arquivado intencionalmente/setup one-shot, cruzando evidência de chamada real com sinais de auto-abandono no docstring; skill genérica, não específica do Harbor.
