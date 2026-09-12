@@ -73,7 +73,6 @@ def main():
     print("\n=== Servicos ativos ===")
     check_endpoint("Ollama", "http://localhost:11434/api/tags")
     check_endpoint("Streamlit dashboard", "http://localhost:8501")
-    check_endpoint("N8N", "http://localhost:5678")
 
     print("\n=== Resumo ===")
     if falhas:

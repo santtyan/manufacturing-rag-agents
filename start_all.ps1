@@ -35,7 +35,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 docker ps --format "{{.Names}}: {{.Status}}" 2>&1
 
-Write-Host "`n=== 2. Containers (Postgres + N8N) ===" -ForegroundColor Cyan
+Write-Host "`n=== 2. Container (Postgres) ===" -ForegroundColor Cyan
 Push-Location "$PSScriptRoot\infra"
 docker compose up -d
 Pop-Location
@@ -63,7 +63,6 @@ Start-Sleep -Seconds 2
 $resultados = @{
     "Ollama"    = Test-Endpoint "Ollama"    "http://localhost:11434/api/tags"
     "Streamlit" = Test-Endpoint "Streamlit" "http://localhost:8501"
-    "N8N"       = Test-Endpoint "N8N"       "http://localhost:5678"
 }
 
 Write-Host "`n=== Resumo ===" -ForegroundColor Cyan
@@ -79,4 +78,3 @@ if ($falhas -eq 0) {
 
 Write-Host "`nEnderecos:"
 Write-Host "  Dashboard : http://localhost:8501"
-Write-Host "  N8N       : http://localhost:5678"

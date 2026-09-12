@@ -11,16 +11,5 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: harbor_n8n
-    ports:
-      - "5678:5678"
-    environment:
-      - N8N_SECURE_COOKIE=false
-    volumes:
-      - n8n_data:/home/node/.n8n
-
 volumes:
   postgres_data:
-  n8n_data:

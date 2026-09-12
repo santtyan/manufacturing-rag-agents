@@ -5,7 +5,7 @@ Referência para justificar a entrega como progresso real do plano de trabalho, 
 ## Eixo 1 — Fundamentação e Capacitação Técnica
 - **A2** (LLMs, NLP na manufatura) — os 4 pipelines usam LLM (Ollama) para resumo/diagnóstico
 - **A7** (modelos locais: LLaMA, Mistral, Phi-3 via Ollama) — `llama3.2` rodando localmente em todos os pipelines
-- **A15** (Docker: Dockerfile, docker-compose) — `docker-compose.yml` com Postgres + N8N
+- **A15** (Docker: Dockerfile, docker-compose) — `docker-compose.yml` com Postgres (N8N entregue nesta data; removido em 2026-09-12, reimplementação planejada para trilha futura)
 - **A16** (APIs RESTful) — API FastAPI (`/diagnostico`, `/amostra`, `/health`) entregue nesta data; removida em 2026-09-12, reimplementação planejada para trilha futura
 - **A18** (ambientação com dados Tipo A/B/C) — os 4 datasets cobrem paradas/histórico (Tipo B) e telemetria (Tipo C)
 - **A19** (capacitação em Python, LangChain, Ollama, Git) — todos os pipelines em Python + Ollama
@@ -26,7 +26,7 @@ Referência para justificar a entrega como progresso real do plano de trabalho, 
 - **C17-C21** (execução local via Ollama, avaliação latência/precisão) — todos os pipelines usam Ollama local
 
 ## Eixo 4 — Automação com N8N
-- **D1-D2** (deploy N8N em Docker, criação de workflows) — container N8N ativo (workflows de diagnóstico via webhook removidos em 2026-09-12 junto com a API, reimplementação planejada para trilha futura)
+- **D1-D2** (deploy N8N em Docker, criação de workflows) — container N8N e workflows entregues nesta data; removidos em 2026-09-12, reimplementação planejada para trilha futura
 - **D3-D9** (processamento CSV periódico, alertas automáticos) — workflow webhook → diagnóstico → resultado entregue nesta data; removido em 2026-09-12
 - **D10-D13** (integração N8N com APIs via webhook/HTTP) — construído nesta entrega; removido em 2026-09-12, reimplementação planejada para trilha futura
 

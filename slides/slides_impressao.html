@@ -265,8 +265,6 @@ td.num { font-family: Arial, Helvetica, sans-serif; text-align: right; font-vari
       <span class="tag">pandas</span>
       <span class="tag">scikit-learn</span>
       <span class="tag">Ollama (local)</span>
-      <span class="tag">FastAPI</span>
-      <span class="tag">N8N</span>
       <span class="tag">PostgreSQL</span>
       <span class="tag">Streamlit</span>
     </div>
@@ -285,12 +283,6 @@ td.num { font-family: Arial, Helvetica, sans-serif; text-align: right; font-vari
       <h4>Streamlit</h4>
       <p>4 abas com os resultados + um chatbot especialista por dataset, rodando em Ollama local.</p>
       <div class="addr">localhost:8501</div>
-    </div>
-    <div class="infra-card">
-      <div class="icon-label">Automação</div>
-      <h4>N8N</h4>
-      <p>Orquestração de workflows, mesmo padrão do projeto de teleoperação de robô.</p>
-      <div class="addr">localhost:5678</div>
     </div>
     <div class="infra-card">
       <div class="icon-label">RAG híbrido</div>
@@ -574,7 +566,7 @@ td.num { font-family: Arial, Helvetica, sans-serif; text-align: right; font-vari
     <div class="step-item"><span class="step-n">2b</span><p>Portar os gates novos de <code>dashboard/app.py</code> para <code>eval/rodar_golden.py</code> (3ª cópia da lógica de roteamento) e rerodar o harness formal — hoje os números do slide são anteriores aos bugfixes, e rerodar sem sincronizar mostraria um número pior por desatualização, não por regressão.</p></div>
     <div class="step-item"><span class="step-n">2c</span><p>Avaliar o pipeline RAG de ponta a ponta nas mesmas 50 golden questions e no NanoBEIR — hoje o Recall@5/MRR mede só a etapa de busca (retrieval), sem incluir a geração da resposta final pelo LLM nem a verificação anti-alucinação.</p></div>
     <div class="step-item"><span class="step-n">2d</span><p>Testar o BIRD-SQL/Spider com execução real no banco, não só correspondência textual — hoje o teste não pega o erro mais traiçoeiro do catálogo de bugs: uma consulta sintaticamente correta com a lógica errada, que parece acerto no Jaccard sem realmente ser.</p></div>
-    <div class="step-item"><span class="step-n">3</span><p>Alerta automático no Telegram via N8N quando o diagnóstico detectar falha real.</p></div>
+    <div class="step-item"><span class="step-n">3</span><p>Alerta automático no Telegram quando o diagnóstico detectar falha real.</p></div>
     <div class="step-item"><span class="step-n">4</span><p>Substituir os datasets públicos por dados reais do LiveMES / InfinityQS assim que disponíveis.</p></div>
     <div class="step-item"><span class="step-n">5</span><p><strong>GraphRAG:</strong> conectar entidades e relações entre documentos (sensor → threshold → procedimento) para perguntas que exigem cruzar várias seções/documentos.</p></div>
     <div class="step-item"><span class="step-n">6</span><p><strong>Agentic RAG:</strong> o agente decide em tempo real se precisa buscar de novo ou combinar RAG + SQL na mesma resposta, em vez de uma rota fixa por pergunta.</p></div>

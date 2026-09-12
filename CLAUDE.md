@@ -14,7 +14,7 @@ Todo o código, comentários e docstrings estão em português. Os comentários 
 powershell -ExecutionPolicy Bypass -File start_all.ps1
 ```
 
-Sobe, nessa ordem: Docker Desktop → containers Postgres+N8N (`infra/docker-compose.yml`) → Ollama (`ollama serve`) → Streamlit (porta 8501). Verifica saúde de cada serviço no final.
+Sobe, nessa ordem: Docker Desktop → container Postgres (`infra/docker-compose.yml`) → Ollama (`ollama serve`) → Streamlit (porta 8501). Verifica saúde de cada serviço no final.
 
 Serviços manuais, se preferir subir peça por peça:
 ```powershell
@@ -54,9 +54,9 @@ python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 ### Serviços
 
 - **`dashboard/app.py`** (Streamlit, porta 8501) — chat principal, consome `dashboard/roteador.py` + `rag/rag_hibrido.py` + `nl_to_sql/nl_to_sql.py`. Contém `st.set_page_config()` em nível de módulo, por isso não é importável fora do Streamlit — é o motivo de `roteador.py` e `rag_gerador.py` terem sido extraídos como módulos separados.
-- **`infra/docker-compose.yml`** — Postgres 16 (`harbor_manufatura`) + N8N.
+- **`infra/docker-compose.yml`** — Postgres 16 (`harbor_manufatura`).
 
-**Removidos em 2026-09-12** (entregas planejadas para reimplementação futura, ver `docs/mapeamento_cronograma.md`): API FastAPI de diagnóstico (`/diagnostico`, 3 camadas — regra determinística → Isolation Forest → veredito LLM, com precedência da regra sobre o LLM quando `CRITICO`) e servidor MCP (`consultar_banco`, `buscar_manual`, `diagnosticar_leitura` via FastMCP stdio). Os módulos compartilhados que eles consumiam (`dashboard/roteador.py`, `rag/rag_hibrido_langchain.py`, `nl_to_sql/nl_to_sql.py`) continuam em produção via `dashboard/app.py`, sem impacto.
+**Removidos** (entregas planejadas para reimplementação futura, ver `docs/mapeamento_cronograma.md`): API FastAPI de diagnóstico (`/diagnostico`, 3 camadas — regra determinística → Isolation Forest → veredito LLM, com precedência da regra sobre o LLM quando `CRITICO`) e servidor MCP (`consultar_banco`, `buscar_manual`, `diagnosticar_leitura` via FastMCP stdio), ambos em 2026-09-12; N8N (container + workflows de automação), na sessão seguinte. Os módulos compartilhados que API/MCP consumiam (`dashboard/roteador.py`, `rag/rag_hibrido_langchain.py`, `nl_to_sql/nl_to_sql.py`) continuam em produção via `dashboard/app.py`, sem impacto.
 
 ### Pipelines (`pipelines/`)
 

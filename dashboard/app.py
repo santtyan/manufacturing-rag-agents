@@ -85,8 +85,6 @@ def registrar_alucinacao(dataset_key, pergunta, resposta, numeros_suspeitos, des
     except Exception as exc:
         print(f"[log_alucinacoes: falha ao gravar: {exc}]")
 
-N8N_URL = "http://localhost:5678"
-
 st.set_page_config(
     page_title="Harbor · CERISE",
     page_icon="🍒",
@@ -247,7 +245,6 @@ with st.sidebar:
     st.subheader("🩺 Status dos servicos")
     servicos = [
         ("Ollama", "http://localhost:11434/api/tags"),
-        ("N8N", N8N_URL),
     ]
     for nome, url in servicos:
         _, ok = checar_servico(nome, url)
