@@ -1,0 +1,231 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{booktabs}
+\usepackage{xcolor}
+
+% Tema CERISE — mesma identidade visual dos outros slides do projeto.
+\definecolor{cerisemagenta}{HTML}{A6186B}
+\definecolor{ceriserosa}{HTML}{E6186D}
+\definecolor{cerisecoral}{HTML}{F5642D}
+\definecolor{ceriseroxo}{HTML}{5B1A6B}
+
+\setbeamercolor{title}{fg=cerisemagenta}
+\setbeamercolor{frametitle}{fg=white,bg=cerisemagenta}
+\setbeamercolor{structure}{fg=cerisemagenta}
+\setbeamercolor{block title}{fg=white,bg=ceriseroxo}
+\setbeamercolor{block body}{bg=cerisemagenta!5}
+\setbeamercolor{alerted text}{fg=cerisecoral}
+\setbeamercolor{item}{fg=cerisemagenta}
+
+\newenvironment{numerobloco}[1]{\begin{block}{#1}}{\end{block}}
+\newenvironment{decisaobloco}[1]{\begin{alertblock}{#1}}{\end{alertblock}}
+
+\title{Progresso do Harbor}
+\subtitle{RAG multimodal: recalibrar o rerank e decidir se ele compensa captioning ruim}
+\author{Yan Santos Leite}
+\date{11 de setembro de 2026}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Resumo}
+  \begin{itemize}
+    \item Continuação direta do slide anterior (10--11/09): a sessão passada travou o
+      \textbf{item 4} do plano (recalibrar o rerank multimodal) num custo de CPU que
+      parecia alto demais. Esta sessão resolveu isso e foi além, fechando também o
+      \textbf{item 5} (o experimento decisivo do plano).
+    \item Um bug de ambiente novo (\emph{access violation} ao importar
+      \texttt{sentence\_transformers}) precisou ser diagnosticado e corrigido antes de
+      qualquer medição ser possível.
+    \item Profiling isolado revisou a estimativa de custo do rerank para baixo
+      (49s$\to$14,5s/imagem) — o gargalo nunca foi tão grave quanto parecia.
+    \item \textbf{Resultado principal: o rerank multimodal (\texttt{ColModernVBERT}) não
+      compensa um VLM de captioning ruim.} Um VLM melhor sem rerank supera, de longe, um
+      VLM pior com rerank — em qualidade \emph{e} em custo. Isso muda a prioridade do
+      plano: achar um VLM aprovado importa mais do que otimizar o rerank.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Bug de ambiente: \emph{access violation} ao importar sentence-transformers}
+  \small
+  \begin{numerobloco}{O que aconteceu}
+    O fix já documentado na sessão anterior (\texttt{import pandas} antes de
+    \texttt{sentence\_transformers}) parou de bastar sozinho — o processo voltava a
+    quebrar com \emph{access violation} do Windows, sem nenhum traceback Python.
+  \end{numerobloco}
+
+  \pause
+  \textbf{Como isolamos a causa:} bisseção manual de imports, testando cada combinação
+  em processos isolados. O crash exige \texttt{torch} + \texttt{sklearn} +
+  \texttt{pyarrow.dataset} + \texttt{datasets} carregados juntos, na ordem específica
+  que \texttt{sentence\_transformers} usa internamente (\texttt{sentence\_transformers.base}
+  $\to$ \texttt{datasets} $\to$ \texttt{pyarrow.dataset}) — um conflito de DLL nativa
+  entre o runtime do \texttt{torch} e o do \texttt{pyarrow} no Windows.
+
+  \pause
+  \begin{decisaobloco}{Fix aplicado}
+    \texttt{import datasets} explícito, antes de qualquer import de
+    \texttt{sentence\_transformers}, força a ordem de carregamento de DLL que evita o
+    crash. Sem esse fix, nem o profiling isolado (próximo frame) conseguia rodar.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Profiling isolado: o custo real do rerank era menor que o estimado}
+  \small
+  \begin{numerobloco}{O que medimos (1 imagem, 3 rodadas, para checar variação)}
+    \begin{center}
+    \footnotesize
+    \begin{tabular}{lc}
+      \toprule
+      \textbf{Etapa} & \textbf{Tempo} \\
+      \midrule
+      Load do modelo (\emph{one-time}) & 8,6s \\
+      \texttt{encode\_document} & \textbf{$\sim$14,5s (consistente nas 3 rodadas)} \\
+      \texttt{encode\_query} & 0,14s \\
+      \texttt{similarity} & 0,01s \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} os 48,76s/imagem calculados na sessão anterior não
+  eram o custo real do encode em si — eram overhead acumulado numa rodada mais longa
+  sem instrumentação por etapa. Não havia gordura óbvia para cortar nem justificativa
+  para trocar de reranker antes de medir.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    Aceitar o custo medido (\textasciitilde15s/imagem) e rodar a recalibração completa
+    em background com \texttt{python -u} (saída sem buffer) — não investigar
+    FlashRank/ONNX, já que o custo isolado se mostrou razoável.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Item 4: recalibração de \texttt{top-p} concluída — 0,7 vence}
+  \small
+  \begin{numerobloco}{O que medimos (corpus Harbor, 26 imagens, legendas \texttt{qwen3-vl})}
+    \begin{center}
+    \footnotesize
+    \begin{tabular}{lcccc}
+      \toprule
+      \textbf{Estratégia} & \textbf{nDCG@5} & \textbf{Recall@5} & \textbf{MRR} & \textbf{Custo} \\
+      \midrule
+      sem rerank         & 0,864          & 93\%          & 0,679          & 38--62s \\
+      top-k=5 (fixo)     & 0,867          & 93\%          & 0,693          & $\sim$3000--3560s \\
+      \textbf{top-p=0,7} & \textbf{0,889} & \textbf{97\%} & \textbf{0,702} & \textbf{$\sim$3015s} \\
+      top-p=0,85         & 0,802          & 86\%          & 0,661          & $\sim$6734s \\
+      top-p=0,99         & 0,780          & 86\%          & 0,647          & $\sim$7055s \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significou:} contra a intuição de que ``mais candidatos aumenta a
+  chance de achar o certo'', os limiares mais permissivos (0,85/0,99) selecionaram bem
+  mais candidatos por pergunta (235/290 vs.\ 145) e \textbf{pioraram todas as métricas ao
+  custarem mais} — candidatos de score baixo introduzem ruído que o rerank não corrige.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    \texttt{TOP\_P\_LIMIAR} do script atualizado de 0,85 (chute inicial nunca validado)
+    para \textbf{0,7} — o vencedor real, e o mais barato dos três limiares testados.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Item 5: o experimento decisivo do plano}
+  \small
+  \begin{numerobloco}{A pergunta}
+    O desenho de 2 estágios (retrieval barato + rerank caro, padrão HEAVEN,
+    arXiv:2510.22215) promete recuperar qualidade mesmo com um encoder de 1º estágio
+    fraco. Isso vale para o Harbor? O rerank multimodal compensa um VLM de captioning
+    \emph{ruim}, ou a qualidade do VLM importa mais que o rerank?
+  \end{numerobloco}
+
+  \pause
+  \textbf{Como testamos:} comparamos, no mesmo corpus/golden set, (A) caption ruim
+  (\texttt{moondream}) + rerank \texttt{top-p=0,7} recém-calibrado vs.\ (B) caption bom
+  (\texttt{qwen3-vl}) sem nenhum rerank. O número de candidatos selecionados pelo
+  \texttt{top-p=0,7} não é fixo — varia conforme a distribuição de score do 1º estágio
+  em cada VLM (189 candidatos rerankeados no cenário A, vs.\ 145 na recalibração do
+  item 4 com \texttt{qwen3-vl}).
+
+  \pause
+  \begin{center}
+  \footnotesize
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Cenário} & \textbf{nDCG@5} & \textbf{Recall@5} & \textbf{MRR} & \textbf{Custo} \\
+    \midrule
+    A) moondream + rerank & 0,436          & 48\%          & 0,362          & 4779s \\
+    \textbf{B) qwen3-vl, sem rerank} & \textbf{0,864} & \textbf{93\%} & \textbf{0,679} & \textbf{11,8s} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}{Item 5: veredito — o rerank não compensa captioning ruim}
+  \small
+  \begin{decisaobloco}{Veredito}
+    (B) supera (A) em \textbf{todas} as métricas por margem larga (quase o dobro de
+    nDCG/Recall) e custa \textbf{$\sim$400$\times$ menos}. Não é resultado ambíguo.
+  \end{decisaobloco}
+
+  \pause
+  \textbf{Hipótese explicativa (não medida diretamente nesta rodada):} o rerank
+  multimodal reordena os candidatos que o 1º estágio já selecionou a partir da legenda
+  em texto. Se a legenda não descreve o conteúdo real da imagem — o \texttt{moondream}
+  produz descrições genéricas (\emph{``bar graph''}, \emph{``line graph''}) sem conteúdo
+  semântico —, a imagem certa pode nem chegar perto do topo do 1º estágio para o rerank
+  ter o que reordenar. Não confirmamos isso checando o ranking do 1º estágio isolado
+  para o cenário A — fica como próximo passo se a explicação precisar de mais rigor.
+
+  \pause
+  \begin{numerobloco}{Implicação para a arquitetura de produção}
+    O esforço futuro deve priorizar achar/aprovar um VLM de qualidade suficiente
+    (item 3 do plano — ainda sem candidato aprovado: \texttt{qwen3-vl} chegou a 77,5\%
+    de fidelidade, abaixo do corte de 90\%), não otimizar o rerank multimodal. O rerank
+    calibrado (\texttt{top-p=0,7}) continua valioso como ganho incremental
+    \emph{sobre} um bom captioning (ver item 4), mas não é substituto para resolver a
+    qualidade da legenda.
+  \end{numerobloco}
+
+  \pause
+  \footnotesize \textit{Ressalva: comparação com apenas 1 VLM ruim e 1 VLM bom (ainda
+  reprovado formalmente) — evidência forte neste corpus, não prova formal universal.}
+\end{frame}
+
+\begin{frame}{Riscos e pendências}
+  \begin{itemize}
+    \item[\textcolor{green!50!black}{$\bullet$}] \textbf{Item 4 (recalibração de top-p)} —
+      concluído. \texttt{TOP\_P\_LIMIAR=0,7} em produção no script de benchmark.
+    \item[\textcolor{green!50!black}{$\bullet$}] \textbf{Item 5 (rerank vs.\ captioning)} —
+      concluído, veredito claro documentado na skill \texttt{rag-multimodal}.
+    \item[\textcolor{orange!80!black}{$\bullet$}] \textbf{Item 3 (VLM aprovado)} — segue
+      \textbf{sem candidato aprovado}. \texttt{qwen3-vl:4b} é o melhor testado (77,5\%),
+      mas abaixo do critério de promoção ($\geq$90\%). Agora é a prioridade real do
+      plano, à luz do resultado do item 5.
+    \item[\textcolor{red}{$\bullet$}] \textbf{Alucinação numérica genuína} — 2 casos
+      confirmados de voltagem reportada 3 ordens de grandeza abaixo do valor real, ainda
+      sem investigação de causa (troca de rótulo de eixo? confusão de escala do VLM?).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Próximos passos}
+  \begin{itemize}
+    \item Buscar um VLM candidato novo para o item 3 — nenhum dos testados até agora
+      (\texttt{moondream}, \texttt{granite3.2-vision:2b}, \texttt{qwen3-vl:4b}) atingiu
+      o critério de promoção. Prioridade elevada pelo resultado do item 5.
+    \item Investigar a causa da alucinação de voltagem (3 ordens de grandeza) antes de
+      testar o próximo VLM, se o padrão se repetir.
+    \item Item 6: manter os slides sincronizados com os números reais conforme o plano
+      avançar (esta atualização já cobre isso até aqui).
+    \item Não relançar recalibração do rerank nem repetir o experimento do item 5 sem um
+      VLM novo candidato — ambos já têm resposta clara para o VLM atual.
+  \end{itemize}
+\end{frame}
+
+\end{document}

@@ -46,6 +46,10 @@ import time
 from pathlib import Path
 
 import pandas  # ACHADO REAL: import antes de sentence_transformers evita access violation (ver skill rag-multimodal)
+import datasets  # ACHADO REAL (2026-09-11): `pandas` sozinho parou de bastar -- o access
+# violation e especificamente torch x pyarrow.dataset (puxado por sentence_transformers.base
+# -> datasets -> pyarrow.dataset); importar `datasets` aqui, antes de qualquer import de torch,
+# forca a ordem de carregamento de DLL que evita o crash. Ver memoria de sessao 2026-09-11.
 
 EVAL_DIR = Path(__file__).resolve().parent
 HARBOR_ROOT = EVAL_DIR.parent
@@ -62,8 +66,14 @@ K_FINAL = 5  # k avaliado no ranking final (nDCG@5/Recall@5) -- k=10 do ViDoRe o
 K_CANDIDATOS_1O_ESTAGIO = 10  # quantos candidatos o 1o estagio (caption-then-embed) recupera,
 # antes de qualquer corte para o 2o estagio (rerank multimodal)
 TOP_K_RERANK = 5  # variante top-k fixo: quantos desses candidatos vao para o rerank caro
-TOP_P_LIMIAR = 0.85  # variante top-p: inclui candidatos ate a massa cumulativa de score
+TOP_P_LIMIAR = 0.7  # variante top-p: inclui candidatos ate a massa cumulativa de score
 # normalizado atingir este limiar -- adapta o numero de candidatos a confianca do 1o estagio
+# RECALIBRADO (2026-09-11, item 4 do plano "Evoluir o RAG multimodal"): 0,7 testado contra
+# 0,85 e 0,99 no corpus Harbor (26 imagens, legendas qwen3-vl) com score RRF real (usar_score_rrf).
+# 0,7 venceu em TODAS as metricas E custou menos: nDCG@5=0,889/Recall@5=97%/MRR=0,702 (145 img.
+# rerankeadas, ~3015s) vs. 0,85 (nDCG=0,802/Recall=86%, 235 img., ~6734s) e 0,99 (nDCG=0,780/
+# Recall=86%, 290 img., ~7055s). Limiares mais permissivos incluem candidatos ruidosos no rerank
+# -- mais candidatos NAO e melhor aqui. Resultados completos em eval/logs_recalibracao/.
 
 
 def ndcg_at_k(relevancias_ordenadas, k=K_FINAL):

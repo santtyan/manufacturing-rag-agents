@@ -4,7 +4,7 @@
     "ndcg": 0.864,
     "recall": 0.931,
     "mrr": 0.679,
-    "tempo_s": 37.6,
+    "tempo_s": 19.8,
     "n_unidades": 26
   },
   {
@@ -12,15 +12,15 @@
     "ndcg": 0.867,
     "recall": 0.931,
     "mrr": 0.693,
-    "tempo_s": 3562.2,
+    "tempo_s": 2553.9,
     "n_unidades": 145
   },
   {
-    "nome": "Corpus Harbor (4 img.) | rerank top-p=0.99",
-    "ndcg": 0.78,
-    "recall": 0.862,
-    "mrr": 0.647,
-    "tempo_s": 7054.5,
-    "n_unidades": 290
+    "nome": "Corpus Harbor (4 img.) | rerank top-p=0.7",
+    "ndcg": 0.889,
+    "recall": 0.966,
+    "mrr": 0.702,
+    "tempo_s": 3015.2,
+    "n_unidades": 179
   }
 ]

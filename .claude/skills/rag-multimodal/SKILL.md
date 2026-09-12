@@ -397,6 +397,86 @@ CPU, o que sugere que 48,76s/imagem pode não ser o teto físico do modelo.
 4. Avaliar FlashRank como reranker alternativo SE o profiling confirmar que o custo está mesmo
    no rerank em si.
 
+## Item 4 do plano: CONCLUÍDO — recalibração completa, `top-p=0,7` vencedor (2026-09-11)
+
+**Novo bug de ambiente encontrado e corrigido antes de conseguir rodar**: `import pandas` antes
+de `sentence_transformers` (achado de 2026-09-09, seção acima) **parou de bastar sozinho** —
+`import sentence_transformers` voltou a causar access violation (torch × `pyarrow.dataset`,
+puxado internamente por `sentence_transformers.base` → `datasets` → `pyarrow.dataset`). Isolado
+por bisseção de imports: o crash exige `torch` + `sklearn` + `pyarrow.dataset` + `datasets` juntos
+na mesma ordem que `sentence_transformers` usa internamente; **`import datasets` explícito ANTES
+de `import sentence_transformers`** força a ordem de carregamento de DLL que evita o crash — sem
+isso nem o profiling isolado rodava. Aplicado em `eval/avaliar_benchmark_multimodal_2x2.py` (logo
+após o `import pandas` já existente).
+
+**Profiling isolado (1 imagem, 3 rodadas) confirmou onde o custo realmente está**: load do modelo
+8,6s (one-time); `encode_document` **~14,5s consistente entre rodadas** (praticamente 100% do
+custo por imagem, sem warm-up nem gordura óbvia); `encode_query` 0,14s; `similarity` 0,01s — os
+48,76s/imagem calculados na sessão anterior não eram o custo real do encode em si, mas overhead
+acumulado numa rodada mais longa. Não foi necessário trocar de reranker nem investir em
+FlashRank/ONNX — o custo medido isoladamente já era razoável, só faltava rodar sem interrupção.
+
+**Recalibração dos 3 limiares** (corpus Harbor 26 imagens, legendas `qwen3-vl:4b`, score RRF real
+via `usar_score_rrf=True`):
+
+| Estratégia | nDCG@5 | Recall@5 | MRR | Candidatos rerankeados | Custo |
+|---|---|---|---|---|---|
+| sem rerank | 0,864 | 93% | 0,679 | — | 37,6-62,2s |
+| top-k=5 (fixo) | 0,867 | 93% | 0,693 | 145 | ~3000-3560s |
+| **top-p=0,7** | **0,889** | **97%** | **0,702** | 145 | ~3015s |
+| top-p=0,85 | 0,802 | 86% | 0,661 | 235 | ~6734s |
+| top-p=0,99 | 0,780 | 86% | 0,647 | 290 | ~7055s |
+
+**Achado real, ao contrário da intuição de "mais candidatos = mais chance de achar o certo"**:
+limiares de top-p mais permissivos (0,85/0,99) selecionaram bem mais candidatos por pergunta
+(235/290 vs. 145) e **pioraram todas as 3 métricas ao mesmo tempo que custaram mais** — o rerank
+multimodal precisa de um conjunto de candidatos já filtrado com confiança pelo 1º estágio; incluir
+candidatos de score baixo introduz ruído que o ColModernVBERT não consegue corrigir sozinho.
+`TOP_P_LIMIAR` do script atualizado de `0,85` (chute inicial nunca validado) para **`0,7`**
+(vencedor real, mais barato ainda por cima). Resultados completos em `eval/logs_recalibracao/`.
+
+**Conclusão prática**: com score real e limiar correto, o rerank em 2 estágios (top-p=0,7) supera
+tanto "sem rerank" quanto "top-k fixo" em todas as métricas — primeira evidência de que o desenho
+de 2 estágios (HEAVEN) realmente compensa o custo do rerank multimodal neste corpus, não só em
+teoria. **Mas essa comparação foi feita com o MESMO VLM (moondream) nos dois lados** — o item 5
+testa se o rerank compensa TROCAR de VLM, pergunta diferente e mais importante para a decisão de
+arquitetura.
+
+## Item 5 do plano: CONCLUÍDO — rerank NÃO compensa captioning ruim (2026-09-11)
+
+**Pergunta**: o rerank multimodal (ColModernVBERT, top-p=0,7 calibrado no item 4) compensa um
+VLM de captioning ruim, ou a qualidade do VLM importa mais que o rerank? Script novo
+`eval/avaliar_rerank_compensa_captioning.py` (reusa `estagio1_retrieval`/`estagio2_rerank` do
+benchmark 2x2, sem duplicar lógica), comparando 2 cenários sobre o mesmo corpus/golden set:
+
+| Cenário | nDCG@5 | Recall@5 | MRR | Custo |
+|---|---|---|---|---|
+| A) moondream (caption ruim) + rerank top-p=0,7 | 0,436 | 48% | 0,362 | 4779,4s (189 img. rerankeadas) |
+| **B) qwen3-vl (caption bom) SEM rerank** | **0,864** | **93%** | **0,679** | **11,8s** |
+
+**VEREDITO CLARO: o rerank NÃO compensa captioning ruim.** (B) supera (A) em TODAS as métricas
+por margem larga (quase o dobro de nDCG/Recall) E custa ~400x menos (11,8s vs. 4779,4s) — não é
+resultado marginal nem ambíguo. A hipótese do desenho HEAVEN (retrieval barato + rerank caro
+recupera qualidade de captioning ruim) **não se sustenta neste corpus**: o rerank multimodal
+opera sobre os candidatos que o 1º estágio (embedding da legenda) já selecionou — se a legenda
+em si não descreve o conteúdo real da imagem (moondream: "bar graph", "line graph" genéricos,
+às vezes texto degenerado), nenhum rerank visual recupera informação que nunca entrou no texto
+indexado. O rerank reordena o que já foi selecionado; não resgata candidatos que o retrieval
+textual nunca trouxe para perto do top-k por causa de uma legenda ruim.
+
+**Implicação para a arquitetura de produção**: o esforço deve ir para achar/aprovar um VLM de
+qualidade suficiente (item 3, ainda sem candidato aprovado — qwen3-vl chegou perto, 77,5% de
+fidelidade, mas reprovado pelo critério de ≥90%), não para otimizar o rerank multimodal. O
+rerank ColModernVBERT como está calibrado hoje (top-p=0,7) é valioso como ganho incremental
+SOBRE um bom captioning (ver item 4: rerank supera "sem rerank" quando o VLM já é o mesmo dos
+dois lados), mas não é substituto para resolver a qualidade da legenda em si. Não promover o
+rerank multimodal para produção como forma de "economizar" na escolha do VLM.
+
+**Ressalva de validade**: comparação com apenas 1 VLM ruim (moondream) e 1 VLM bom (qwen3-vl,
+ainda reprovado formalmente) — não é uma prova formal de que NENHUM rerank compensa NENHUM VLM
+ruim, é evidência forte neste corpus/estas condições. Resultados completos em
+`eval/resultados_item5_rerank_vs_captioning.json`.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com
