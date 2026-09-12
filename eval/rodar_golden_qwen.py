@@ -258,8 +258,8 @@ def responder(pergunta_obj):
 
 def _responder_sql(pergunta):
     """Gera+executa SQL real (com self-repair + DBA-Agent) e converte o resultado em resposta
-    em portugues, reaproveitando nl_to_sql/nl_to_sql.py -- mesmo pipeline usado pelo dashboard
-    e pelo servidor MCP. O 'contexto' retornado (para a checagem anti-alucinacao) e o proprio
+    em portugues, reaproveitando nl_to_sql/nl_to_sql.py -- mesmo pipeline usado pelo dashboard.
+    O 'contexto' retornado (para a checagem anti-alucinacao) e o proprio
     resultado da query em texto: um numero que a resposta cite mas nao esteja na tabela retornada
     e candidato a alucinacao, igual ao padrao ja usado nas rotas contexto/rag."""
     _sys.path.insert(0, r"C:\Projetos\Harbor\nl_to_sql")

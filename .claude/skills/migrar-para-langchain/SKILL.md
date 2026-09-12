@@ -46,10 +46,9 @@ blogs técnicos). Ordem crescente de risco/esforço:
    fornece a regra. São 9+ gates para portar sem perder cobertura do golden set
    (`eval/golden_questions.json`). Migrar só depois de RAG e self-repair estarem estáveis.
 
-4. **Diagnóstico em camadas** (`api/main.py`, regra determinística → Isolation Forest →
-   veredito LLM) — **baixo risco, baixo retorno**. Não existe integração nomeada do LangGraph
-   para ML tabular via scikit-learn; hoje já é se/então simples e funcional. Avaliar se vale a
-   pena antes de investir tempo aqui — pode não valer.
+4. **Diagnóstico em camadas** — removido do projeto em 2026-09-12 junto com `api/main.py`
+   (entrega planejada para reimplementação futura, ver `docs/mapeamento_cronograma.md`). Item
+   de roadmap suspenso até a reimplementação existir.
 
 5. **NL-to-SQL** (`nl_to_sql/nl_to_sql.py`) — **maior risco**. O `sql_db_query_checker` nativo
    do LangChain é **LLM-assistido** (pede ao próprio LLM pra revisar a query), não uma
@@ -91,8 +90,8 @@ Implementação usada em produção: **`RAGLangChainBM25RRF`** (`experiments/lan
 rag_langchain_bm25rrf.py`) — não `RAGLangChainFiel` — porque combina os dois ganhos (framework
 LangChain + o algoritmo BM25+RRF que efetivamente melhora Precision@5). Ao promover essa classe
 para `rag/`, mover o arquivo para fora de `experiments/` (ela deixa de ser experimental) e
-atualizar os consumidores (`dashboard/app.py`, `eval/rag_gerador.py`, `mcp/servidor_harbor.py`)
-— aplicar a mesma regra inegociável abaixo antes de trocar o import de produção.
+atualizar os consumidores (`dashboard/app.py`, `eval/rag_gerador.py`) — aplicar a mesma regra
+inegociável abaixo antes de trocar o import de produção.
 
 ## Regra de baseline justo (disciplina experimental do grupo PDC, 2026-09-08)
 
@@ -137,7 +136,8 @@ seguindo o padrão de `roadmap-slm-multiagente`.
       `rag/rag_hibrido_langchain.py` (classe `RAGHibrido`, drop-in). Harness rodado 3x
       (baseline + 2 confirmações pós-troca de import) sem regressão — mesmas 2-3 alucinações
       conhecidas em `eval/alucinacoes.md`, nenhuma nova. Consumidores atualizados:
-      `dashboard/app.py`, `eval/rag_gerador.py`, `mcp/servidor_harbor.py`. Ver seção "Decisão
+      `dashboard/app.py`, `eval/rag_gerador.py`, `mcp/servidor_harbor.py` (este último removido
+      do projeto em 2026-09-12, ver `docs/mapeamento_cronograma.md`). Ver seção "Decisão
       registrada" acima para o motivo (consistência com LangGraph futuro, não ganho isolado de
       Recall@5/MRR). `ContextualCompressionRetriever` não foi usado — fica como item do roadmap
       `[[roadmap-rag-survey]]` (item 2, context compression), não faz parte deste item.

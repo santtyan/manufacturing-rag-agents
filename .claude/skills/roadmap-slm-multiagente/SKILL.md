@@ -39,8 +39,8 @@ decisão de portar o Harbor para essa plataforma.
 **Implicação para o fit**: portar o Harbor para OpenClaw não seria "trocar uma lib por outra"
 (como trocaria `requests`+Ollama por LangChain) — seria adotar uma plataforma de execução
 inteira, com modelo de segurança/sandboxing/runtime próprios. Mudança de arquitetura bem mais
-profunda que o que o Harbor faz hoje (scripts Python + Streamlit + FastAPI orquestrados
-manualmente). Por isso o item 6 abaixo continua "fora do escopo hoje", não "impossível".
+profunda que o que o Harbor faz hoje (scripts Python + Streamlit orquestrados manualmente). Por
+isso o item 6 abaixo continua "fora do escopo hoje", não "impossível".
 
 ## Avaliação de fit (atualizar esta seção conforme os itens abaixo avançam)
 

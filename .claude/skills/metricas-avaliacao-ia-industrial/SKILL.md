@@ -53,12 +53,13 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
   peça mais próxima disso hoje.
 
 ### Industrial
-- 🔶 Diagnosis Accuracy: a API de 3 camadas existe (`api/main.py`), mas sem métrica agregada
-  formal de acerto sobre um golden set de diagnóstico.
-- ❌ Root Cause Accuracy, Manual Compliance, Unsafe Recommendation Rate — nenhuma medida hoje.
+- ❌ Diagnosis Accuracy, Root Cause Accuracy, Manual Compliance, Unsafe Recommendation Rate —
+  nenhuma medida hoje. A API de diagnóstico em 3 camadas (`api/main.py`) que motivava esta
+  categoria foi removida do projeto em 2026-09-12 — entrega planejada para reimplementação
+  futura, ver `docs/mapeamento_cronograma.md`. Quando reimplementada, retomar a nota de que
   Unsafe Recommendation Rate é conceitualmente o que a precedência da regra determinística sobre
-  o LLM em `api/main.py` tenta evitar (achado real documentado no CLAUDE.md: "LLM discordava de
-  uma leitura obviamente crítica"), mas nunca foi quantificado como taxa sobre um golden set.
+  o LLM tentava evitar (achado real: "LLM discordava de uma leitura obviamente crítica"), mas
+  nunca foi quantificado como taxa sobre um golden set.
 
 ### Sistema
 - ✅ Custo/Tokens (desde 2026-09-08): `shared/ollama_client.py`, captura

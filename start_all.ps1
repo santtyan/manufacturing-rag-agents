@@ -48,17 +48,7 @@ if (-not $ollamaProc) {
     Start-Sleep -Seconds 3
 }
 
-Write-Host "`n=== 4. FastAPI (porta 8000) ===" -ForegroundColor Cyan
-$apiRodando = Test-Endpoint "FastAPI" "http://localhost:8000/health" 3
-if (-not $apiRodando) {
-    Write-Host "Iniciando FastAPI..." -ForegroundColor Yellow
-    Push-Location "$PSScriptRoot\api"
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "python -m uvicorn main:app --port 8000" -WindowStyle Minimized
-    Pop-Location
-    Start-Sleep -Seconds 6
-}
-
-Write-Host "`n=== 5. Streamlit (porta 8501) ===" -ForegroundColor Cyan
+Write-Host "`n=== 4. Streamlit (porta 8501) ===" -ForegroundColor Cyan
 $dashRodando = Test-Endpoint "Streamlit" "http://localhost:8501" 3
 if (-not $dashRodando) {
     Write-Host "Iniciando Streamlit..." -ForegroundColor Yellow
@@ -72,7 +62,6 @@ Write-Host "`n=== Checagem final de saude ===" -ForegroundColor Cyan
 Start-Sleep -Seconds 2
 $resultados = @{
     "Ollama"    = Test-Endpoint "Ollama"    "http://localhost:11434/api/tags"
-    "FastAPI"   = Test-Endpoint "FastAPI"   "http://localhost:8000/health"
     "Streamlit" = Test-Endpoint "Streamlit" "http://localhost:8501"
     "N8N"       = Test-Endpoint "N8N"       "http://localhost:5678"
 }
@@ -90,6 +79,4 @@ if ($falhas -eq 0) {
 
 Write-Host "`nEnderecos:"
 Write-Host "  Dashboard : http://localhost:8501"
-Write-Host "  API Docs  : http://localhost:8000/docs"
 Write-Host "  N8N       : http://localhost:5678"
-Write-Host "  Webhook   : http://localhost:5678/webhook/diagnostico-automatico"

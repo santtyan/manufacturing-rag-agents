@@ -1,6 +1,6 @@
 """
 RAG hibrido via LangChain -- implementacao de PRODUCAO desde 2026-09-08 (substitui a classe
-RAGHibrido de rag/rag_hibrido.py como implementacao usada por dashboard/MCP/harness).
+RAGHibrido de rag/rag_hibrido.py como implementacao usada por dashboard/harness).
 
 Promovido de experiments/langchain_rag/rag_langchain_bm25rrf.py::RAGLangChainBM25RRF (a versao
 "idiomatica LangChain": EnsembleRetriever(vetor E5 + BM25Retriever) com fusao RRF, nao a
@@ -15,7 +15,7 @@ em si -- mas essa classe combina os dois.
 
 rag/rag_hibrido.py (implementacao Python pura, TF-IDF/BM25 manual) fica INTACTA e continua
 existindo -- so deixa de ser a importada pelos consumidores de producao
-(dashboard/app.py, eval/rag_gerador.py, mcp/servidor_harbor.py). Os benchmarks de comparacao
+(dashboard/app.py, eval/rag_gerador.py). Os benchmarks de comparacao
 (eval/avaliar_retrieval_nanobeir.py, eval/avaliar_retrieval.py, eval/comparar_tfidf_bm25.py)
 continuam usando a versao antiga por enquanto -- decisao de migra-los tambem fica para depois.
 

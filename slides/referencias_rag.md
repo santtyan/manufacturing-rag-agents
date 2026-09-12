@@ -118,9 +118,10 @@ registrado aqui como ressalva para não superinterpretar o número nos slides.
 ### 3. OpenAI Agents SDK — Tools
 Doc oficial de Custom Tools do Claude Platform (Managed Agents API), Anthropic, 2026.
 
-**O que embasa:** confirmou que `mcp/servidor_harbor.py` já segue as boas práticas
-recomendadas (descrições ricas de 3-4 frases, namespacing por domínio nos nomes das
-tools) sem precisar de mudança.
+**O que embasa:** confirmou que `mcp/servidor_harbor.py` (removido do projeto em 2026-09-12,
+entrega planejada para reimplementação futura) já seguia as boas práticas recomendadas
+(descrições ricas de 3-4 frases, namespacing por domínio nos nomes das tools) sem precisar de
+mudança.
 
 ### 4. LangChain — RAG with Deep Agents
 Doc oficial "RAG patterns for Deep Agents" (padrão "retrieve, offload, delegate"),
@@ -142,8 +143,8 @@ LangChain, 2026.
 Doc oficial "LangChain overview", LangChain, 2026.
 
 **O que embasa:** terminologia "Agent = Model + Harness" aplicada à arquitetura do Harbor
-(modelo=Ollama; harness=roteamento+tools MCP+prompts) — vocabulário útil para descrever o
-sistema na apresentação. Ver memória dedicada `vocabulario_agent_harness.md`.
+(modelo=Ollama; harness=roteamento+prompts) — vocabulário útil para descrever o sistema na
+apresentação. Ver memória dedicada `vocabulario_agent_harness.md`.
 
 ---
 

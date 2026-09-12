@@ -1,0 +1,278 @@
+<title>Arquitetura do sistema Harbor</title>
+<style>
+  :root {
+    --ink-primary: #1a1a1a;
+    --ink-secondary: #55555a;
+    --ink-muted: #9a9a9a;
+    --surface: #ffffff;
+    --box-fill: #f7f7f8;
+    --box-stroke: #33333a;
+    --magenta: #A6186B;
+    --magenta-fill: #f8ecf3;
+    --coral: #F5642D;
+    --coral-fill: #fdece2;
+    --roxo: #5B1A6B;
+    --roxo-fill: #f0e8f3;
+    --blue: #2563eb;
+    --blue-fill: #eaf1fe;
+    --green: #1a7a4c;
+    --green-fill: #e8f5ee;
+    --arrow: #33333a;
+    --group-bg: #fbfaf9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink-primary: #f0f0f0;
+      --ink-secondary: #bdbdc2;
+      --ink-muted: #82828a;
+      --surface: #18181a;
+      --box-fill: #232326;
+      --box-stroke: #d8d8dc;
+      --magenta-fill: #3a1a2c;
+      --coral-fill: #3a2418;
+      --roxo-fill: #2a1c33;
+      --blue-fill: #14213d;
+      --green-fill: #123420;
+      --arrow: #d8d8dc;
+      --group-bg: #1f1f22;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink-primary: #f0f0f0;
+    --ink-secondary: #bdbdc2;
+    --ink-muted: #82828a;
+    --surface: #18181a;
+    --box-fill: #232326;
+    --box-stroke: #d8d8dc;
+    --magenta-fill: #3a1a2c;
+    --coral-fill: #3a2418;
+    --roxo-fill: #2a1c33;
+    --blue-fill: #14213d;
+    --green-fill: #123420;
+    --arrow: #d8d8dc;
+    --group-bg: #1f1f22;
+  }
+  :root[data-theme="light"] {
+    --ink-primary: #1a1a1a;
+    --ink-secondary: #55555a;
+    --ink-muted: #9a9a9a;
+    --surface: #ffffff;
+    --box-fill: #f7f7f8;
+    --box-stroke: #33333a;
+    --magenta-fill: #f8ecf3;
+    --coral-fill: #fdece2;
+    --roxo-fill: #f0e8f3;
+    --blue-fill: #eaf1fe;
+    --green-fill: #e8f5ee;
+    --arrow: #33333a;
+    --group-bg: #fbfaf9;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 20px;
+    background: var(--surface);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--ink-primary);
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 {
+    font-family: 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive;
+    text-align: center;
+    font-size: 2.1rem;
+    font-weight: normal;
+    margin: 0 0 6px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--ink-muted);
+    font-size: 0.95rem;
+    margin: 0 0 32px;
+  }
+  .scroll-container { overflow-x: auto; padding-bottom: 8px; }
+  svg { display: block; min-width: 1040px; margin: 0 auto; }
+  .step-label {
+    font-family: 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive;
+    fill: var(--ink-muted);
+    font-size: 13px;
+  }
+  .box-title {
+    font-family: 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive;
+    fill: var(--ink-primary);
+    font-size: 14px;
+  }
+  .box-sub { font-family: 'Segoe UI', sans-serif; fill: var(--ink-secondary); font-size: 10px; }
+  .group-title { font-family: 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive; font-size: 13px; }
+  .footer-note {
+    text-align: center;
+    color: var(--ink-muted);
+    font-size: 0.82rem;
+    margin-top: 28px;
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+  .legend {
+    display: flex; justify-content: center; gap: 22px; flex-wrap: wrap;
+    margin-top: 22px; font-size: 0.78rem; color: var(--ink-secondary);
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+</style>
+
+<div class="wrap">
+  <h1>Arquitetura do sistema Harbor</h1>
+  <p class="subtitle">Uma pergunta do chat passa pelo roteador de fonte única antes de chegar a uma das três rotas</p>
+
+  <div class="scroll-container">
+    <figure style="margin:0">
+    <svg viewBox="0 0 1020 400" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="Diagrama da arquitetura do Harbor: pergunta do usuário entra pelo dashboard Streamlit; o roteador de fonte única decide entre rota de contexto pré-calculado, RAG híbrido sobre manuais, ou NL-to-SQL sobre o Postgres, com answerability gates interceptando antes do LLM; Ollama é compartilhado por todas as rotas que precisam gerar texto; pipelines 1 a 4 alimentam a rota de contexto.">
+
+      <!-- STEP LABELS -->
+      <text x="70" y="26" class="step-label">Entrada</text>
+      <text x="330" y="26" text-anchor="middle" class="step-label">Roteamento (fonte única)</text>
+      <text x="760" y="26" text-anchor="middle" class="step-label">3 rotas do chat</text>
+      <text x="965" y="26" text-anchor="middle" class="step-label">Dados</text>
+
+      <!-- ENTRY POINT -->
+      <g>
+        <rect x="20" y="150" width="128" height="60" rx="9" fill="var(--blue-fill)" stroke="var(--blue)" stroke-width="1.8"/>
+        <text x="84" y="174" text-anchor="middle" class="box-title" font-size="13">Dashboard</text>
+        <text x="84" y="190" text-anchor="middle" class="box-sub">Streamlit :8501</text>
+        <text x="84" y="202" text-anchor="middle" class="box-sub">app.py (chat)</text>
+      </g>
+
+      <!-- arrow entry -> router -->
+      <path d="M 148 180 L 220 180" stroke="var(--arrow)" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+      <!-- ROUTER (fonte única, destaque magenta) -->
+      <g>
+        <rect x="226" y="70" width="206" height="220" rx="14" fill="var(--group-bg)" stroke="var(--magenta)" stroke-width="2" stroke-dasharray="2 5"/>
+        <text x="329" y="94" text-anchor="middle" class="group-title" fill="var(--magenta)">roteador.py</text>
+        <text x="329" y="108" text-anchor="middle" class="box-sub" font-style="italic">fonte única — antes 3 cópias</text>
+
+        <rect x="242" y="118" width="174" height="46" rx="8" fill="var(--magenta-fill)" stroke="var(--magenta)" stroke-width="1.6"/>
+        <text x="329" y="138" text-anchor="middle" class="box-title" font-size="12">keyword (rápido)</text>
+        <text x="329" y="150" text-anchor="middle" class="box-sub">1ª tentativa</text>
+
+        <text x="329" y="178" text-anchor="middle" class="box-sub" font-style="italic">empate → contexto?</text>
+
+        <rect x="242" y="186" width="174" height="46" rx="8" fill="var(--roxo-fill)" stroke="var(--roxo)" stroke-width="1.6"/>
+        <text x="329" y="206" text-anchor="middle" class="box-title" font-size="12">LLM (Ollama)</text>
+        <text x="329" y="218" text-anchor="middle" class="box-sub">desempate, saída JSON</text>
+
+        <text x="329" y="256" text-anchor="middle" class="box-sub" font-style="italic">+ answerability gates</text>
+        <text x="329" y="270" text-anchor="middle" class="box-sub" font-style="italic">(pede_*, intercepta antes do LLM)</text>
+      </g>
+
+      <!-- arrows router -> 3 routes -->
+      <path d="M 432 130 C 500 130, 540 100, 600 100" stroke="var(--arrow)" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+      <path d="M 432 180 L 600 180" stroke="var(--arrow)" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+      <path d="M 432 230 C 500 230, 540 260, 600 260" stroke="var(--arrow)" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+      <!-- ROUTE 1: contexto -->
+      <g>
+        <rect x="606" y="72" width="150" height="60" rx="10" fill="var(--green-fill)" stroke="var(--green)" stroke-width="1.8"/>
+        <text x="681" y="94" text-anchor="middle" class="box-title" font-size="12">Contexto</text>
+        <text x="681" y="108" text-anchor="middle" class="box-sub">outputs/pipeline1-4</text>
+        <text x="681" y="120" text-anchor="middle" class="box-sub">pré-calculado, sem LLM</text>
+      </g>
+      <path d="M 756 102 L 796 102" stroke="var(--arrow)" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+      <!-- ROUTE 2: RAG -->
+      <g>
+        <rect x="606" y="150" width="150" height="60" rx="10" fill="var(--magenta-fill)" stroke="var(--magenta)" stroke-width="1.8"/>
+        <text x="681" y="172" text-anchor="middle" class="box-title" font-size="12">RAG híbrido</text>
+        <text x="681" y="186" text-anchor="middle" class="box-sub">rag_hibrido_langchain.py</text>
+        <text x="681" y="198" text-anchor="middle" class="box-sub">E5+BM25 RRF, rerank</text>
+      </g>
+      <path d="M 756 180 L 796 180" stroke="var(--arrow)" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+      <!-- ROUTE 3: SQL -->
+      <g>
+        <rect x="606" y="228" width="150" height="60" rx="10" fill="var(--coral-fill)" stroke="var(--coral)" stroke-width="1.8"/>
+        <text x="681" y="250" text-anchor="middle" class="box-title" font-size="12">NL-to-SQL</text>
+        <text x="681" y="264" text-anchor="middle" class="box-sub">nl_to_sql.py</text>
+        <text x="681" y="276" text-anchor="middle" class="box-sub">SELECT-only, self-repair</text>
+      </g>
+      <path d="M 756 258 L 796 258" stroke="var(--arrow)" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+      <!-- DATA TARGETS -->
+      <g>
+        <rect x="802" y="72" width="130" height="60" rx="9" fill="var(--box-fill)" stroke="var(--box-stroke)" stroke-width="1.7"/>
+        <text x="867" y="96" text-anchor="middle" class="box-title" font-size="12">JSON/CSV</text>
+        <text x="867" y="110" text-anchor="middle" class="box-sub">MTTR/MTBF etc.</text>
+        <text x="867" y="122" text-anchor="middle" class="box-sub">pipelines 1–4 só</text>
+      </g>
+      <g>
+        <rect x="802" y="150" width="130" height="60" rx="9" fill="var(--box-fill)" stroke="var(--box-stroke)" stroke-width="1.7"/>
+        <text x="867" y="174" text-anchor="middle" class="box-title" font-size="12">ChromaDB</text>
+        <text x="867" y="188" text-anchor="middle" class="box-sub">manuais técnicos</text>
+        <text x="867" y="200" text-anchor="middle" class="box-sub">chunking por seção</text>
+      </g>
+      <g>
+        <rect x="802" y="228" width="130" height="60" rx="9" fill="var(--box-fill)" stroke="var(--box-stroke)" stroke-width="1.7"/>
+        <text x="867" y="252" text-anchor="middle" class="box-title" font-size="12">Postgres</text>
+        <text x="867" y="266" text-anchor="middle" class="box-sub">harbor_manufatura</text>
+        <text x="867" y="278" text-anchor="middle" class="box-sub">docker-compose</text>
+      </g>
+
+      <!-- Ollama shared, feeding router LLM, RAG generation and SQL generation -->
+      <g>
+        <rect x="330" y="330" width="180" height="58" rx="10" fill="var(--roxo-fill)" stroke="var(--roxo)" stroke-width="1.8"/>
+        <text x="420" y="352" text-anchor="middle" class="box-title" font-size="12">Ollama</text>
+        <text x="420" y="366" text-anchor="middle" class="box-sub">llama3.2 / qwen2.5</text>
+        <text x="420" y="378" text-anchor="middle" class="box-sub">local, compartilhado</text>
+      </g>
+      <path d="M 380 330 L 330 232" stroke="var(--ink-muted)" stroke-width="1.5" stroke-dasharray="4 4" fill="none" marker-end="url(#arrow-muted)"/>
+      <path d="M 420 330 C 420 300, 600 240, 604 240" stroke="var(--ink-muted)" stroke-width="1.5" stroke-dasharray="4 4" fill="none" marker-end="url(#arrow-muted)"/>
+      <path d="M 460 330 C 550 300, 600 200, 604 190" stroke="var(--ink-muted)" stroke-width="1.5" stroke-dasharray="4 4" fill="none" marker-end="url(#arrow-muted)"/>
+      <text x="420" y="404" text-anchor="middle" class="box-sub" font-style="italic">gera/desempata em todas as rotas que precisam de LLM</text>
+
+      <!-- Pipelines feeding Contexto -->
+      <g>
+        <rect x="800" y="330" width="180" height="58" rx="10" fill="var(--box-fill)" stroke="var(--box-stroke)" stroke-width="1.7"/>
+        <text x="890" y="350" text-anchor="middle" class="box-title" font-size="12">Pipelines 1–4</text>
+        <text x="890" y="364" text-anchor="middle" class="box-sub">OEE/Downtime, Sensor,</text>
+        <text x="890" y="376" text-anchor="middle" class="box-sub">Discrete Mfg, CNC — 5–7 ainda não</text>
+      </g>
+      <path d="M 867 330 L 867 234" stroke="var(--ink-muted)" stroke-width="1.5" stroke-dasharray="4 4" fill="none" marker-end="url(#arrow-muted)"/>
+
+      <!-- Markers -->
+      <defs>
+        <marker id="arrow" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+          <path d="M0,0 L6.5,3 L0,6" fill="none" stroke="var(--arrow)" stroke-width="1.7"/>
+        </marker>
+        <marker id="arrow-muted" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+          <path d="M0,0 L6.5,3 L0,6" fill="none" stroke="var(--ink-muted)" stroke-width="1.5"/>
+        </marker>
+      </defs>
+
+    </svg>
+    <figcaption style="text-align:center; color:var(--ink-muted); font-size:0.8rem; margin-top:10px;">
+      Uma pergunta do dashboard passa pelo roteador de fonte única (keyword, depois LLM só em caso de empate, mais os answerability gates) antes de seguir para uma das três rotas; Ollama e os pipelines são compartilhados por mais de uma rota.
+    </figcaption>
+    </figure>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="swatch" style="background:var(--blue-fill); border:1.5px solid var(--blue)"></span>Ponto de entrada</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--magenta-fill); border:1.5px solid var(--magenta)"></span>Roteador / RAG</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--green-fill); border:1.5px solid var(--green)"></span>Contexto pré-calculado</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--coral-fill); border:1.5px solid var(--coral)"></span>NL-to-SQL</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--roxo-fill); border:1.5px solid var(--roxo)"></span>Ollama (LLM local)</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--box-fill); border:1.5px solid var(--box-stroke)"></span>Armazenamento / infra</div>
+  </div>
+
+  <p class="footer-note">
+    <b>Regra de fonte única</b>: <code>dashboard/roteador.py</code> e <code>eval/rag_gerador.py</code> existem
+    para nunca duplicar lógica de roteamento/geração entre o dashboard e o harness de avaliação —
+    uma duplicação manual em 3 lugares já causou uma regressão fantasma de 67,9%→52% no passado, corrigida
+    consolidando tudo num só módulo importado por ambos os consumidores.
+    Uma API de diagnóstico em 3 camadas e um servidor MCP existiram no projeto e foram removidos em
+    2026-09-12 — entregas planejadas para reimplementação futura.
+  </p>
+</div>

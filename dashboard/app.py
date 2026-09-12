@@ -4,7 +4,6 @@ Dashboard consolidado - Projeto Harbor / entrega 2026-07-07
 Rodar com: streamlit run app.py
 """
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -86,8 +85,6 @@ def registrar_alucinacao(dataset_key, pergunta, resposta, numeros_suspeitos, des
     except Exception as exc:
         print(f"[log_alucinacoes: falha ao gravar: {exc}]")
 
-API_URL = "http://localhost:8000"
-HARBOR_API_KEY = os.environ.get("HARBOR_API_KEY", "harbor-demo-2026")
 N8N_URL = "http://localhost:5678"
 
 st.set_page_config(
@@ -236,9 +233,7 @@ def checar_servico(nome, url, timeout=3):
 
 
 def checar_postgres(timeout=3):
-    """Testa o Postgres direto via SQLAlchemy (mesma engine do NL-to-SQL), nao via FastAPI --
-    o indicador antigo ('Postgres via API') checava o /health da FastAPI, que e um servico
-    separado e fica vermelho mesmo com o Postgres saudavel, confundindo o diagnostico."""
+    """Testa o Postgres direto via SQLAlchemy (mesma engine do NL-to-SQL)."""
     try:
         engine = create_engine(_nl_to_sql.ENGINE_URL, connect_args={"connect_timeout": timeout})
         with engine.connect() as conn:
@@ -252,7 +247,6 @@ with st.sidebar:
     st.subheader("🩺 Status dos servicos")
     servicos = [
         ("Ollama", "http://localhost:11434/api/tags"),
-        ("API FastAPI", f"{API_URL}/health"),
         ("N8N", N8N_URL),
     ]
     for nome, url in servicos:
@@ -740,7 +734,7 @@ tab1, tab2, tab3, tab4, tab8, tab9 = st.tabs([
     "2. Legacy Sensor Logs",
     "3. Discrete Manufacturing",
     "4. Five-Axis CNC",
-    "5. Diagnostico (API) / Reprocessar",
+    "5. Reprocessar pipeline",
     "6. Avaliacao (Golden Questions)",
 ])
 
@@ -1227,63 +1221,6 @@ with tab4:
     # ser 100% focada no chatbot, sem secao secundaria de graficos/resumo estatico).
 
 with tab8:
-    st.header("Diagnostico via API (arquitetura hibrida de 3 camadas)")
-    st.markdown(
-        "Chama a API FastAPI real (`/diagnostico`) rodando em `localhost:8000` -- mesma logica "
-        "usada pelo workflow N8N. Camada 1 (regra deterministica) → Camada 2 (Isolation Forest) → "
-        "Camada 3 (veredito LLM)."
-    )
-
-    col_a, col_b = st.columns(2)
-    with col_a:
-        if st.button("🎲 Buscar amostra e diagnosticar", key="btn_diagnostico"):
-            try:
-                headers = {"X-API-Key": HARBOR_API_KEY}
-                resp_amostra = requests.get(f"{API_URL}/amostra?n=1", headers=headers, timeout=10)
-                amostra = resp_amostra.json()[0]
-
-                payload = {
-                    "Machine_ID": amostra["Machine_ID"],
-                    "Temperature_C": amostra["Temperature_C"],
-                    "Pressure_bar": amostra["Pressure_bar"],
-                    "Vibration_Level": amostra["Vibration_Level"],
-                    "Voltage_V": amostra["Voltage_V"],
-                    "Current_A": amostra["Current_A"],
-                    "Sound_dB": amostra["Sound_dB"],
-                    "FlowRate_Lmin": amostra["FlowRate_Lmin"],
-                    "Humidity_pct": amostra["Humidity_%"],
-                    "Oil_Quality_Index": amostra["Oil_Quality_Index"],
-                    "Energy_Consumption_kWh": amostra["Energy_Consumption_kWh"],
-                    "Production_Rate": amostra["Production_Rate"],
-                    "Load_Percentage": amostra["Load_Percentage"],
-                    "Operator_Notes": amostra["Operator_Notes"],
-                    "Error_Message": amostra["Error_Message"],
-                }
-                resp_diag = requests.post(f"{API_URL}/diagnostico", json=payload, headers=headers, timeout=60)
-                diagnostico = resp_diag.json()
-
-                st.subheader("Leitura sorteada")
-                st.json(amostra)
-                st.subheader("Resultado do diagnostico")
-                st.json(diagnostico)
-
-                if diagnostico.get("camada1_regra") == "CRITICO":
-                    st.error("🔴 Camada 1 (regra): CRITICO")
-                elif diagnostico.get("camada1_regra") == "ALERTA":
-                    st.warning("🟡 Camada 1 (regra): ALERTA")
-                else:
-                    st.success("🟢 Camada 1 (regra): NORMAL")
-
-            except Exception as exc:
-                st.error(f"Erro ao chamar a API: {exc}")
-
-    with col_b:
-        st.info(
-            "Este botao dispara o mesmo fluxo do workflow N8N agendado "
-            "(`localhost:5678/webhook/diagnostico-automatico`), mas direto pela API, sem passar pelo N8N."
-        )
-
-    st.divider()
     st.subheader("🔄 Reprocessar pipelines")
     st.caption(
         "Roda o script do pipeline novamente sobre os dados brutos e atualiza os resultados "

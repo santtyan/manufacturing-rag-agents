@@ -7,13 +7,10 @@ sqlalchemy
 psycopg2-binary
 streamlit
 requests
-fastapi
-uvicorn
 
 # Peças que faltavam (bloqueadas por rede na sessao anterior):
 sentence-transformers   # RAG neural - modelo E5
 chromadb                # banco vetorial para RAG
-mcp                     # SDK oficial do Model Context Protocol
 rank_bm25               # indice lexical BM25 alternativo ao TF-IDF em rag_hibrido.py
 
 # Benchmarks academicos (eval/avaliar_retrieval_nanobeir.py, avaliar_bird_sql.py, avaliar_spider_sql.py)

@@ -4,7 +4,6 @@ de rede na maquina). Roda com: python tests/smoke_test.py
 Confere que os 4 pipelines geram os outputs esperados e que os servicos respondem.
 """
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -13,8 +12,6 @@ import requests
 
 ROOT = Path(r"C:\Projetos\Harbor")
 OUTPUTS = ROOT / "outputs"
-HARBOR_API_KEY = os.environ.get("HARBOR_API_KEY", "harbor-demo-2026")
-API_HEADERS = {"X-API-Key": HARBOR_API_KEY}
 
 falhas = []
 
@@ -75,41 +72,8 @@ def main():
 
     print("\n=== Servicos ativos ===")
     check_endpoint("Ollama", "http://localhost:11434/api/tags")
-    check_endpoint("FastAPI /health", "http://localhost:8000/health")
     check_endpoint("Streamlit dashboard", "http://localhost:8501")
     check_endpoint("N8N", "http://localhost:5678")
-
-    print("\n=== API de diagnostico (ponta a ponta) ===")
-    try:
-        check_endpoint_sem_auth = requests.post("http://localhost:8000/diagnostico", json={}, timeout=5)
-        check("POST /diagnostico exige autenticacao (401 sem chave)", check_endpoint_sem_auth.status_code == 401)
-
-        resp = requests.get("http://localhost:8000/amostra?n=1", headers=API_HEADERS, timeout=10)
-        amostra = resp.json()[0]
-        check("GET /amostra retorna leitura de sensor", "Temperature_C" in amostra)
-
-        payload = {
-            "Machine_ID": amostra["Machine_ID"],
-            "Temperature_C": amostra["Temperature_C"],
-            "Pressure_bar": amostra["Pressure_bar"],
-            "Vibration_Level": amostra["Vibration_Level"],
-            "Voltage_V": amostra["Voltage_V"],
-            "Current_A": amostra["Current_A"],
-            "Sound_dB": amostra["Sound_dB"],
-            "FlowRate_Lmin": amostra["FlowRate_Lmin"],
-            "Humidity_pct": amostra["Humidity_%"],
-            "Oil_Quality_Index": amostra["Oil_Quality_Index"],
-            "Energy_Consumption_kWh": amostra["Energy_Consumption_kWh"],
-            "Production_Rate": amostra["Production_Rate"],
-            "Load_Percentage": amostra["Load_Percentage"],
-            "Operator_Notes": amostra["Operator_Notes"],
-            "Error_Message": amostra["Error_Message"],
-        }
-        resp2 = requests.post("http://localhost:8000/diagnostico", json=payload, headers=API_HEADERS, timeout=60)
-        diagnostico = resp2.json()
-        check("POST /diagnostico retorna veredito", "veredito_llm" in diagnostico)
-    except Exception as exc:
-        check(f"Fluxo de diagnostico ponta a ponta -- erro: {exc}", False)
 
     print("\n=== Resumo ===")
     if falhas:

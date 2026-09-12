@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## O que é este projeto
 
-Harbor é um projeto de IA aplicada a manutenção industrial (bolsa FUNAPE/CERISE): pipelines de análise sobre 7 datasets industriais, um chatbot que roteia perguntas entre contexto pré-calculado / RAG sobre manuais técnicos / NL-to-SQL sobre um Postgres, uma API de diagnóstico de falhas (arquitetura de 3 camadas: regra determinística → Isolation Forest → LLM), um servidor MCP, e um harness próprio de avaliação (além de benchmarks acadêmicos: NanoBEIR, BIRD-SQL, Spider).
+Harbor é um projeto de IA aplicada a manutenção industrial (bolsa FUNAPE/CERISE): pipelines de análise sobre 7 datasets industriais, um chatbot que roteia perguntas entre contexto pré-calculado / RAG sobre manuais técnicos / NL-to-SQL sobre um Postgres, e um harness próprio de avaliação (além de benchmarks acadêmicos: NanoBEIR, BIRD-SQL, Spider). Uma API de diagnóstico de falhas (arquitetura de 3 camadas: regra determinística → Isolation Forest → LLM) e um servidor MCP existiram no projeto e foram removidos em 2026-09-12 — entregas planejadas para reimplementação futura, ver `docs/mapeamento_cronograma.md`.
 
 Todo o código, comentários e docstrings estão em português. Os comentários frequentemente documentam um "achado real" (bug encontrado ao vivo, com data) que motivou a regra atual — leia-os antes de tocar em roteamento/gates, eles carregam contexto que não está em nenhum outro lugar.
 
@@ -14,21 +14,13 @@ Todo o código, comentários e docstrings estão em português. Os comentários 
 powershell -ExecutionPolicy Bypass -File start_all.ps1
 ```
 
-Sobe, nessa ordem: Docker Desktop → containers Postgres+N8N (`infra/docker-compose.yml`) → Ollama (`ollama serve`) → FastAPI (porta 8000) → Streamlit (porta 8501). Verifica saúde de cada serviço no final.
+Sobe, nessa ordem: Docker Desktop → containers Postgres+N8N (`infra/docker-compose.yml`) → Ollama (`ollama serve`) → Streamlit (porta 8501). Verifica saúde de cada serviço no final.
 
 Serviços manuais, se preferir subir peça por peça:
 ```powershell
-# API (de dentro de api/)
-python -m uvicorn main:app --reload --port 8000
-
 # Dashboard (de dentro de dashboard/)
 python -m streamlit run app.py --server.port 8501
-
-# Servidor MCP (stdio transport)
-python C:\Projetos\Harbor\mcp\servidor_harbor.py
 ```
-
-`HARBOR_API_KEY` não definida faz `api/main.py` gerar uma chave aleatória por sessão e imprimi-la no console — sem isso, `/diagnostico` e `/amostra` retornam 401. Defina a variável de ambiente antes de subir a API se for testar via script.
 
 ## Testes e avaliação
 
@@ -61,10 +53,10 @@ python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 
 ### Serviços
 
-- **`api/main.py`** (FastAPI, porta 8000) — endpoint `/diagnostico`: 3 camadas em sequência — regra determinística (thresholds fixos do manual) → Isolation Forest (scikit-learn) → veredito do LLM local (Ollama, saída estruturada). A regra determinística tem **precedência** sobre o LLM quando `CRITICO` (achado real: LLM discordava de uma leitura obviamente crítica). Autenticação via header `X-API-Key`.
 - **`dashboard/app.py`** (Streamlit, porta 8501) — chat principal, consome `dashboard/roteador.py` + `rag/rag_hibrido.py` + `nl_to_sql/nl_to_sql.py`. Contém `st.set_page_config()` em nível de módulo, por isso não é importável fora do Streamlit — é o motivo de `roteador.py` e `rag_gerador.py` terem sido extraídos como módulos separados.
-- **`mcp/servidor_harbor.py`** — expõe `consultar_banco`, `buscar_manual`, `diagnosticar_leitura` como ferramentas MCP (FastMCP, stdio transport), reaproveitando os mesmos módulos acima.
 - **`infra/docker-compose.yml`** — Postgres 16 (`harbor_manufatura`) + N8N.
+
+**Removidos em 2026-09-12** (entregas planejadas para reimplementação futura, ver `docs/mapeamento_cronograma.md`): API FastAPI de diagnóstico (`/diagnostico`, 3 camadas — regra determinística → Isolation Forest → veredito LLM, com precedência da regra sobre o LLM quando `CRITICO`) e servidor MCP (`consultar_banco`, `buscar_manual`, `diagnosticar_leitura` via FastMCP stdio). Os módulos compartilhados que eles consumiam (`dashboard/roteador.py`, `rag/rag_hibrido_langchain.py`, `nl_to_sql/nl_to_sql.py`) continuam em produção via `dashboard/app.py`, sem impacto.
 
 ### Pipelines (`pipelines/`)
 
