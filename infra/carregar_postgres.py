@@ -38,6 +38,14 @@ def main():
         "cnc_ciclo_por_produto": OUTPUTS / "pipeline4_five_axis_cnc" / "ciclo_por_produto.csv",
         "cnc_distribuicao_program_status": OUTPUTS / "pipeline4_five_axis_cnc" / "distribuicao_program_status.csv",
         "cnc_resumo_anomalias_por_componente": OUTPUTS / "pipeline4_five_axis_cnc" / "resumo_anomalias_por_componente.csv",
+
+        # Pipeline 8 - OpenPack (operacoes de trabalho em embalagem logistica, dados de PESSOAS,
+        # nao de maquina -- ver NOTA Dataset 8 em nl_to_sql/nl_to_sql.py::ESQUEMA)
+        "openpack_duracao_por_operacao": OUTPUTS / "pipeline8_openpack" / "duracao_por_operacao.csv",
+        "openpack_transicoes_operacao": OUTPUTS / "pipeline8_openpack" / "transicoes_operacao.csv",
+        "openpack_variabilidade_por_sujeito": OUTPUTS / "pipeline8_openpack" / "variabilidade_por_sujeito.csv",
+        "openpack_features_por_operacao": OUTPUTS / "pipeline8_openpack" / "features_por_operacao.csv",
+        "openpack_anomalias_ciclo": OUTPUTS / "pipeline8_openpack" / "anomalias_ciclo.csv",
     }
 
     for nome_tabela, caminho in tabelas.items():

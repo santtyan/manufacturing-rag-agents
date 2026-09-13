@@ -258,6 +258,50 @@ def pede_ranking_assets_duas_empresas(pergunta):
     return tem_ranking and tem_assets
 
 
+PALAVRAS_CHAVE_OPENPACK = (
+    "openpack", "sujeito", "picking", "assemble box", "scan label", "relocate item",
+    "attach box label", "attach shipping label", "fill out order", "put on back table",
+    "close box", "insert items", "punho", "operacao de embalagem", "operação de embalagem",
+)
+PALAVRAS_CHAVE_MAQUINA_SENSOR = (
+    "machine_id", "maquina", "máquina", "oee", "downtime", "mtbf", "mttr", "spindle",
+    "cnc", "isolation forest", "fault", "sensor_predicoes", "asset",
+)
+
+
+def pede_cruzamento_openpack_x_maquina(pergunta):
+    """Deteta pedido de cruzar dado do OpenPack (operacao humana de embalagem, dataset 8) com
+    dado de sensor/maquina de outro dataset (Legacy Sensor, CNC, OEE) -- combinacao impossivel
+    no schema: openpack_* nao compartilha nenhuma chave com sensor_predicoes/cnc_*/oee_* (uma e
+    sobre PESSOAS, outra sobre MAQUINAS). Risco previsto ao integrar o 8o dataset (plano de
+    integracao OpenPack, 2026-09-12): o LLM tenderia a fazer JOIN so porque ambos "tem sensores"
+    -- mesma classe de bug ja resolvida em pede_cruzamento_ciclo_x_anomalia_cnc e
+    pede_cruzamento_categoria_x_periodo_lss. Intercepta ANTES do SQL/desempate por LLM."""
+    p = pergunta.lower()
+    return (any(kw in p for kw in PALAVRAS_CHAVE_OPENPACK)
+            and any(kw in p for kw in PALAVRAS_CHAVE_MAQUINA_SENSOR))
+
+
+PALAVRAS_CHAVE_JULGAMENTO_PESSOA = (
+    "mais lento", "mais lenta", "menos produtivo", "menos produtiva", "pior operador",
+    "pior sujeito", "demitir", "avaliar o desempenho de", "quem e o sujeito", "quem é o sujeito",
+    "identificar o sujeito", "identifique o sujeito", "qual operador",
+)
+
+
+def pede_identificacao_de_pessoa(pergunta):
+    """Recusa deterministica a pergunta que pede para identificar/avaliar/julgar um SUJEITO
+    especifico do OpenPack (ex: "qual operador e mais lento e devo demitir?") -- nao e so
+    firula etica: e exigencia da licenca CC BY-NC-SA do dataset (sujeitos anonimizados por
+    design) e da natureza de dado humano. Diferente dos outros gates pede_*, este NAO
+    redireciona para outra rota calculada -- a resposta certa e recusar antes de qualquer
+    consulta, mesmo que os dados existam em openpack_variabilidade_por_sujeito."""
+    p = pergunta.lower()
+    tem_sinal_openpack = any(kw in p for kw in PALAVRAS_CHAVE_OPENPACK) or "sujeito" in p
+    tem_julgamento_pessoa = any(kw in p for kw in PALAVRAS_CHAVE_JULGAMENTO_PESSOA)
+    return tem_sinal_openpack and tem_julgamento_pessoa
+
+
 def rotear_por_keyword(pergunta):
     """Roteamento por palavra-chave: rapido, 0 latencia, mas fragil a sinonimos.
     'nao_respondivel' tem prioridade maxima: e um "answerability gate" deterministico (padrao-
@@ -273,6 +317,8 @@ def rotear_por_keyword(pergunta):
         return "nao_respondivel_roi"
     if pede_cruzamento_ciclo_x_anomalia_cnc(pergunta):
         return "nao_respondivel_cnc"
+    if pede_cruzamento_openpack_x_maquina(pergunta):
+        return "nao_respondivel_openpack"
     if pede_planned_vs_unplanned(pergunta):
         return "planned_vs_unplanned"
     if pede_lss_melhorou_tudo(pergunta):
@@ -344,6 +390,8 @@ def rotear_pergunta(pergunta, usar_llm=True, ollama_url="http://localhost:11434/
     sem precisar duplicar rotear_pergunta()."""
     # Trava de prioridade maxima (ver pede_confirmacao_alarme_automatico): impede que o
     # desempate por LLM reclassifique essa pergunta como sql, o que levava a tabela errada.
+    if pede_identificacao_de_pessoa(pergunta):
+        return "recusa_identificacao_pessoa"
     if pede_interpretacao_recall(pergunta):
         return "interpretacao_recall"
     if pede_confirmacao_alarme_automatico(pergunta):

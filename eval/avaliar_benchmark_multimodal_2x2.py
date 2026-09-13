@@ -61,6 +61,11 @@ CACHE_LEGENDAS_HARBOR = HARBOR_ROOT / "rag" / "legendas_cache.json"
 IMAGENS_HARBOR = HARBOR_ROOT / "rag" / "manuais_imagens"
 GOLDEN_HARBOR = EVAL_DIR / "golden_questions_multimodal.json"
 
+CORPUS_OPENPACK = HARBOR_ROOT / "rag" / "corpus_openpack_janelas.json"
+GOLDEN_OPENPACK = EVAL_DIR / "golden_questions_openpack.json"
+CHROMA_DIR_OPENPACK = HARBOR_ROOT / "rag" / "chroma_db_openpack"
+COLECAO_OPENPACK = "openpack_janelas_v1"
+
 K_FINAL = 5  # k avaliado no ranking final (nDCG@5/Recall@5) -- k=10 do ViDoRe oficial nao faz
 # sentido com corpus de 60 ou 4 documentos (V1/V2 do ViDoRe tambem usam k=5; k=10 so entrou na V3)
 K_CANDIDATOS_1O_ESTAGIO = 10  # quantos candidatos o 1o estagio (caption-then-embed) recupera,
@@ -121,8 +126,26 @@ def selecionar_top_p(candidatos_com_score, limiar=None):
     return selecionados
 
 
+def _agregar_por_fonte(pares_id_score):
+    """Colapsa candidatos multi-vetor (varios `id` compartilhando a mesma `fonte`, ex. corpus
+    OpenPack: {janela_id}__inicio/meio/fim/completo) numa entrada por `fonte`, mantendo o melhor
+    score -- sem isso, calcular_metricas() nunca bateria doc_id==alvo porque `id` sempre traz o
+    sufixo de segmento e `alvo` (golden set) e o janela_id puro. Mantem a ORDEM de 1a aparicao
+    (que ja e por score decrescente), so remove duplicatas de fonte subsequentes."""
+    melhor_por_fonte = {}
+    ordem = []
+    for doc_id, score in pares_id_score:
+        fonte = doc_id.rsplit("__", 1)[0] if "__" in doc_id else doc_id
+        if fonte not in melhor_por_fonte or score > melhor_por_fonte[fonte]:
+            melhor_por_fonte[fonte] = score
+        if fonte not in ordem:
+            ordem.append(fonte)
+    return [(fonte, melhor_por_fonte[fonte]) for fonte in ordem]
+
+
 # ── Estagio 1: retrieval barato (caption-then-embed, producao atual) ────────────────────────
-def estagio1_retrieval(corpus_docs, perguntas, chroma_dir, colecao, k_candidatos=K_CANDIDATOS_1O_ESTAGIO):
+def estagio1_retrieval(corpus_docs, perguntas, chroma_dir, colecao, k_candidatos=K_CANDIDATOS_1O_ESTAGIO,
+                        agregar_por_fonte=False):
     """Retorna, por pergunta, a lista ordenada de (doc_id, score) recuperada pelo RAG hibrido
     (E5 + TF-IDF/BM25, sem rerank) -- o "encoder single-vector barato" do desenho HEAVEN.
 
@@ -130,7 +153,11 @@ def estagio1_retrieval(corpus_docs, perguntas, chroma_dir, colecao, k_candidatos
     corrigido -- sem essa flag, buscar() sempre devolvia score=0.0 aqui (EnsembleRetriever/RRF
     do LangChain nao expoe score quando usar_rerank=False), fazendo selecionar_top_p() sempre
     cair no caso "sem sinal, 1 candidato" independente de TOP_P_LIMIAR. Ver rag_hibrido_langchain.py
-    para a implementacao do RRF explicito."""
+    para a implementacao do RRF explicito.
+
+    agregar_por_fonte (corpus OpenPack, 2026-09-12): corpus multi-vetor RAG-HAR tem 4 documentos
+    por janela (`id`={janela_id}__segmento), mas o golden set/alvo usa so o janela_id (`fonte`).
+    Ver _agregar_por_fonte()."""
     sys.path.insert(0, str(HARBOR_ROOT / "rag"))
     from rag_hibrido_langchain import RAGHibrido
 
@@ -144,6 +171,8 @@ def estagio1_retrieval(corpus_docs, perguntas, chroma_dir, colecao, k_candidatos
         candidatos = rag.buscar(pergunta, k=k_candidatos, usar_rerank=False, usar_hybrid=True,
                                  k_candidatos=k_candidatos, usar_score_rrf=True)
         pares = [(c.get("id") or c.get("fonte", "").rsplit(".", 1)[0], c.get("score", 0.0)) for c in candidatos]
+        if agregar_por_fonte:
+            pares = _agregar_por_fonte(pares)
         resultados_por_pergunta.append(pares)
     return resultados_por_pergunta, tempo_indexacao
 
@@ -246,18 +275,43 @@ def carregar_corpus_harbor(caminho_cache_legendas=None):
     return corpus_docs, imagens_por_id, perguntas, alvos
 
 
+def carregar_corpus_openpack():
+    """Corpus IMU-puro (rag/rag_openpack_texto.py, RAG-HAR) -- SEM imagem, `imagens_por_id`
+    fica vazio de proposito. O texto ja e o "captioner" (template determinístico sobre features
+    estatisticas, fidelidade 100% por construcao), entao nao ha 2o estagio de rerank multimodal
+    aqui -- main() detecta imagens_por_id vazio e pula o estagio 2 para este corpus, em vez de
+    estourar em Image.open() com um Path que nao existe."""
+    if not CORPUS_OPENPACK.exists() or not GOLDEN_OPENPACK.exists():
+        return None
+    corpus_docs = json.loads(CORPUS_OPENPACK.read_text(encoding="utf-8"))
+    golden = json.loads(GOLDEN_OPENPACK.read_text(encoding="utf-8"))["perguntas"]
+    imagens_por_id = {}
+    perguntas = [pq["pergunta"] for pq in golden]
+    alvos = [pq["documento_relevante"] for pq in golden]
+    return corpus_docs, imagens_por_id, perguntas, alvos
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--n-queries-vidore", type=int, default=None,
                          help="limitar quantas queries do ViDoRe avaliar (custo do rerank multimodal "
                               "escala linear com isso, ~36s por imagem rerankeada em CPU); default: todas")
+    parser.add_argument("--n-queries", type=int, default=None,
+                         help="limitar quantas queries avaliar em QUALQUER corpus (generaliza "
+                              "--n-queries-vidore, que so cobria ViDoRe -- pendencia registrada "
+                              "na skill rag-multimodal, item 3 do plano de continuidade, fechada "
+                              "2026-09-12 na integracao OpenPack). Util para calibrar rapido em "
+                              "subset pequeno antes da bateria completa.")
     parser.add_argument("--top-p-limiar", type=float, default=None,
                          help="sobrescreve TOP_P_LIMIAR (0,85 default) -- calibracao por tamanho de "
                               "corpus, ver achado real na skill rag-multimodal")
     parser.add_argument("--so-harbor", action="store_true",
                          help="pula o corpus ViDoRe (caro, ~36s/imagem) -- so roda o corpus proprio "
                               "do Harbor (4 imagens, rapido), util para calibrar top_p_limiar")
+    parser.add_argument("--so-openpack", action="store_true",
+                         help="roda so o corpus OpenPack (IMU-puro, sem rerank multimodal -- "
+                              "muito mais rapido que ViDoRe/Harbor, que exigem imagem)")
     parser.add_argument("--cache-legendas", type=Path, default=None,
                          help="sobrescreve rag/legendas_cache.json -- usar com o cache de outro "
                               "VLM (ex. rag/legendas_cache_qwen3-vl_4b.json) para recalibrar "
@@ -272,16 +326,26 @@ def main():
     print("=" * 74)
 
     corpus_vidore = carregar_corpus_vidore()
-    if corpus_vidore is not None and args.n_queries_vidore is not None:
+    n_vidore = args.n_queries_vidore if args.n_queries_vidore is not None else args.n_queries
+    if corpus_vidore is not None and n_vidore is not None:
         corpus_docs, imagens_por_id, perguntas, alvos = corpus_vidore
-        n = args.n_queries_vidore
-        corpus_vidore = (corpus_docs, imagens_por_id, perguntas[:n], alvos[:n])
+        corpus_vidore = (corpus_docs, imagens_por_id, perguntas[:n_vidore], alvos[:n_vidore])
 
-    corpora = [("Corpus Harbor (4 img.)", carregar_corpus_harbor(args.cache_legendas), HARBOR_ROOT / "rag" / "chroma_db_multimodal", "imagens_harbor_multimodal_v1")]
+    corpus_openpack = carregar_corpus_openpack()
+    if corpus_openpack is not None and args.n_queries is not None:
+        corpus_docs, imagens_por_id, perguntas, alvos = corpus_openpack
+        n = args.n_queries
+        corpus_openpack = (corpus_docs, imagens_por_id, perguntas[:n], alvos[:n])
+
+    corpora = [("Corpus Harbor (4 img.)", carregar_corpus_harbor(args.cache_legendas), HARBOR_ROOT / "rag" / "chroma_db_multimodal", "imagens_harbor_multimodal_v1", False)]
+    if not args.so_harbor and not args.so_openpack:
+        corpora.insert(0, ("ViDoRe subset (60 pag.)", corpus_vidore, EVAL_DIR / "chroma_db_vidore_subset", "vidore_subset_v1", False))
     if not args.so_harbor:
-        corpora.insert(0, ("ViDoRe subset (60 pag.)", corpus_vidore, EVAL_DIR / "chroma_db_vidore_subset", "vidore_subset_v1"))
+        corpora.append(("Corpus OpenPack (IMU, sem imagem)", corpus_openpack, CHROMA_DIR_OPENPACK, COLECAO_OPENPACK, True))
+    if args.so_openpack:
+        corpora = [("Corpus OpenPack (IMU, sem imagem)", corpus_openpack, CHROMA_DIR_OPENPACK, COLECAO_OPENPACK, True)]
 
-    for nome_corpus, dados_corpus, chroma_dir, colecao in corpora:
+    for nome_corpus, dados_corpus, chroma_dir, colecao, agregar_por_fonte in corpora:
         if dados_corpus is None:
             print(f"\n[{nome_corpus}] pulado -- dados nao encontrados (ver docstring do script).")
             continue
@@ -290,10 +354,18 @@ def main():
         print(f"\n--- Corpus: {nome_corpus} ({n_docs} documentos, {len(perguntas)} queries) ---")
 
         # Estagio 1 sozinho (baseline sem rerank multimodal -- e o que ja media a Fase 4 antiga)
-        candidatos_por_pergunta, tempo_indexacao = estagio1_retrieval(corpus_docs, perguntas, chroma_dir, colecao)
+        candidatos_por_pergunta, tempo_indexacao = estagio1_retrieval(
+            corpus_docs, perguntas, chroma_dir, colecao, agregar_por_fonte=agregar_por_fonte)
         rankings_estagio1 = [[doc_id for doc_id, _ in c] for c in candidatos_por_pergunta]
         m0 = calcular_metricas(rankings_estagio1, alvos)
         resultados_finais.append(resumir(f"{nome_corpus} | so retrieval (sem rerank)", m0, tempo_indexacao, n_docs))
+
+        if not imagens_por_id:
+            # Corpus IMU-puro (OpenPack): nao ha 2o estagio de rerank multimodal -- o texto ja
+            # e o "captioner" (template determinístico, fidelidade 100% por construcao), nada a
+            # reranquear com ColModernVBERT. Pular em vez de estourar em Image.open().
+            print(f"  [{nome_corpus}] sem imagens -- estagio 2 (rerank multimodal) pulado de proposito.")
+            continue
 
         # Estagio 1+2 com top-k fixo
         rankings_topk, tempo_topk, n_cand_topk = estagio2_rerank(candidatos_por_pergunta, imagens_por_id, perguntas, estrategia="top_k")
@@ -313,7 +385,12 @@ def main():
         print(f"{r['nome']:48} nDCG@{K_FINAL}={r['ndcg']:.3f}  Recall@{K_FINAL}={r['recall']*100:.0f}%  "
               f"MRR={r['mrr']:.3f}  custo={r['tempo_s']}s")
 
-    saida = EVAL_DIR / "resultados_benchmark_multimodal_2x2.json"
+    # ACHADO REAL (2026-09-13): rodar --so-openpack sobrescrevia o mesmo arquivo usado pelos
+    # corpora de imagem (Harbor/ViDoRe), apagando do disco os resultados calibrados de
+    # nDCG=0,864/0,867/0,78 do item 4/5 do plano de imagens (preservados so no git, commit
+    # c4e9ed9). Nome de saida agora depende de qual corpus foi de fato rodado, nunca fixo.
+    nome_saida = "resultados_benchmark_openpack_2x2.json" if args.so_openpack else "resultados_benchmark_multimodal_2x2.json"
+    saida = EVAL_DIR / nome_saida
     saida.write_text(json.dumps(resultados_finais, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\nResultados salvos em {saida}")
     print("\nRegra do projeto: decisao de arquitetura so depois deste relatorio existir -- "

@@ -79,6 +79,29 @@ X_Axis_motor_temperature, Z_Axis_Motor_temperature, Y_Axis_Motor_temperature,
 General_temperature). Nao ha como cruzar anomalia de temperatura com "Program_path" especifico
 nem com "ExtraText" -- essas colunas nao existem em nenhuma tabela do banco.
 
+--- Dataset 8: OpenPack (operacoes de trabalho em linha de embalagem logistica, 16+ sujeitos, sensores vestiveis IMU) ---
+openpack_duracao_por_operacao(operacao, n_janelas, duracao_total_s, duracao_media_s, duracao_mediana_s)
+openpack_transicoes_operacao(operacao_anterior, operacao_seguinte, n_ocorrencias)
+openpack_variabilidade_por_sujeito(sujeito, operacao, duracao_media_s, desvio_s)
+openpack_features_por_operacao(operacao, aceleracao_punho_esquerdo_media, aceleracao_punho_direito_media, rotacao_punho_esquerdo_media, rotacao_punho_direito_media, aceleracao_tronco_media, inclinacao_quaternion_media)
+openpack_anomalias_ciclo(janela_id, sujeito, sessao, operacao, duracao_s, duracao_zscore)
+
+NOTA Dataset 8: a coluna de identidade e "sujeito" (ex. "U0101"), NUNCA "Machine_ID" -- este
+dataset e sobre PESSOAS realizando operacoes de embalagem, nao sobre maquinas. Nao existe
+"Target", "Fault", "Normal", OEE, MTTR nem downtime neste dataset -- nao ha conceito de falha
+de equipamento aqui, so operacoes humanas rotuladas (Picking, Assemble Box, Scan Label, etc).
+Perguntas sobre falha/parada/anomalia de MAQUINA/OEE NUNCA sao respondidas com tabelas
+"openpack_*" -- nunca cruzar "openpack_*" com "sensor_predicoes", "cnc_*", "oee_*" nem
+"manufacturing_*": sao dominios diferentes (pessoa vs. maquina) mesmo que ambos mencionem
+"sensor". openpack_anomalias_ciclo e anomalia de DURACAO DE CICLO HUMANO (z-score de quanto
+tempo um sujeito levou numa operacao, comparado aos demais na MESMA operacao) -- nao e
+anomalia de leitura de sensor de maquina, nao e comparavel a sensor_predicoes do Dataset 2.
+openpack_features_por_operacao traz MAGNITUDES DERIVADAS (norma do vetor 3D de aceleracao/
+rotacao dos sensores no pulso/tronco) -- nao existe coluna de eixo individual (x/y/z) em
+nenhuma tabela deste dataset. Nunca inferir identidade/desempenho de um sujeito especifico
+para fins de avaliacao de pessoa -- os dados sao anonimizados por design (licenca CC BY-NC-SA
+do dataset), perguntas desse tipo devem ser recusadas antes de gerar SQL.
+
 IMPORTANTE: qualquer nome de coluna com letra maiuscula (ex: "Machine_ID", "Timestamp", "Target")
 DEVE ser referenciado entre aspas duplas exatamente como mostrado acima. O Postgres e case-sensitive
 para identificadores entre aspas -- sem aspas, "Machine_ID" e lido como "machine_id" (minusculo) e

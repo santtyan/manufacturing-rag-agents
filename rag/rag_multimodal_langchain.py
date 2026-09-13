@@ -43,10 +43,25 @@ PROMPT_CAPTION = (
     "valores mais altos ou mais baixos. Máximo 4 frases."
 )
 
+# Fase 5 da integracao OpenPack (2026-09-12): prompt para foto de CENA REAL (keyframe RGB de
+# operacao de embalagem), nao grafico sintetico -- ver docstring de gerar_legenda().
+PROMPT_CAPTION_CENA = (
+    "Descreva esta foto de uma estação de trabalho de embalagem logística em português, de "
+    "forma objetiva, mencionando: o que a pessoa está fazendo com as mãos, quais objetos "
+    "visíveis na cena (caixas, itens, mesa, scanner, etiquetas), e a postura/posição da "
+    "pessoa. Não invente números nem leia texto pequeno que não seja claramente legível. "
+    "Máximo 4 frases."
+)
 
-def gerar_legenda(caminho_imagem, modelo=MODELO_VLM):
+
+def gerar_legenda(caminho_imagem, modelo=MODELO_VLM, prompt=None):
     """Chama o VLM local via ChatOllama para descrever uma imagem -- passo 'caption' do
     caption-then-embed. Retorna a legenda como string de texto puro.
+
+    prompt (opcional): sobrescreve PROMPT_CAPTION -- ACHADO REAL (2026-09-12, Fase 5 da
+    integracao OpenPack): PROMPT_CAPTION e especifico para GRAFICOS TECNICOS sinteticos
+    ("tipo de grafico, titulo/eixos") e produz legenda desalinhada/confusa numa foto de cena
+    real (ex. keyframe RGB de operacao de embalagem) -- usar PROMPT_CAPTION_CENA para esse caso.
 
     Import de langchain_ollama feito AQUI DENTRO (nao no topo do modulo) -- ver ACHADO REAL #2
     na docstring do modulo: importar isso junto com sentence-transformers no mesmo processo
@@ -59,7 +74,7 @@ def gerar_legenda(caminho_imagem, modelo=MODELO_VLM):
 
     llm = ChatOllama(model=modelo, temperature=0.1)
     msg = HumanMessage(content=[
-        {"type": "text", "text": PROMPT_CAPTION},
+        {"type": "text", "text": prompt or PROMPT_CAPTION},
         {"type": "image_url", "image_url": f"data:image/png;base64,{img_b64}"},
     ])
     resposta = llm.invoke([msg])

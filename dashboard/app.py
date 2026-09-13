@@ -404,9 +404,11 @@ BADGE_ROTA = {
     "nao_respondivel_lss": "🚧 **Cruzamento indisponivel** — as tabelas nao tem essa relacao nos dados",
     "nao_respondivel_roi": "🚧 **Dado inexistente** — nao ha coluna de custo/investimento neste dataset",
     "nao_respondivel_cnc": "🚧 **Cruzamento indisponivel** — as tabelas nao tem essa relacao nos dados",
+    "nao_respondivel_openpack": "🚧 **Cruzamento indisponivel** — OpenPack (pessoas) e sensores de maquina sao dominios diferentes",
     "planned_vs_unplanned": "🧮 **Calculo pre-processado** — soma exata feita em Python, sem risco de erro do LLM",
     "lss_melhorou_tudo": "🧮 **Calculo pre-processado** — direcao de cada metrica (melhorou/piorou) calculada em Python",
     "interpretacao_recall": "🧮 **Calculo pre-processado** — direcao de recall/precision (acerta/erra) calculada em Python",
+    "recusa_identificacao_pessoa": "🔒 **Recusa deterministica** — dado anonimizado por licenca, nao identifica sujeitos",
 }
 
 
@@ -590,7 +592,7 @@ Regras:
                         )
                         destino = "contexto"
 
-            elif destino in ("nao_respondivel_lss", "nao_respondivel_roi", "nao_respondivel_cnc"):
+            elif destino in ("nao_respondivel_lss", "nao_respondivel_roi", "nao_respondivel_cnc", "nao_respondivel_openpack"):
                 # Answerability gate deterministico (ver comentario em rotear_por_keyword):
                 # em vez de deixar o LLM inventar um cruzamento que os dados nao suportam,
                 # responde com uma mensagem fixa explicando a limitacao especifica do gate que
@@ -623,8 +625,31 @@ Regras:
                         "responder as duas partes separadamente: pergunte sobre o ciclo de "
                         "producao por produto, ou sobre o ranking de anomalias por componente."
                     ),
+                    "nao_respondivel_openpack": (
+                        "Os dados do OpenPack (operacoes de embalagem, sujeitos humanos) e os "
+                        "dados de sensor/maquina de outros datasets (Legacy Sensor, CNC, OEE) "
+                        "nao compartilham nenhuma chave de cruzamento -- sao dominios diferentes "
+                        "(pessoa vs. equipamento), mesmo que ambos mencionem 'sensor'. Posso "
+                        "responder sobre operacoes de embalagem (OpenPack) ou sobre sensores de "
+                        "maquina, separadamente, mas nao cruzar os dois."
+                    ),
                 }
                 resposta = mensagens_nao_respondivel[destino]
+                st.write(resposta)
+
+            elif destino == "recusa_identificacao_pessoa":
+                # Recusa deterministica (ver comentario em pede_identificacao_de_pessoa): nao e
+                # so uma questao de ausencia de dado (o calculo existiria em
+                # openpack_variabilidade_por_sujeito), e uma exigencia da licenca CC BY-NC-SA do
+                # dataset OpenPack (sujeitos anonimizados por design) -- nunca consulta o banco.
+                resposta = (
+                    "Nao posso identificar, avaliar ou julgar o desempenho de um sujeito "
+                    "especifico do OpenPack. Os dados sao anonimizados por design (licenca "
+                    "CC BY-NC-SA do dataset) e nao se destinam a avaliacao individual de "
+                    "pessoas. Posso responder sobre padroes agregados de operacao (ex: "
+                    "variabilidade de duracao por tipo de operacao, entre todos os sujeitos), "
+                    "sem apontar ou julgar um sujeito em particular."
+                )
                 st.write(resposta)
 
             elif destino == "interpretacao_recall" and recall_precision is not None:

@@ -1,0 +1,192 @@
+{
+  "k": 5,
+  "usar_hybrid": true,
+  "n_perguntas_avaliadas": 45,
+  "n_nao_respondiveis": 5,
+  "pureza_media": 0.129,
+  "n_purezas_perfeitas": 1,
+  "n_purezas_zeradas": 33,
+  "acaso_esperado": 0.1,
+  "purezas_por_pergunta": [
+    {
+      "id": "openpack-morf-01",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-02",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-03",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-04",
+      "pureza": 0.6
+    },
+    {
+      "id": "openpack-morf-05",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-06",
+      "pureza": 0.2
+    },
+    {
+      "id": "openpack-morf-07",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-08",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-09",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-10",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-11",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-12",
+      "pureza": 0.4
+    },
+    {
+      "id": "openpack-morf-13",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-14",
+      "pureza": 0.6
+    },
+    {
+      "id": "openpack-morf-15",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-16",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-17",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-18",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-19",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-morf-20",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-01",
+      "pureza": 0.6
+    },
+    {
+      "id": "openpack-disc-02",
+      "pureza": 0.2
+    },
+    {
+      "id": "openpack-disc-03",
+      "pureza": 1.0
+    },
+    {
+      "id": "openpack-disc-04",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-05",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-06",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-07",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-08",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-09",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-10",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-11",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-12",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-13",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-disc-14",
+      "pureza": 0.6
+    },
+    {
+      "id": "openpack-disc-15",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-cross-01",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-cross-02",
+      "pureza": 0.4
+    },
+    {
+      "id": "openpack-cross-03",
+      "pureza": 0.4
+    },
+    {
+      "id": "openpack-cross-04",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-cross-05",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-cross-06",
+      "pureza": 0.4
+    },
+    {
+      "id": "openpack-cross-07",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-cross-08",
+      "pureza": 0.4
+    },
+    {
+      "id": "openpack-cross-09",
+      "pureza": 0.0
+    },
+    {
+      "id": "openpack-cross-10",
+      "pureza": 0.0
+    }
+  ]
+}

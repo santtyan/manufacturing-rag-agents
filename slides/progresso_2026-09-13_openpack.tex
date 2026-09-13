@@ -1,0 +1,244 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{booktabs}
+\usepackage{xcolor}
+
+% Tema CERISE — mesma identidade visual dos outros slides do projeto.
+\definecolor{cerisemagenta}{HTML}{A6186B}
+\definecolor{ceriserosa}{HTML}{E6186D}
+\definecolor{cerisecoral}{HTML}{F5642D}
+\definecolor{ceriseroxo}{HTML}{5B1A6B}
+
+\setbeamercolor{title}{fg=cerisemagenta}
+\setbeamercolor{frametitle}{fg=white,bg=cerisemagenta}
+\setbeamercolor{structure}{fg=cerisemagenta}
+\setbeamercolor{block title}{fg=white,bg=ceriseroxo}
+\setbeamercolor{block body}{bg=cerisemagenta!5}
+\setbeamercolor{alerted text}{fg=cerisecoral}
+\setbeamercolor{item}{fg=cerisemagenta}
+
+\newenvironment{numerobloco}[1]{\begin{block}{#1}}{\end{block}}
+\newenvironment{decisaobloco}[1]{\begin{alertblock}{#1}}{\end{alertblock}}
+
+\title{Progresso do Harbor}
+\subtitle{Integração do dataset OpenPack: 8º dataset do chat e validação do RAG com dado real}
+\author{Yan Santos Leite}
+\date{13 de setembro de 2026}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Resumo}
+  \begin{itemize}
+    \item Integramos o \textbf{OpenPack} (dataset público de reconhecimento de operações de
+      trabalho em embalagem logística, sensores vestíveis IMU) como o \textbf{8º dataset} do
+      Harbor — o primeiro dado real usado para validar o RAG do chat com conteúdo além de
+      texto puro, que até aqui só tinha sido testado contra 26 gráficos sintéticos gerados
+      pelo próprio time.
+    \item As três rotas do chat (\emph{contexto}, \emph{SQL}, \emph{RAG}) foram integradas e
+      validadas: roteamento sem nenhuma regressão, dois gates de segurança novos, e um corpus
+      de 4.000 documentos indexado a partir de 1.000 janelas de sensor.
+    \item \textbf{Achado principal}: aplicamos a arquitetura \emph{RAG-HAR} (publicada em maio
+      de 2026) — converter estatísticas de sensor em texto por template, sem nenhum modelo de
+      visão. Ao medir esse retrieval, descobrimos que a métrica certa não é ``achar o documento
+      exato'' e sim ``achar vizinhos da mesma classe'' — uma distinção formal da literatura de
+      retrieval que mudou como avaliamos o resultado.
+    \item RGB (fotos da operação) ficou fora do escopo por enquanto: o acesso ao dataset
+      completo exige aprovação institucional externa, ainda pendente.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Por que o OpenPack, e por que agora}
+  \begin{numerobloco}{A lacuna que isso fecha}
+    O item 6 do plano de RAG multimodal do Harbor (a frente que trata de imagens, hoje só
+    gráficos técnicos sintéticos) estava bloqueado havia dias, com a nota explícita:
+    \emph{``aguardando o dataset real do usuário chegar — imagens sintéticas atuais são só
+    prova de conceito''}. O OpenPack não resolve essa lacuna de imagem diretamente, mas traz
+    o primeiro dado real do projeto, e sua trilha de sensores aplica a mesma filosofia
+    (caption-then-embed) a um tipo de dado novo, sem exigir modelo de visão nenhum.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que o OpenPack contribui:} 53,8 horas de dados reais de 16+ sujeitos realizando
+  10 operações de embalagem, com sensores IMU (acelerômetro, giroscópio, quaternion) e
+  anotação humana profissional — o primeiro corpus do Harbor que não foi gerado
+  programaticamente pelo próprio time.
+
+  \pause
+  \begin{decisaobloco}{Contribuição concreta}
+    Aplicamos o \textbf{RAG-HAR} (Sivaroopan et al., arXiv:2512.08984, maio/2026): a primeira
+    arquitetura \emph{training-free} de reconhecimento de atividade humana via retrieval —
+    sem nenhum modelo treinado, sem GPU. Ela converte estatísticas de sensor em texto
+    estruturado e usa retrieval para dar contexto a um LLM, exatamente a filosofia que o
+    Harbor já seguia em outras frentes (roteamento por regra, NL-to-SQL com self-repair).
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Como funciona, em uma frase}
+  \small
+  \textbf{Exemplo concreto:} imagine perguntar ao chat \emph{``qual operação tem o movimento
+  mais intenso e irregular no punho direito?''} — o sistema não precisa de uma câmera nem de um
+  modelo de visão computacional para responder. Ele lê os números do sensor vestível
+  (acelerômetro, giroscópio), calcula 8 estatísticas por janela de 4 segundos (média, máximo,
+  desvio-padrão, número de picos, etc.) e escreve isso como uma frase em português — depois
+  busca essa frase como faria com qualquer manual técnico.
+
+  \pause
+  \begin{numerobloco}{Por que não usar um modelo de visão aqui}
+    Não há imagem no IMU — a pergunta nem se coloca. Mas vale contrastar: numa frente
+    \emph{diferente} do Harbor (RAG sobre gráficos técnicos, imagem de verdade), já medimos que
+    \textbf{nenhum modelo de visão local disponível} atinge qualidade suficiente sem custar
+    minutos por imagem (o melhor candidato, \texttt{qwen3-vl:4b}, ficou em 77,5\% de fidelidade
+    e 412 segundos por imagem). Para sensores, a solução é mais simples e mais barata: o
+    ``resumo em texto'' é gerado por uma fórmula matemática determinística
+    (\texttt{pandas}/\texttt{numpy}), não por um modelo de IA — sem alucinação possível e sem
+    custo de inferência.
+  \end{numerobloco}
+\end{frame}
+
+\begin{frame}{Escala e engenharia de dados}
+  \small
+  \begin{numerobloco}{Números reais do pipeline}
+    \begin{center}
+    \begin{tabular}{lr}
+      \toprule
+      Sessões processadas & 102 (16 sujeitos $\times$ até 5 sessões) \\
+      Sessões válidas & 102/102 (100\%) \\
+      Janelas de sensor segmentadas & 78.667 \\
+      Janelas amostradas para o corpus & 1.000 (100 por operação) \\
+      Sujeitos representados por operação & 21 (todas as 10 operações) \\
+      Documentos indexados & 4.000 (4 por janela) \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{Por que amostrar:} o corpus completo (78.667 janelas $\times$ 4 = mais de 300 mil
+  documentos) não caberia no índice em memória nem seria viável de reavaliar a cada iteração.
+  Usamos o \textbf{método do maior resto} (Hamilton/Hare-Niemeyer — o mesmo algoritmo usado
+  para distribuir cadeiras em eleições proporcionais) para dividir a cota de 100 janelas por
+  operação entre os 21 sujeitos sem viés de arredondamento — na primeira tentativa, uma divisão
+  inteira simples havia entregado só 84 janelas por operação em vez de 100.
+\end{frame}
+
+\begin{frame}{As três rotas do chat, sem regressão}
+  \small
+  \begin{numerobloco}{Contexto e SQL}
+    Outputs agregados do pipeline (duração por operação, transições entre operações,
+    variabilidade por sujeito) alimentam a rota \emph{contexto}. Cinco tabelas novas no banco
+    Postgres alimentam a rota \emph{SQL}, com uma nota explícita no schema: dados do OpenPack
+    são sobre \textbf{pessoas}, nunca devem ser cruzados com tabelas de \textbf{máquina}
+    (OEE, CNC, sensores industriais) — mesmo que ambos mencionem ``sensor''.
+  \end{numerobloco}
+
+  \pause
+  \begin{decisaobloco}{Dois gates de segurança novos}
+    Um impede o cruzamento pessoa$\times$máquina descrito acima (risco previsto antes mesmo de
+    acontecer, seguindo o mesmo padrão de bugs já corrigidos em outros datasets). O outro
+    recusa, de forma determinística, qualquer pedido de identificar ou avaliar um sujeito
+    específico — exigência da licença do dataset (dados anonimizados por desenho), não só
+    precaução.
+  \end{decisaobloco}
+
+  \pause
+  \textbf{Resultado do harness de regressão:} roteamento subiu de 55/67 (82,1\%) para 58/69
+  (84,1\%) — as duas perguntas novas (uma para cada gate) roteiam corretamente, e
+  \textbf{nenhuma} das 67 perguntas antigas passou a falhar.
+\end{frame}
+
+\begin{frame}{O achado central: medindo a coisa certa}
+  \small
+  \begin{numerobloco}{O que aconteceu}
+    A primeira avaliação do corpus RAG deu \textbf{Recall@5 = 0\%} — nenhuma das 45 perguntas
+    com alvo conhecido encontrou a janela exata entre os 5 primeiros resultados, mesmo usando
+    só busca por similaridade de texto (sem nenhum componente de palavra-chave).
+  \end{numerobloco}
+
+  \pause
+  \textbf{Como investigamos:} isolamos a causa em três etapas — testamos com e sem busca por
+  palavra-chave (BM25), testamos frases sem números (só nome de sujeito/sessão), e comparamos
+  a pontuação bruta de discriminação de diferentes termos do texto. Todas as evidências
+  apontaram para a mesma causa: como as 1.000 janelas usam o mesmo modelo de frase, com só os
+  números mudando, a maioria das palavras aparece em quase todos os documentos — não sobra
+  sinal de texto para diferenciar uma janela específica das outras 99 da mesma operação.
+
+  \pause
+  \begin{decisaobloco}{A correção não foi no código, foi na pergunta}
+    Relendo o próprio artigo do RAG-HAR, confirmamos que ele nunca tenta achar ``o documento
+    exato'' — ele busca vizinhos \emph{parecidos} para dar contexto a um classificador. A
+    literatura de recuperação de informação chama isso de \textbf{retrieval por categoria}
+    (achar algo da mesma classe), diferente de \textbf{retrieval por instância} (achar o item
+    exato) — nosso teste original media a pergunta errada para esta arquitetura.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Resultado final, com a métrica certa}
+  \small
+  \begin{numerobloco}{k-NN label purity: fração dos vizinhos que são da mesma operação}
+    \begin{center}
+    \begin{tabular}{lr}
+      \toprule
+      Pureza média (5 vizinhos, 45 perguntas) & 12,9\% \\
+      Acaso esperado (10 operações balanceadas) & 10,0\% \\
+      Perguntas com pureza perfeita (100\%) & 1/45 \\
+      Perguntas com pureza zero (0\%) & 33/45 \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significa:} o retrieval discrimina \emph{um pouco} acima do acaso, não
+  fortemente. É um resultado honesto, não um sucesso nem um fracasso — mostra que estatísticas
+  de primeira ordem (média, desvio, número de picos) sobre 6 canais de movimento têm poder
+  discriminativo real, mas fraco, entre 10 operações de embalagem parecidas entre si. Uma
+  comparação direta e justa com o baseline anterior do RAG multimodal (26 imagens sintéticas,
+  Recall@3 = 38\%) não é possível — as métricas medem coisas diferentes por desenho —, mas o
+  processo de chegar a essa conclusão é, em si, um resultado metodológico que vale registrar.
+\end{frame}
+
+\begin{frame}{Riscos e pendências}
+  \small
+  \begin{itemize}
+    \item[\textcolor{green!60!black}{\textbullet}] \textbf{Rotas contexto/SQL} — fechadas,
+      validadas sem regressão no harness completo.
+    \item[\textcolor{green!60!black}{\textbullet}] \textbf{Corpus RAG e métrica de avaliação}
+      — fechados, com achado metodológico documentado.
+    \item[\textcolor{orange!90!black}{\textbullet}] \textbf{Poder discriminativo do retrieval
+      (12,9\%)} — funcional, mas fraco. Não bloqueia a integração; abre uma pergunta em aberto
+      sobre se features de ordem mais alta ajudariam, ainda sem teste que confirme.
+    \item[\textcolor{red!80!black}{\textbullet}] \textbf{Imagens RGB (Fase 5)} — bloqueada por
+      aprovação institucional externa, ainda não solicitada. O único frame disponível sem essa
+      aprovação cobre um instante antes do início de qualquer operação anotada, insuficiente
+      para o teste original planejado (12 imagens, uma por operação). O mecanismo técnico foi
+      validado apesar disso: um \emph{prompt} de legendagem herdado (feito para gráficos, não
+      fotos) gerava legenda vazia; corrigido, o mesmo modelo descreveu a cena real
+      corretamente.
+    \item[\textcolor{orange!90!black}{\textbullet}] \textbf{Benchmark acadêmico comparável}
+      (meta BRACIS 2027) — os números desta sessão são a base, mas a comparação formal contra
+      os resultados publicados de HAR no artigo original do OpenPack ainda não foi feita.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Próximos passos}
+  \begin{enumerate}
+    \item \textbf{Solicitar acesso ao RGB completo} — preencher o formulário institucional dos
+      autores do OpenPack (pendente, é uma ação pessoal, não automatizável). Critério de
+      conclusão: aprovação recebida e ao menos 1 keyframe por operação disponível.
+    \item \textbf{Investigar o poder discriminativo fraco} — é uma hipótese em aberto, não
+      testada nesta sessão, se features de ordem mais alta (ex.\ frequência dominante via FFT)
+      melhorariam a pureza acima de 12,9\%; vale medir antes de decidir se a abordagem atual
+      já chegou ao teto.
+    \item \textbf{Comparação formal com o benchmark do OpenPack} — reproduzir/contrastar contra
+      os números de reconhecimento de atividade já publicados no artigo original, usando a
+      mesma filosofia \emph{training-free} do RAG-HAR.
+    \item \textbf{Sincronizar o dashboard} — expor a nova aba de chat do OpenPack em
+      \texttt{dashboard/app.py}, seguindo a mesma disciplina já aplicada aos outros 4 datasets
+      ativos.
+  \end{enumerate}
+\end{frame}
+
+\end{document}

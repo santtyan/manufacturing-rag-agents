@@ -1,0 +1,261 @@
+{
+  "_meta": {
+    "descricao": "Golden set para avaliar retrieval do RAG-HAR sobre o corpus OpenPack (1000 janelas de sensores IMU / 4000 documentos multi-vetor, rag/corpus_openpack_janelas.json). Cada pergunta tem documento_relevante = janela_id (campo 'fonte' no corpus, agrega os 4 sub-vetores completo/inicio/meio/fim). Perguntas deliberadamente NAO citam o nome da operacao no texto (o template de rag/rag_openpack_texto.py tambem nunca cita), para medir se o sinal morfologico (features estatisticas de sensor) discrimina de fato, nao se o BM25 acerta por coincidencia lexical.",
+    "criado_em": "2026-09-12",
+    "arquitetura_avaliada": "RAG-HAR (arXiv:2512.08984) via rag/rag_openpack_texto.py -- features estatisticas por template deterministico (sem VLM), indexado no mesmo RAGHibrido de producao, colecao separada (chroma_db_openpack).",
+    "composicao": "20 morfologicas (movimento, nao nome da operacao) + 15 pares discriminativos adversariais (perfis proximos) + 10 cross-sujeito (mesma operacao, sujeitos diferentes) + 5 nao-respondiveis (alvo null)",
+    "baseline_para_comparacao": "Harbor imagens sinteticas (moondream): Recall@3=38%, Precision@3=13%, MRR=0.253 -- corpus OpenPack e 150x maior, entao o acaso cai de 11.5% para 0.3%, tornando a comparacao mais dificil e mais significativa."
+  },
+  "perguntas": [
+    {
+      "id": "openpack-morf-01",
+      "pergunta": "qual janela tem a maior rotacao no punho direito, acima de 140 graus por segundo em media",
+      "documento_relevante": "U0101_S0200_0017202"
+    },
+    {
+      "id": "openpack-morf-02",
+      "pergunta": "em qual segmento o punho esquerdo gira mais rapido, proximo de 150 dps",
+      "documento_relevante": "U0102_S0400_0004941"
+    },
+    {
+      "id": "openpack-morf-03",
+      "pergunta": "mostre uma janela com rotacao de punho muito baixa, abaixo de 40 dps em ambos os lados",
+      "documento_relevante": "U0101_S0100_0052033"
+    },
+    {
+      "id": "openpack-morf-04",
+      "pergunta": "qual janela tem o movimento mais lento e pouco giratorio dos dois pulsos",
+      "documento_relevante": "U0102_S0100_0061732"
+    },
+    {
+      "id": "openpack-morf-05",
+      "pergunta": "encontre uma janela onde o punho direito quase nao gira, media muito menor que 40 dps",
+      "documento_relevante": "U0101_S0200_0014762"
+    },
+    {
+      "id": "openpack-morf-06",
+      "pergunta": "qual movimento tem rotacao de punho parecida e baixa nos dois lados, proxima uma da outra",
+      "documento_relevante": "U0103_S0100_0036234"
+    },
+    {
+      "id": "openpack-morf-07",
+      "pergunta": "qual janela mostra o punho esquerdo com maior amplitude de rotacao entre os sujeitos amostrados",
+      "documento_relevante": "U0104_S0400_0017446"
+    },
+    {
+      "id": "openpack-morf-08",
+      "pergunta": "em que segmento a aceleracao do tronco e a mais alta, acima de 0.6 G em media",
+      "documento_relevante": "U0101_S0200_0017202"
+    },
+    {
+      "id": "openpack-morf-09",
+      "pergunta": "qual janela mostra a aceleracao do tronco mais baixa, abaixo de 0.33 G",
+      "documento_relevante": "U0103_S0200_0062769"
+    },
+    {
+      "id": "openpack-morf-10",
+      "pergunta": "movimento com muitos picos de aceleracao e rotacao, indicando trabalho mais dinamico",
+      "documento_relevante": "U0101_S0200_0017202"
+    },
+    {
+      "id": "openpack-morf-11",
+      "pergunta": "movimento regular e pouco variavel, com desvio padrao baixo entre os canais",
+      "documento_relevante": "U0101_S0100_0052033"
+    },
+    {
+      "id": "openpack-morf-12",
+      "pergunta": "qual janela e a mais irregular, com grande variacao entre os canais de aceleracao e rotacao",
+      "documento_relevante": "U0101_S0400_0025559"
+    },
+    {
+      "id": "openpack-morf-13",
+      "pergunta": "encontre um movimento intenso, com rotacao alta tanto no punho esquerdo quanto no direito",
+      "documento_relevante": "U0101_S0200_0017202"
+    },
+    {
+      "id": "openpack-morf-14",
+      "pergunta": "qual janela tem rotacao de punho direito e esquerdo bem parecidas, ambas moderadas",
+      "documento_relevante": "U0102_S0300_0015128"
+    },
+    {
+      "id": "openpack-morf-15",
+      "pergunta": "movimento de baixa intensidade geral, aceleracao e rotacao proximas do minimo entre as amostras",
+      "documento_relevante": "U0102_S0100_0061732"
+    },
+    {
+      "id": "openpack-morf-16",
+      "pergunta": "qual janela mostra a maior diferenca entre a rotacao do punho esquerdo e do punho direito",
+      "documento_relevante": "U0101_S0300_0005307"
+    },
+    {
+      "id": "openpack-morf-17",
+      "pergunta": "movimento onde os dois punhos giram quase na mesma velocidade que o tronco acelera pouco",
+      "documento_relevante": "U0103_S0500_0018178"
+    },
+    {
+      "id": "openpack-morf-18",
+      "pergunta": "qual janela tem inclinacao do sensor mais alta entre as amostradas",
+      "documento_relevante": "U0101_S0500_0023668"
+    },
+    {
+      "id": "openpack-morf-19",
+      "pergunta": "encontre movimento com muitos picos de rotacao no punho esquerdo especificamente",
+      "documento_relevante": "U0102_S0400_0004941"
+    },
+    {
+      "id": "openpack-morf-20",
+      "pergunta": "qual segmento mostra aceleracao de punho direito com maior valor maximo registrado",
+      "documento_relevante": "U0101_S0200_0017202"
+    },
+    {
+      "id": "openpack-disc-01",
+      "pergunta": "qual janela tem rotacao de punho direito mais proxima de 100 dps, nao muito acima nem abaixo",
+      "documento_relevante": "U0101_S0400_0025559"
+    },
+    {
+      "id": "openpack-disc-02",
+      "pergunta": "entre movimentos de rotacao moderada, qual tem o tronco acelerando mais",
+      "documento_relevante": "U0101_S0500_0023668"
+    },
+    {
+      "id": "openpack-disc-03",
+      "pergunta": "qual janela e mais parecida com um movimento de picking em termos de rotacao de punho, mas NAO e etiquetagem",
+      "documento_relevante": "U0101_S0400_0025559"
+    },
+    {
+      "id": "openpack-disc-04",
+      "pergunta": "distinga a janela com rotacao de punho esquerdo proxima de 105 dps da que tem 115 dps -- qual e a de 105",
+      "documento_relevante": "U0101_S0400_0023668"
+    },
+    {
+      "id": "openpack-disc-05",
+      "pergunta": "qual das janelas de rotacao moderada tem MENOS picos de aceleracao no tronco",
+      "documento_relevante": "U0103_S0100_0035685"
+    },
+    {
+      "id": "openpack-disc-06",
+      "pergunta": "entre duas janelas de intensidade parecida, qual tem inclinacao do sensor mais alta",
+      "documento_relevante": "U0101_S0500_0023668"
+    },
+    {
+      "id": "openpack-disc-07",
+      "pergunta": "qual janela tem aceleracao de tronco quase identica a 0.45 G mas rotacao de punho MAIS baixa que a media",
+      "documento_relevante": "U0103_S0100_0035685"
+    },
+    {
+      "id": "openpack-disc-08",
+      "pergunta": "diferencie a janela de rotacao alta simetrica (ambos os punhos parecidos) da assimetrica -- qual e a simetrica",
+      "documento_relevante": "U0102_S0300_0015128"
+    },
+    {
+      "id": "openpack-disc-09",
+      "pergunta": "qual janela de baixa rotacao tem MAIS picos de aceleracao, nao a de menos",
+      "documento_relevante": "U0103_S0100_0036234"
+    },
+    {
+      "id": "openpack-disc-10",
+      "pergunta": "entre as janelas de movimento regular, qual tem a MAIOR aceleracao maxima do punho direito",
+      "documento_relevante": "U0101_S0100_0052033"
+    },
+    {
+      "id": "openpack-disc-11",
+      "pergunta": "qual janela tem rotacao de punho esquerdo maior que 140 dps mas aceleracao de tronco abaixo da media",
+      "documento_relevante": "U0101_S0200_0017202"
+    },
+    {
+      "id": "openpack-disc-12",
+      "pergunta": "distinga rotacao de aproximadamente 90 dps de rotacao de aproximadamente 100 dps -- qual e a de 90",
+      "documento_relevante": "U0103_S0400_0036173"
+    },
+    {
+      "id": "openpack-disc-13",
+      "pergunta": "qual janela de aceleracao de tronco baixa tem MENOS picos de rotacao no punho direito",
+      "documento_relevante": "U0103_S0200_0062769"
+    },
+    {
+      "id": "openpack-disc-14",
+      "pergunta": "entre movimentos irregulares, qual tem MAIOR desvio padrao especificamente na rotacao do punho esquerdo",
+      "documento_relevante": "U0101_S0400_0025559"
+    },
+    {
+      "id": "openpack-disc-15",
+      "pergunta": "qual janela e quase identica em rotacao de punho a outra, mas com inclinacao do sensor mais baixa",
+      "documento_relevante": "U0103_S0100_0036234"
+    },
+    {
+      "id": "openpack-cross-01",
+      "pergunta": "mostre um movimento de rotacao de punho alta (perto de 150 dps) registrado num sujeito diferente do primeiro exemplo (nao U0101)",
+      "documento_relevante": "U0102_S0400_0004941"
+    },
+    {
+      "id": "openpack-cross-02",
+      "pergunta": "qual janela de rotacao baixa (abaixo de 40 dps) pertence a um sujeito diferente de U0101",
+      "documento_relevante": "U0102_S0100_0061732"
+    },
+    {
+      "id": "openpack-cross-03",
+      "pergunta": "encontre o mesmo padrao de movimento leve e pouco giratorio, mas de outro sujeito, nao o U0102",
+      "documento_relevante": "U0103_S0100_0036234"
+    },
+    {
+      "id": "openpack-cross-04",
+      "pergunta": "movimento com muitos picos e alta rotacao, de um sujeito diferente de U0101 e U0102",
+      "documento_relevante": "U0103_S0400_0007686"
+    },
+    {
+      "id": "openpack-cross-05",
+      "pergunta": "qual janela de aceleracao de tronco alta pertence ao sujeito U0104",
+      "documento_relevante": "U0104_S0400_0017446"
+    },
+    {
+      "id": "openpack-cross-06",
+      "pergunta": "mostre um movimento regular e pouco variavel de um quarto sujeito diferente dos tres primeiros",
+      "documento_relevante": "U0104_S0200_0048983"
+    },
+    {
+      "id": "openpack-cross-07",
+      "pergunta": "qual janela de rotacao de punho moderada e simetrica pertence ao sujeito U0103",
+      "documento_relevante": "U0103_S0500_0018178"
+    },
+    {
+      "id": "openpack-cross-08",
+      "pergunta": "encontre o padrao de baixa intensidade geral registrado pelo sujeito U0103, nao U0101",
+      "documento_relevante": "U0103_S0100_0036234"
+    },
+    {
+      "id": "openpack-cross-09",
+      "pergunta": "qual janela de alta rotacao de punho esquerdo foi registrada pelo sujeito U0104",
+      "documento_relevante": "U0104_S0400_0017446"
+    },
+    {
+      "id": "openpack-cross-10",
+      "pergunta": "movimento irregular com grande variacao entre canais, de um sujeito diferente de U0101",
+      "documento_relevante": "U0102_S0300_0015128"
+    },
+    {
+      "id": "openpack-naoresp-01",
+      "pergunta": "qual janela de sensor do OpenPack mostra o sujeito sorrindo",
+      "documento_relevante": null
+    },
+    {
+      "id": "openpack-naoresp-02",
+      "pergunta": "qual movimento de punho corresponde ao codigo de barras escaneado nesta janela",
+      "documento_relevante": null
+    },
+    {
+      "id": "openpack-naoresp-03",
+      "pergunta": "qual janela tem temperatura ambiente registrada acima de 25 graus Celsius",
+      "documento_relevante": null
+    },
+    {
+      "id": "openpack-naoresp-04",
+      "pergunta": "encontre a janela onde o sujeito conversa com outro colaborador",
+      "documento_relevante": null
+    },
+    {
+      "id": "openpack-naoresp-05",
+      "pergunta": "qual movimento indica que o sujeito estava usando luvas de protecao",
+      "documento_relevante": null
+    }
+  ]
+}

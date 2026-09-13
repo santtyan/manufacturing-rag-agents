@@ -54,6 +54,12 @@ eval/fitas_replay/
 eval/vidore_subset/
 eval/chroma_db_vidore_subset/
 
+# OpenPack: indices locais e keyframes RGB (licenca RGB proibe redistribuicao,
+# ver docs/openpack_licenca_e_atribuicao.md -- nunca commitar imagens do dataset)
+rag/chroma_db_openpack/
+rag/manuais_imagens_openpack/
+rag/legendas_cache_openpack*.json
+
 # Artefatos de build LaTeX (regeneraveis a partir do .tex via pdflatex)
 slides/*.aux
 slides/*.nav

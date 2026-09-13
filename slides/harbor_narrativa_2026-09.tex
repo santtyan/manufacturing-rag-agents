@@ -24,7 +24,7 @@
 \title{Medir antes de decidir}
 \subtitle{Como o Harbor ganhou instrumentação --- e o que ela revelou}
 \author{Yan Santos Leite}
-\date{8--11 de setembro de 2026}
+\date{8--13 de setembro de 2026}
 
 \begin{document}
 
@@ -366,19 +366,51 @@
 \end{frame}
 
 % ─────────────────────────────────────────────────────────────────────
+% ATO 6 — a régua testada num dado que ninguém no time construiu
+% ─────────────────────────────────────────────────────────────────────
+\begin{frame}{Ato 6 --- A régua testada num dado que ninguém no time construiu}
+  \small
+  \begin{numerobloco}{O problema}
+    Até 13 de setembro, toda medição de RAG multimodal do Harbor usava dado sintético
+    --- 26 gráficos gerados pelo próprio time. Isso valida a arquitetura contra si
+    mesma, não contra o mundo real.
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que fizemos:} integramos o \textbf{OpenPack} (dataset público de operações
+  de embalagem logística, sensores vestíveis, 102 sessões reais) como 8º dataset do
+  Harbor, aplicando \textbf{RAG-HAR} (Sivaroopan et al., arXiv:2512.08984, mai/2026)
+  --- estatísticas de sensor viram texto por template determinístico, sem modelo de
+  visão, sem treino.
+
+  \pause
+  \begin{decisaobloco}{A pergunta estava errada, e a régua provou isso}
+    Recall@5 deu 0\% --- alarmante até investigarmos. A causa não era bug: o
+    RAG-HAR nunca busca ``o documento exato'', busca vizinhos da mesma classe
+    (\emph{retrieval por categoria}, não por instância). Métrica corrigida
+    (k-NN label purity): \textbf{12,9\%}, contra 10\% de acaso --- sinal real,
+    porém fraco. A mesma disciplina do Ato 3 se repete: quando a régua diz um
+    número absurdo, a régua pode estar certa e a pergunta é que estava errada.
+  \end{decisaobloco}
+\end{frame}
+
+% ─────────────────────────────────────────────────────────────────────
 % Fechamento
 % ─────────────────────────────────────────────────────────────────────
 \begin{frame}{O que fica}
   \begin{numerobloco}{Um conjunto de decisões, três respostas diferentes}
     \begin{itemize}
       \item \textbf{Sim:} migração do self-repair e do roteador para LangGraph;
-        top-p=0,7 como limiar de rerank multimodal (depois de consertada a régua).
+        top-p=0,7 como limiar de rerank multimodal (depois de consertada a régua);
+        OpenPack como 8º dataset, integrado nas três rotas do chat sem regressão
+        (roteamento 55/67 $\to$ 58/69).
       \item \textbf{Não:} Agentic RAG, Contextual Retrieval, e o rerank multimodal como
         forma de compensar captioning ruim --- todos medidos, documentados, não
         promovidos.
       \item \textbf{A pergunta estava errada, depois corrigida:} calibração de top-p
         (score=0,0 no 1º estágio) $\to$ consertada, respondida, e usada para testar uma
-        pergunta melhor (o experimento decisivo do Ato 3).
+        pergunta melhor (o experimento decisivo do Ato 3); Recall@5=0\% do OpenPack
+        $\to$ era retrieval por categoria, não por instância (Ato 6).
     \end{itemize}
   \end{numerobloco}
 
@@ -386,7 +418,9 @@
   \textbf{Próximos passos:} achar/aprovar um VLM de captioning com qualidade suficiente
   (prioridade elevada pelo resultado do experimento decisivo); instrumentar trace no
   dashboard de produção; \emph{checkpointer} no agente ReAct; avaliar diagnóstico em
-  camadas e NL-to-SQL (os itens de maior risco do roadmap).
+  camadas e NL-to-SQL (os itens de maior risco do roadmap); solicitar acesso ao RGB
+  completo do OpenPack (aprovação institucional pendente) para fechar a validação
+  multimodal com dado real de imagem.
 
   \pause
   \begin{decisaobloco}{A parte que importa}
