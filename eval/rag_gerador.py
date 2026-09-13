@@ -29,14 +29,31 @@ except Exception as _exc:
 
 # ── 1. Carregamento do motor de busca (RAGHibrido) e fallback ─────────────────────────
 
-def carregar_rag_hibrido():
+def carregar_rag_hibrido(chroma_dir=None, colecao=None, documentos_customizados=None):
     """Instancia e indexa o RAG hibrido (E5 + TF-IDF + ChromaDB, ver rag/rag_hibrido.py).
     Retorna None se indisponivel (falta de pacote/memoria) -- quem chamar deve usar o
-    fallback lexical abaixo nesse caso."""
+    fallback lexical abaixo nesse caso.
+
+    chroma_dir/colecao (opcionais, Fase 7f do plano OpenPack, 2026-09-14): por default (None),
+    aponta para a colecao de producao (manuais tecnicos) -- comportamento inalterado para todo
+    chamador existente. Passar os dois para apontar para um corpus alternativo (ex.
+    rag/chroma_db_openpack), seguindo o padrao de roteamento hierarquico corpus-aware
+    (UniversalRAG/arXiv:2504.20734, RAGRouter/arXiv:2505.23052): quando existem corpora de
+    proposito/granularidade diferentes, o sistema roteia para o corpus certo em vez de fundir
+    tudo numa busca so. documentos_customizados (opcional) e repassado a indexar() -- usado pelo
+    corpus OpenPack, que ja vem pronto de rag/corpus_openpack_janelas.json, nao de rag/manuais/."""
     try:
         from rag_hibrido_langchain import RAGHibrido
-        rag = RAGHibrido()
-        rag.indexar()
+        kwargs = {}
+        if chroma_dir is not None:
+            kwargs["chroma_dir"] = chroma_dir
+        if colecao is not None:
+            kwargs["colecao"] = colecao
+        rag = RAGHibrido(**kwargs)
+        if documentos_customizados is not None:
+            rag.indexar(forcar=False, documentos_customizados=documentos_customizados)
+        else:
+            rag.indexar()
         return rag
     except Exception as exc:
         print(f"[RAG hibrido indisponivel: {exc}]")

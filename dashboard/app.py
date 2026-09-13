@@ -368,6 +368,68 @@ def rag_responder(pergunta):
     return resposta, documentos
 
 
+# ── RAG sobre o corpus OpenPack (janelas IMU, Fase 7f do plano OpenPack, 2026-09-14) ──────
+# Coleção separada da de manuais tecnicos -- roteamento hierarquico corpus-aware
+# (UniversalRAG/arXiv:2504.20734, RAGRouter/arXiv:2505.23052): a aba OpenPack sempre busca
+# neste corpus, nunca no de manuais, porque sao dominios de pergunta completamente diferentes
+# (perfil morfologico de sensor vs. procedimento/limite escrito em manual).
+
+CHROMA_DIR_OPENPACK = Path(r"C:\Projetos\Harbor\rag\chroma_db_openpack")
+COLECAO_OPENPACK = "openpack_janelas_v1"
+CORPUS_OPENPACK_JSON = Path(r"C:\Projetos\Harbor\rag\corpus_openpack_janelas.json")
+
+
+@st.cache_resource
+def rag_openpack_indexado():
+    """Carrega o RAG hibrido apontando para o corpus de texto deterministico do OpenPack
+    (rag/corpus_openpack_janelas.json, gerado por rag/rag_openpack_texto.py -- ja pronto em
+    disco, nao precisa reprocessar). Retorna None se indisponivel."""
+    try:
+        with open(CORPUS_OPENPACK_JSON, encoding="utf-8") as f:
+            corpus_docs = json.load(f)
+        return rag_gerador.carregar_rag_hibrido(
+            chroma_dir=CHROMA_DIR_OPENPACK, colecao=COLECAO_OPENPACK,
+            documentos_customizados=corpus_docs,
+        )
+    except Exception as exc:
+        print(f"[RAG OpenPack indisponivel: {exc}]")
+        return None
+
+
+def rag_openpack_responder_ou_manual(pergunta):
+    """Sub-roteador hierarquico DENTRO da rota `rag` (Fase 7f do plano OpenPack, 2026-09-14):
+    quando dashboard/roteador.py ja decidiu `rag`, esta funcao decide qual CORPUS usar --
+    padrao-ouro confirmado (UniversalRAG/arXiv:2504.20734, RAGRouter/arXiv:2505.23052)
+    e corpus-aware routing, nao fundir corpora de proposito diferente numa busca so.
+    dashboard/roteador.py::PALAVRAS_CHAVE_RAG (manual/procedimento/limiar/seguranca) nunca vai
+    capturar perguntas sobre movimento de sensor IMU -- reusa PALAVRAS_CHAVE_OPENPACK do
+    roteador (mesmo vocabulario que ja disparam os 2 gates desta aba) para decidir entre o
+    corpus de manuais tecnicos (default, comportamento inalterado nas outras 4 abas) e o corpus
+    de janelas OpenPack (so na aba 5)."""
+    from roteador import PALAVRAS_CHAVE_OPENPACK
+    p = pergunta.lower()
+    if any(kw in p for kw in PALAVRAS_CHAVE_OPENPACK):
+        return rag_openpack_responder(pergunta)
+    return rag_responder(pergunta)
+
+
+def rag_openpack_responder(pergunta):
+    """Mesma orquestracao de rag_responder() acima, mas sobre o corpus OpenPack -- sem
+    fallback TF-IDF (rag/rag_manual_tecnico.py indexa so os manuais, nao serve aqui).
+
+    LIMITACAO HONESTA (documentar tambem na persona/exemplos da aba, nao so aqui): o corpus e
+    feito de janelas de sensor descritas por feature estatistica (media/desvio/picos), nao
+    texto livre -- perguntas sobre MOVIMENTO/OPERACAO funcionam bem (e o que o corpus foi
+    desenhado para responder via retrieval por categoria), mas a qualidade nao e a mesma de uma
+    busca sobre texto natural de manual. Ver achado 'instance vs. class-level retrieval' na
+    skill rodar-harness."""
+    rag = rag_openpack_indexado()
+    resposta, documentos, _contexto = rag_gerador.rag_responder(
+        pergunta, rag, call_ollama, k=5, buscar_fallback=None,
+    )
+    return resposta, documentos
+
+
 # ── NL-to-SQL (wrappers finos sobre nl_to_sql/nl_to_sql_langgraph.py, injetando o call_ollama
 # deste dashboard -- ver comentario no import de _nl_to_sql acima) ───────────────────────────
 def nl_to_sql_perguntar(pergunta_nl):
@@ -485,7 +547,8 @@ Responda em portugues, de forma direta e curta (2-4 frases)."""
 
 
 def chat_especializado(dataset_key, persona, contexto_agregado, readme_resumo, amostra_bruta, exemplos,
-                        planned_vs_unplanned_min=None, linhas_rotuladas_lss=None, recall_precision=None):
+                        planned_vs_unplanned_min=None, linhas_rotuladas_lss=None, recall_precision=None,
+                        rag_responder_fn=None):
     """Renderiza um chat com historico proprio, contexto e system prompt especificos de um dataset.
     Roteia automaticamente para RAG (manual tecnico) ou NL-to-SQL (banco) quando a pergunta pedir.
     planned_vs_unplanned_min: tupla opcional (total_planned, total_unplanned) ja pre-calculada --
@@ -496,7 +559,13 @@ def chat_especializado(dataset_key, persona, contexto_agregado, readme_resumo, a
     "n_marcados": int, "n_fault_real": int} ja pre-calculado -- so a aba Legacy Sensor; usada
     para responder deterministicamente se o modelo acerta ou erra a maioria das falhas (achado
     real, 2026-07-15: LLM lia o percentual certo mas invertia a interpretacao da direcao,
-    mesma classe do bug de LSS invertido -- ver pede_interpretacao_recall)."""
+    mesma classe do bug de LSS invertido -- ver pede_interpretacao_recall).
+    rag_responder_fn: funcao opcional (pergunta) -> (resposta, documentos) para a rota `rag`
+    -- default None usa rag_responder() (corpus de manuais tecnicos); a aba OpenPack passa
+    rag_openpack_responder para rotear para o corpus de janelas IMU em vez disso (Fase 7f,
+    2026-09-14 -- roteamento hierarquico corpus-aware, ver comentario em
+    eval/rag_gerador.py::carregar_rag_hibrido)."""
+    _rag_responder = rag_responder_fn or rag_responder
     st.markdown('<div class="cerise-chat-destaque">', unsafe_allow_html=True)
     st.markdown(
         f'<div class="cerise-chat-titulo">💬 Assistente — {persona.splitlines()[0]}</div>'
@@ -711,7 +780,7 @@ Regras:
             elif destino == "rag":
                 _modelo_rag, _estimativa_rag = modelo_atual_e_estimativa()
                 with cerise_loading(f"Buscando no manual tecnico e consultando {_modelo_rag} ({_estimativa_rag})..."):
-                    resposta, docs = rag_responder(pergunta_usuario)
+                    resposta, docs = _rag_responder(pergunta_usuario)
                     extra = docs
                 st.write(resposta)
                 if docs:
@@ -751,13 +820,14 @@ Regras:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-tab1, tab2, tab3, tab4, tab8, tab9 = st.tabs([
+tab1, tab2, tab3, tab4, tab_openpack, tab8, tab9 = st.tabs([
     "1. OEE / Downtime",
     "2. Legacy Sensor Logs",
     "3. Discrete Manufacturing",
     "4. Five-Axis CNC",
-    "5. Reprocessar pipeline",
-    "6. Avaliacao (Golden Questions)",
+    "5. OpenPack (Operacoes de Embalagem)",
+    "6. Reprocessar pipeline",
+    "7. Avaliacao (Golden Questions)",
 ])
 
 with tab1:
@@ -1241,6 +1311,120 @@ with tab4:
     # ── Analises e graficos (secundarios, recolhidos) ────────────────────────────────
     # Secao de analises/graficos removida (pedido explicito do usuario, 2026-07-12: pagina deve
     # ser 100% focada no chatbot, sem secao secundaria de graficos/resumo estatico).
+
+with tab_openpack:
+    st.markdown(
+        '<div class="cerise-dataset-eyebrow">'
+        '<span class="cerise-dataset-nome">OpenPack — Operacoes de Embalagem (sensores IMU)</span>'
+        '<span class="cerise-dataset-desc">Yoshimura et al., PerCom 2024 · sensores vestiveis, 10 operacoes, licenca CC BY-NC-SA 4.0</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    out8 = OUTPUTS / "pipeline8_openpack"
+
+    # Dados carregados ANTES do chat (mesmo padrao das outras 4 abas).
+    duracao_por_op = pd.read_csv(out8 / "duracao_por_operacao.csv")
+    transicoes = pd.read_csv(out8 / "transicoes_operacao.csv")
+    variabilidade = pd.read_csv(out8 / "variabilidade_por_sujeito.csv")
+    features_por_op = pd.read_csv(out8 / "features_por_operacao.csv")
+    amostra_janelas = pd.read_csv(out8 / "janelas_amostradas.csv")
+
+    # Pre-calculado em Python, mesma disciplina das outras 4 abas -- nunca deixar o llama3.2
+    # comparar/ordenar numeros sozinho (achado real recorrente do projeto desde 2026-07-12).
+    #
+    # ACHADO REAL (2026-09-14): duracao_media_s e desvio_s em variabilidade_por_sujeito sao
+    # CONSTANTES (3,96s e 0,0 em toda linha) -- e o tamanho fixo da janela deslizante do
+    # pipeline (Fase 1), nao um sinal real de variabilidade de ciclo humano. Por isso a
+    # "operacao mais variavel" real vem de duracao_total_s (proporcional a frequencia da
+    # operacao no dataset) e das features de movimento (rotacao/aceleracao), nao do desvio de
+    # duracao -- diferente do padrao "MTTR/duracao" das outras abas. Documentar essa limitacao
+    # explicitamente no contexto do LLM, para ele nao inventar uma leitura de "variabilidade de
+    # duracao" que os dados no formato atual nao suportam.
+    _op_maior_duracao = duracao_por_op.loc[duracao_por_op["duracao_total_s"].idxmax()]
+    _op_maior_rotacao = features_por_op.loc[features_por_op["rotacao_punho_esquerdo_media"].idxmax()]
+    _transicoes_diferentes = transicoes[transicoes["operacao_anterior"] != transicoes["operacao_seguinte"]]
+    _par_transicao_top = _transicoes_diferentes.iloc[0] if len(_transicoes_diferentes) else None
+
+    contexto_transicao_txt = (
+        f"RESPOSTA JA CALCULADA -- par de transicao mais frequente ENTRE OPERACOES DIFERENTES "
+        f"(excluindo repeticao da mesma operacao, que domina a tabela bruta por ser mais comum "
+        f"que qualquer troca real): de '{_par_transicao_top['operacao_anterior']}' para "
+        f"'{_par_transicao_top['operacao_seguinte']}', com {_par_transicao_top['n_ocorrencias']} "
+        f"ocorrencias.\n"
+        if _par_transicao_top is not None else ""
+    )
+
+    # ── CHAT EM DESTAQUE (foco da aba) ───────────────────────────────────────────────
+    chat_especializado(
+        dataset_key="openpack",
+        persona=(
+            "Especialista em ergonomia e produtividade de linha de embalagem logistica.\n"
+            "Voce analisa dados do OpenPack: sensores IMU VESTIVEIS (acelerometro/giroscopio "
+            "nos punhos e tronco) de PESSOAS realizando 10 operacoes de embalagem (Picking, "
+            "Assemble Box, Scan Label, etc) -- nao e dado de maquina/equipamento, e nao deve "
+            "ser confundido com sensor de vibracao/temperatura de CNC ou OEE. Os dados sao "
+            "anonimizados por design (licenca CC BY-NC-SA 4.0) -- voce NUNCA identifica, "
+            "avalia ou julga o desempenho de um sujeito especifico, so padroes agregados."
+        ),
+        contexto_agregado=(
+            f"Duracao TOTAL por operacao no dataset inteiro (proporcional a quantas vezes a "
+            f"operacao ocorre, ja que cada janela individual tem duracao fixa de 3,96s -- NAO "
+            f"interprete duracao_media_s como o tempo real de execucao de UM ciclo da "
+            f"operacao, e um artefato do tamanho da janela de processamento):\n"
+            f"{duracao_por_op[['operacao', 'n_janelas', 'duracao_total_s']].sort_values('duracao_total_s', ascending=False).to_string(index=False)}\n\n"
+            f"RESPOSTA JA CALCULADA -- operacao com MAIOR duracao total agregada: "
+            f"'{_op_maior_duracao['operacao']}' ({_op_maior_duracao['duracao_total_s']:.1f}s, "
+            f"{_op_maior_duracao['n_janelas']} janelas).\n\n"
+            f"{contexto_transicao_txt}\n"
+            f"Features medias de movimento por operacao (magnitude de aceleracao/rotacao dos "
+            f"punhos, aceleracao do tronco, inclinacao por quaternion -- unidades normalizadas "
+            f"do sensor, nao SI):\n{features_por_op.to_string(index=False)}\n\n"
+            f"RESPOSTA JA CALCULADA -- operacao com MAIOR rotacao media do punho esquerdo (mais "
+            f"movimento de giro do pulso): '{_op_maior_rotacao['operacao']}' "
+            f"({_op_maior_rotacao['rotacao_punho_esquerdo_media']:.1f}).\n\n"
+            f"LIMITACAO IMPORTANTE: nao ha coluna de variabilidade de DURACAO real entre "
+            f"sujeitos nesta versao dos dados (variabilidade_por_sujeito.csv tem desvio_s=0 em "
+            f"toda linha, artefato do tamanho fixo de janela) -- se perguntado sobre "
+            f"'variabilidade entre sujeitos', responda usando as features de movimento acima "
+            f"(que variam por operacao), nao invente uma variabilidade de tempo que os dados "
+            f"neste formato nao contem."
+        ),
+        readme_resumo=(
+            "OpenPack (Yoshimura et al., PerCom 2024): dataset de reconhecimento de atividade "
+            "humana (HAR) em operacoes reais de embalagem logistica, coletado com sensores IMU "
+            "vestiveis (acelerometro/giroscopio nos dois punhos, aceleracao do tronco, "
+            "orientacao por quaternion). 10 operacoes anotadas (Picking, Relocate Item Label, "
+            "Assemble Box, Insert Items, Scan Label, Attach Shipping Label, Fill out Order, "
+            "Close Box, Attach Box Label, Put on Back Table). Licenca CC BY-NC-SA 4.0 -- uso "
+            "nao-comercial, exige atribuicao, dados anonimizados por design (ver "
+            "docs/openpack_licenca_e_atribuicao.md). Integrado ao Harbor em 2026-09-13/14 via "
+            "arquitetura RAG-HAR (arXiv:2512.08984): features estatisticas do sinal convertidas "
+            "em texto por template determinístico, sem VLM. F1-macro de classificacao (k-NN "
+            "training-free) validado contra o benchmark oficial openpack-torch/split 'Pilot "
+            "Challenge': 0,91-0,92, superando os baselines supervisionados (UNet, ST-GCN, "
+            "DeepConvLSTM)."
+        ),
+        amostra_bruta=amostra_janelas.head(8).to_string(index=False),
+        exemplos=[
+            # Exercita o gate pede_cruzamento_openpack_x_maquina (roteador.py) -- pessoa vs.
+            # maquina nao compartilham chave, mesmo ambos citando "sensor".
+            "Existe alguma relacao entre as leituras de sensor do OpenPack e as anomalias de "
+            "temperatura do spindle da CNC?",
+            # Exercita o gate pede_identificacao_de_pessoa -- recusa deterministica, exigencia
+            # da licenca (dado anonimizado por design).
+            "Qual sujeito e o mais lento na operacao de Picking? Devo conversar com ele sobre "
+            "produtividade?",
+            # Pergunta de retrieval sobre o corpus IMU (rota rag -- "arquitetura"/"sensor" caem
+            # em PALAVRAS_CHAVE_RAG do roteador.py -- sub-roteada aqui para o corpus OpenPack,
+            # nao o de manuais) -- exercita o retrieval por categoria (k-NN), nao por instancia.
+            "Descreva a arquitetura de sensores do punho usada para reconhecer a operacao de "
+            "picking.",
+            # Pergunta de contexto pre-calculado.
+            "Qual operacao tem a maior duracao total acumulada no dataset?",
+        ],
+        rag_responder_fn=rag_openpack_responder_ou_manual,
+    )
 
 with tab8:
     st.subheader("🔄 Reprocessar pipelines")
