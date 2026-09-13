@@ -1,0 +1,19 @@
+{
+  "k": 5,
+  "split": "pilot-challenge",
+  "n_janelas_treino": 150,
+  "n_janelas_teste": 26,
+  "n_classificadas": 26,
+  "n_sem_vizinho_treino": 0,
+  "f1_macro": 0.9217,
+  "baselines_oficiais": {
+    "UNet": 0.3451,
+    "ST-GCN": 0.7024,
+    "DeepConvLSTM": 0.7081
+  },
+  "training_free": true,
+  "tempo_indexacao_s": 71.5,
+  "tempo_medio_busca_s": 0.522,
+  "tempo_total_s": 85.1,
+  "n_documentos_indexados": 4000
+}
