@@ -29,6 +29,14 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
   (2026-09-09): Agentic RAG (`rag/rag_agentic.py`, resultado negativo, não promovido) e
   Contextual Retrieval (`rag_hibrido_langchain.py::indexar(usar_contexto=True)`, resultado
   misto, não promovido) — ver `roadmap-rag-survey` itens 3 e 5 para os números completos.
+- 🔶 **k-NN label purity** (nova, 2026-09-13, `eval/avaliar_retrieval_openpack.py`) — variante de
+  Recall/Precision para corpus de retrieval *class-level* (várias instâncias legítimas por
+  classe, ex. séries de sensor segmentadas em janelas), onde Recall@k clássico mede a métrica
+  errada (deu 0% mesmo com retrieval funcionando, porque nenhuma janela específica é "a resposta
+  certa"). Mede a fração dos k vizinhos que compartilham o rótulo/classe da janela de origem,
+  contra o acaso esperado (1/n_classes). Resultado: pureza=12,9% (acaso=10%). Formalizado como
+  🔶 porque cobre só o OpenPack até agora — ainda não é usado em nenhum outro corpus do Harbor
+  que precise dela (todos os outros são instance-level de fato).
 
 ### LLM
 - ✅ Faithfulness: métrica central de `eval/rodar_golden.py` (números esperados citados na resposta).
@@ -60,6 +68,14 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
   Unsafe Recommendation Rate é conceitualmente o que a precedência da regra determinística sobre
   o LLM tentava evitar (achado real: "LLM discordava de uma leitura obviamente crítica"), mas
   nunca foi quantificado como taxa sobre um golden set.
+- 🔶 **F1-macro de classificação** (nova, 2026-09-14, `eval/avaliar_classificacao_openpack.py`) —
+  mais próxima em espírito de Diagnosis Accuracy (classificar uma condição/operação a partir de
+  sensor) do que de qualquer métrica de Recuperação, mas usa retrieval (k-NN training-free, sem
+  treino) como classificador. Validado contra o benchmark oficial `openpack-torch`/split "Pilot
+  Challenge" em dois protocolos: 0,9217 (amostra estratificada) e 0,9114 (teste completo, 2.591
+  janelas) — ambos superam UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081 (supervisionados).
+  🔶 porque é o único caso do Harbor hoje de "classificação via retrieval" — não generaliza
+  ainda para os outros datasets.
 
 ### Sistema
 - ✅ Custo/Tokens (desde 2026-09-08): `shared/ollama_client.py`, captura
@@ -108,5 +124,7 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
 
 `rodar-harness` — como rodar o harness de roteamento/faithfulness já existente.
 `roadmap-rag-survey` — técnicas de RAG de texto, algumas medidas pelas métricas de Recuperação daqui.
-`rag-multimodal` — RAG multimodal, onde nDCG foi implementado pela primeira vez no projeto.
+`rag-multimodal` — RAG multimodal, onde nDCG foi implementado pela primeira vez no projeto, e onde
+o princípio "conversão para texto perde sinal discriminativo" está documentado (relevante para
+decidir template determinístico vs. VLM/caption em qualquer corpus novo, texto ou imagem).
 `migrar-para-langchain` — regra de baseline justo (custo normalizado) referenciada no item 4 acima.

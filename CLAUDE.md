@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## O que é este projeto
 
-Harbor é um projeto de IA aplicada a manutenção industrial (bolsa FUNAPE/CERISE): pipelines de análise sobre 7 datasets industriais, um chatbot que roteia perguntas entre contexto pré-calculado / RAG sobre manuais técnicos / NL-to-SQL sobre um Postgres, e um harness próprio de avaliação (além de benchmarks acadêmicos: NanoBEIR, BIRD-SQL, Spider). Uma API de diagnóstico de falhas (arquitetura de 3 camadas: regra determinística → Isolation Forest → LLM) e um servidor MCP existiram no projeto e foram removidos em 2026-09-12 — entregas planejadas para reimplementação futura, ver `docs/mapeamento_cronograma.md`.
+Harbor é um projeto de IA aplicada a manutenção industrial (bolsa FUNAPE/CERISE): pipelines de análise sobre 8 datasets industriais, um chatbot que roteia perguntas entre contexto pré-calculado / RAG sobre manuais técnicos / NL-to-SQL sobre um Postgres, e um harness próprio de avaliação (além de benchmarks acadêmicos: NanoBEIR, BIRD-SQL, Spider e, desde 2026-09-14, o benchmark oficial do OpenPack via `openpack-torch`). Uma API de diagnóstico de falhas (arquitetura de 3 camadas: regra determinística → Isolation Forest → LLM) e um servidor MCP existiram no projeto e foram removidos em 2026-09-12 — entregas planejadas para reimplementação futura, ver `docs/mapeamento_cronograma.md`.
 
 Todo o código, comentários e docstrings estão em português. Os comentários frequentemente documentam um "achado real" (bug encontrado ao vivo, com data) que motivou a regra atual — leia-os antes de tocar em roteamento/gates, eles carregam contexto que não está em nenhum outro lugar.
 
@@ -38,6 +38,11 @@ python eval/rodar_consistencia.py
 python eval/avaliar_retrieval_nanobeir.py
 python eval/avaliar_bird_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
+
+# OpenPack (RAG-HAR training-free): retrieval por categoria (k-NN label purity, não Recall@k
+# — ver nota na skill rodar-harness) e classificação F1-macro vs. benchmark oficial
+python eval/avaliar_retrieval_openpack.py
+python eval/avaliar_classificacao_openpack.py [--k 5]
 ```
 
 `eval/rodar_golden.py` importa `dashboard/roteador.py` e `eval/rag_gerador.py` — **nunca duplique lógica de roteamento ou geração RAG dentro de `eval/`**; isso já causou uma regressão fantasma de 67,9%→52% (ver histórico em `dashboard/roteador.py`). Se adicionar um gate novo de roteamento, ele deve viver só em `dashboard/roteador.py`.
@@ -68,7 +73,9 @@ Seguem a regra fixada em `migrar-para-langchain`: nenhuma migração troca o imp
 
 ### Pipelines (`pipelines/`)
 
-7 pipelines, um por dataset, cada um gravando outputs em `outputs/pipelineN_*/`. **Só os pipelines 1-4** (OEE/Downtime, Legacy Sensor Logs, Discrete Manufacturing, Five-Axis CNC Milling) têm outputs consumidos pelo dashboard como "contexto" pré-calculado (a rota mais confiável do roteador, porque não depende do LLM calcular nada) e aparecem no dict de reprocessamento de `dashboard/app.py` (aba "Reprocessar pipeline"). Os pipelines 5-7 (Facility Maintenance, Labeled Car, Aircraft Annotation) processam seus datasets e gravam outputs, mas **não alimentam o chat/dashboard ainda** — ficaram fora do escopo do roteador/chatbot (achado da auditoria de scripts órfãos, 2026-09-08). Se algum dia forem integrados ao chat, atualizar também o dict `pipelines_disponiveis` em `dashboard/app.py`.
+8 pipelines, um por dataset, cada um gravando outputs em `outputs/pipelineN_*/`. **Só os pipelines 1-4** (OEE/Downtime, Legacy Sensor Logs, Discrete Manufacturing, Five-Axis CNC Milling) têm outputs consumidos pelo dashboard como "contexto" pré-calculado (a rota mais confiável do roteador, porque não depende do LLM calcular nada) e aparecem no dict de reprocessamento de `dashboard/app.py` (aba "Reprocessar pipeline"). Os pipelines 5-7 (Facility Maintenance, Labeled Car, Aircraft Annotation) processam seus datasets e gravam outputs, mas **não alimentam o chat/dashboard ainda** — ficaram fora do escopo do roteador/chatbot (achado da auditoria de scripts órfãos, 2026-09-08). Se algum dia forem integrados ao chat, atualizar também o dict `pipelines_disponiveis` em `dashboard/app.py`.
+
+O **pipeline8** (`pipeline8_openpack.py`, integrado em 2026-09-13/14) tem a mesma ressalva editorial: processa o dataset OpenPack (HAR de operações de embalagem via sensores IMU vestíveis, licença CC BY-NC-SA 4.0 — ver `docs/openpack_licenca_e_atribuicao.md`) e alimenta as rotas `contexto` e `sql` do roteador (com 2 gates novos, `pede_cruzamento_openpack_x_maquina` e `pede_identificacao_de_pessoa`, em `dashboard/roteador.py`) e a rota `rag` via corpus texto determinístico (`rag/rag_openpack_texto.py`, arquitetura RAG-HAR/arXiv:2512.08984 — features estatísticas de sensor convertidas em texto por template, sem VLM). **Ainda não tem aba própria no Streamlit** (`dashboard/app.py`) — pendência aberta, ver skill `rag-multimodal`. F1-macro de classificação (protocolo k-NN training-free) validado em dois protocolos contra o benchmark oficial `openpack-torch`/split "Pilot Challenge": 0,9217 (amostra estratificada) e 0,9114 (teste completo, 2.591 janelas) — supera os 3 baselines supervisionados (UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081). Ver `eval/resultados_classificacao_openpack_completo.json`.
 
 ### Golden set e gates
 

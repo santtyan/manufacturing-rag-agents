@@ -477,15 +477,61 @@ ainda reprovado formalmente) — não é uma prova formal de que NENHUM rerank c
 ruim, é evidência forte neste corpus/estas condições. Resultados completos em
 `eval/resultados_item5_rerank_vs_captioning.json`.
 
+## Item 6 PARCIALMENTE DESTRAVADO — trilha IMU (OpenPack) integrada e validada (2026-09-13/14)
+
+O dataset real do usuário chegou: **OpenPack** (Yoshimura et al., PerCom 2024, HAR de operações
+de embalagem via sensores IMU vestíveis, licença CC BY-NC-SA 4.0 — ver
+`docs/openpack_licenca_e_atribuicao.md`). Mas a arquitetura aplicada **não é** caption-then-embed
+com VLM — é a trilha determinística do RAG-HAR (arXiv:2512.08984): features estatísticas do
+sinal (`media, maximo, minimo, q1, q3, desvio_padrao, mediana, n_picos`) convertidas em texto por
+template fixo (`rag/rag_openpack_texto.py`), sem nenhum VLM/captioning. É o **oposto** do gargalo
+de custo desta skill (412s/imagem, nenhum VLM aprovado) — aqui o "captioner" é `numpy`: custo
+~zero e fidelidade 100% por construção, porque o texto é derivado deterministicamente do dado,
+não interpretado por um modelo.
+
+**Achado central, reforça a decisão de arquitetura desta skill de um ângulo novo**: mesmo com
+fidelidade perfeita do texto, o **retrieval por instância** (BM25/E5 tentando achar "a janela
+certa") falhou (Recall@5=0%) — não por bug, mas porque séries de sensor segmentadas em janelas
+são um problema de retrieval **class-level**, não instance-level (nenhuma janela específica é "a
+resposta certa"; o que importa é achar vizinhos da mesma classe). Corrigido trocando a métrica
+para k-NN label purity (12,9%, ver skill `metricas-avaliacao-ia-industrial`) e, mais importante,
+implementando o protocolo de **classificação** k-NN do próprio RAG-HAR: **F1-macro = 0,9217 e
+0,9114** (dois protocolos) contra o benchmark oficial `openpack-torch`, superando os 3 baselines
+supervisionados (UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081) — ver skill `rodar-harness`
+para os comandos e `eval/resultados_classificacao_openpack_completo.json` para o resultado
+completo.
+
+**Princípio geral, confirmado de forma independente 3 vezes (varredura de ~20 referências de
+GitHub/papers enviadas pelo usuário em 2026-09-13, nenhuma diretamente aplicável ao domínio
+HAR/sensor, mas 2 achados indiretos relevantes)**: **conversão para texto perde sinal
+discriminativo**, sempre que o texto for uma *interpretação* (VLM/caption) em vez de uma
+*derivação determinística* (features estatísticas via numpy/pandas). Confirmado (1)
+empiricamente no próprio Harbor duas vezes — aqui (retrieval por instância falha mesmo com
+templates fiéis) e no item 5 acima (rerank não compensa captioning ruim); (2) MAVIS
+(arXiv:2511.12142) — LVLMs têm "text dominance" e groundedness mais fraca em documentos de
+imagem; (3) M4-RAG (arXiv:2512.05959) — "naive text-based retrieval... converting image to text
+introduces noise". **Regra de design**: sempre que o dado de origem permitir representação
+textual determinística (sensor, série temporal, dado tabular), preferir isso a VLM/caption —
+mesmo que o retrieval final precise de uma métrica diferente (class-level) do que se esperaria
+inicialmente. Referência de vocabulário de métricas: `Multimodal-RAG-Survey` (Abootorabi et al.,
+ACL 2025 Findings, arXiv:2502.08826) — usar para nomear categorias de avaliação, não como
+fundamento de arquitetura (é majoritariamente sobre imagem/vídeo/áudio via CLIP/VLM).
+
+**O que continua bloqueado**: a trilha RGB (imagens sintéticas de gráfico, câmera do OpenPack)
+segue sem VLM aprovado (qwen3-vl:4b reprovado, 77,5% < critério de 90%) — item 6 permanece
+parcialmente aberto para essa trilha especificamente. E `dashboard/app.py` **ainda não tem aba de
+chat para o OpenPack** — os CSVs de `outputs/pipeline8_openpack/` e o corpus RAG existem e estão
+validados, mas não há UI consumindo isso ainda (pendência aberta, não implícita).
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com
       número: as legendas do `moondream` incluem uma saída sem sentido semântico
       (`"[0.0, 0.13, 0.99, 0.28]"`). Tentar `qwen2.5-vl`/Qwen2.5-VL novamente quando houver
       mais espaço em disco, ou `llava` (~4GB).
-- [ ] **6. Integrar ao dashboard/chat de produção** — aguardando o dataset real do usuário
-      chegar (imagens sintéticas atuais são só prova de conceito); reavaliar Recall@k contra
-      esse dataset antes de decidir arquitetura final, seguindo o critério acima.
+- [x] **6 (parcial). Integrar ao dashboard/chat de produção — trilha IMU/OpenPack** — ver seção
+      acima. Restam: aba de chat no Streamlit (pendência aberta) e a trilha RGB (segue bloqueada
+      por falta de VLM aprovado).
 - [ ] **7. ColPali/ColQwen2 como via secundária** — decisão adiada explicitamente até o dataset
       real chegar (ver critério de escolha acima): usar quando recall for o gargalo medido E as
       queries forem visualmente difíceis, não antes.

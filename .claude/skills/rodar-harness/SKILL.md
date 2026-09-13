@@ -44,6 +44,33 @@ python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 
 `N_PERGUNTAS` default 25, `OLLAMA_MODEL` default `llama3.2`. Esses benchmarks chamam o código de produção real (`rag/rag_hibrido.py`, `nl_to_sql/nl_to_sql.py`), não uma reimplementação — resultado é comparável ao comportamento real do dashboard.
 
+## OpenPack (HAR via RAG-HAR training-free, integrado em 2026-09-13/14)
+
+```powershell
+# Retrieval por CATEGORIA sobre o corpus IMU (nao Recall@k -- ver nota abaixo)
+python eval/avaliar_retrieval_openpack.py
+
+# Classificacao F1-macro vs. benchmark oficial openpack-torch (split "Pilot Challenge")
+python eval/avaliar_classificacao_openpack.py [--k 5]
+```
+
+**Achado real (2026-09-13), aplica-se a qualquer corpus de instância quase-única (sensor/série
+temporal, não documento único)**: Recall@k/MRR clássico pressupõe retrieval *instance-level*
+(existe 1 documento "certo" e o resto é irrelevante — ex. NanoBEIR, manuais RAG). Séries de
+sensor segmentadas em janelas são retrieval *class-level*: nenhuma janela específica é "a
+resposta certa", o que importa é se os vizinhos recuperados são da mesma classe/operação. Usar
+Recall@k aqui mede a métrica errada (deu 0% mesmo com retrieval funcionando) — a métrica correta
+é **k-NN label purity** (fração dos k vizinhos que compartilham o rótulo da janela de origem;
+acaso esperado = 1/n_classes). Resultado medido: pureza=12,9% (acaso=10%, corpus de 4.000 docs).
+
+`avaliar_classificacao_openpack.py` aplica o protocolo de classificação real do RAG-HAR
+(vizinhos → votação majoritária, sem treino) sobre o split oficial "Pilot Challenge" do
+`openpack-torch` — é o número comparável ao benchmark do dataset, não um proxy. F1-macro
+validado em dois protocolos: 0,9217 (amostra estratificada, 26 janelas de teste) e 0,9114
+(teste completo sem amostragem, 2.591 janelas) — ambos superam os 3 baselines supervisionados
+(UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081). Trace da run instrumentado em
+`eval/traces/openpack_classificacao.jsonl` via `shared.trace`.
+
 ## Depois de rodar
 
 - Resuma: roteamento (N/total), faithfulness (%), e qualquer pergunta que mudou de resultado em relação à última run conhecida.
