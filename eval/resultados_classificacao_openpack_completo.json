@@ -1,0 +1,14 @@
+{
+  "protocolo": "teste_completo_sem_amostragem",
+  "n_janelas_teste_total": 2591,
+  "n_classificadas": 2576,
+  "n_sem_vizinho_treino": 15,
+  "f1_macro": 0.9114,
+  "baselines_oficiais": {
+    "UNet": 0.3451,
+    "ST-GCN": 0.7024,
+    "DeepConvLSTM": 0.7081
+  },
+  "tempo_indexacao_s": 52.2,
+  "tempo_medio_busca_s": 0.505
+}
