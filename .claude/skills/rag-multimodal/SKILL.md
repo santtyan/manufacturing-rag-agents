@@ -519,9 +519,8 @@ fundamento de arquitetura (é majoritariamente sobre imagem/vídeo/áudio via CL
 
 **O que continua bloqueado**: a trilha RGB (imagens sintéticas de gráfico, câmera do OpenPack)
 segue sem VLM aprovado (qwen3-vl:4b reprovado, 77,5% < critério de 90%) — item 6 permanece
-parcialmente aberto para essa trilha especificamente. E `dashboard/app.py` **ainda não tem aba de
-chat para o OpenPack** — os CSVs de `outputs/pipeline8_openpack/` e o corpus RAG existem e estão
-validados, mas não há UI consumindo isso ainda (pendência aberta, não implícita).
+parcialmente aberto para essa trilha especificamente. A aba de chat do OpenPack no dashboard foi
+concluída na Fase 7f (2026-09-14, ver abaixo) — não é mais pendência.
 
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
@@ -530,8 +529,8 @@ validados, mas não há UI consumindo isso ainda (pendência aberta, não implí
       (`"[0.0, 0.13, 0.99, 0.28]"`). Tentar `qwen2.5-vl`/Qwen2.5-VL novamente quando houver
       mais espaço em disco, ou `llava` (~4GB).
 - [x] **6 (parcial). Integrar ao dashboard/chat de produção — trilha IMU/OpenPack** — ver seção
-      acima. Restam: aba de chat no Streamlit (pendência aberta) e a trilha RGB (segue bloqueada
-      por falta de VLM aprovado).
+      acima. Aba de chat no Streamlit concluída (Fase 7f, 2026-09-14). Resta só a trilha RGB
+      (segue bloqueada por falta de VLM aprovado).
 - [ ] **7. ColPali/ColQwen2 como via secundária** — decisão adiada explicitamente até o dataset
       real chegar (ver critério de escolha acima): usar quando recall for o gargalo medido E as
       queries forem visualmente difíceis, não antes.

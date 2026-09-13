@@ -129,7 +129,7 @@
   <div class="scroll-container">
     <figure style="margin:0">
     <svg viewBox="0 0 1020 400" xmlns="http://www.w3.org/2000/svg" role="img"
-         aria-label="Diagrama da arquitetura do Harbor: pergunta do usuário entra pelo dashboard Streamlit; o roteador de fonte única decide entre rota de contexto pré-calculado, RAG híbrido sobre manuais e sobre o corpus OpenPack, ou NL-to-SQL sobre o Postgres, com answerability gates interceptando antes do LLM (incluindo os 2 gates do OpenPack: cruzamento pessoa-máquina e identificação de sujeito); Ollama é compartilhado por todas as rotas que precisam gerar texto; pipelines 1 a 4 e o pipeline 8 (OpenPack) alimentam a rota de contexto, o pipeline 8 também alimenta a rota SQL e um corpus RAG textual determinístico próprio, ainda sem aba dedicada no Streamlit.">
+         aria-label="Diagrama da arquitetura do Harbor: pergunta do usuário entra pelo dashboard Streamlit; o roteador de fonte única decide entre rota de contexto pré-calculado, RAG híbrido sobre manuais e sobre o corpus OpenPack, ou NL-to-SQL sobre o Postgres, com answerability gates interceptando antes do LLM (incluindo os 2 gates do OpenPack: cruzamento pessoa-máquina e identificação de sujeito); Ollama é compartilhado por todas as rotas que precisam gerar texto; pipelines 1 a 4 e o pipeline 8 (OpenPack) alimentam a rota de contexto, o pipeline 8 também alimenta a rota SQL e um corpus RAG textual determinístico próprio, com aba dedicada no Streamlit desde a Fase 7f.">
 
       <!-- STEP LABELS -->
       <text x="70" y="26" class="step-label">Entrada</text>
@@ -253,7 +253,7 @@
 
     </svg>
     <figcaption style="text-align:center; color:var(--ink-muted); font-size:0.8rem; margin-top:10px;">
-      Uma pergunta do dashboard passa pelo roteador de fonte única (keyword, depois LLM só em caso de empate, mais os answerability gates — incluindo os 2 gates do OpenPack) antes de seguir para uma das três rotas; Ollama e os pipelines são compartilhados por mais de uma rota. O pipeline 8 (OpenPack) ainda não tem aba própria no Streamlit.
+      Uma pergunta do dashboard passa pelo roteador de fonte única (keyword, depois LLM só em caso de empate, mais os answerability gates — incluindo os 2 gates do OpenPack) antes de seguir para uma das três rotas; Ollama e os pipelines são compartilhados por mais de uma rota. O pipeline 8 (OpenPack) tem aba própria no Streamlit desde a Fase 7f.
     </figcaption>
     </figure>
   </div>
