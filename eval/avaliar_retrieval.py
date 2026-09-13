@@ -60,6 +60,22 @@ K = 5  # top-k avaliado (k_candidatos default do RAGHibrido.buscar ja e 10 nos b
 REGEX_SECAO_NOTA = re.compile(r"secao\s+(\d+)", re.IGNORECASE)
 REGEX_SECAO_CHUNK = re.compile(r"^##\s+(\d+)\.", re.MULTILINE)
 
+# ACHADO REAL (2026-09-14): 5 perguntas citam 2+ secoes na mesma nota -- a PRIMEIRA ocorrencia
+# de "secao N" nem sempre e a resposta certa. Em notas que comecam com "ARMADILHA: <descricao
+# livre> (secao X), mas <resposta certa> (secao Y)", a secao certa e a SEGUNDA citada (o texto
+# livre descreve a armadilha primeiro, so depois a resposta). Em notas que comecam com "Manual
+# (secao N):" ou "ARMADILHA (secao N):", a secao certa e a PRIMEIRA (o numero abre a nota,
+# descrevendo A PROPRIA secao correta; qualquer secao citada depois e so contexto/contraste).
+# Verificado manualmente contra o conteudo real de cada secao do manual e o campo
+# numeros_esperados de cada pergunta -- ver tests/test_avaliar_retrieval.py para os 5 casos.
+SECOES_ESPERADAS_AMBIGUAS = {
+    "rag-criticidade-inventada": 8,               # "ARMADILHA: ... (secao 2), mas ... (secao 8)"
+    "rag-sensores-criticidade-temperatura": 8,     # "ARMADILHA (secao 8): ..." -- 1a citacao
+    "rag-legacy-error-message-critico": 6,         # "Manual (secao 6): ..." -- 1a citacao
+    "rag-legacy-peso-camada3": 5,                  # "Manual (secao 5): ..." -- 1a citacao
+    "rag-legacy-alerta-sem-mensagem": 6,           # "Manual (secao 6): ..." -- 1a citacao
+}
+
 
 def arquivo_esperado(pergunta_obj):
     """Extrai o nome do arquivo .md esperado do campo 'fonte' (ex:
@@ -73,7 +89,14 @@ def arquivo_esperado(pergunta_obj):
 def secao_esperada(pergunta_obj):
     """Extrai o numero da secao esperada do campo 'nota', se presente (ex. "Manual (secao 5):
     ..." -> 5). Retorna None se a nota nao cita secao explicitamente -- essas perguntas nao
-    entram na metrica de chunk-level (ver docstring do modulo)."""
+    entram na metrica de chunk-level (ver docstring do modulo).
+
+    Perguntas com 2+ secoes citadas na mesma nota (armadilhas que descrevem a secao ERRADA
+    antes da certa) usam SECOES_ESPERADAS_AMBIGUAS, verificado manualmente -- a extracao pela
+    PRIMEIRA ocorrencia de 'secao N' erraria nesses casos (ver comentario da constante)."""
+    pid = pergunta_obj.get("id")
+    if pid in SECOES_ESPERADAS_AMBIGUAS:
+        return SECOES_ESPERADAS_AMBIGUAS[pid]
     nota = pergunta_obj.get("nota", "")
     m = REGEX_SECAO_NOTA.search(nota)
     return int(m.group(1)) if m else None

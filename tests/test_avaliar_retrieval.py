@@ -20,14 +20,37 @@ def test_secao_esperada_extrai_numero_da_nota():
     assert secao_esperada(pergunta) == 5
 
 
-def test_secao_esperada_pega_a_primeira_ocorrencia_em_nota_com_duas_secoes():
-    """Achado real: armadilhas deliberadas citam DUAS secoes na mesma nota (a errada que o
-    sistema poderia confundir, e a certa) -- ex. "85C e o threshold de superaquecimento
-    (secao 2), mas a escala de CRITICIDADE (secao 8) usa 90C". A extracao pega a primeira
-    ocorrencia por design simples; perguntas assim precisam de checagem manual antes de
-    confiar cegamente no numero extraido para chunk-level (ver nota do modulo)."""
-    pergunta = {"nota": "85C e o threshold (secao 2), mas a escala usa 90C (secao 8)."}
-    assert secao_esperada(pergunta) == 2
+def test_secao_esperada_usa_mapa_manual_quando_nota_cita_duas_secoes():
+    """Regressao direta de um bug real (2026-09-14): a primeira versao deste modulo extraia a
+    PRIMEIRA ocorrencia de 'secao N' na nota por design simples -- e errava exatamente nos
+    casos mais importantes, as ARMADILHAS deliberadas que citam a secao ERRADA antes da
+    certa. Ex. real do golden set (rag-criticidade-inventada): nota = "ARMADILHA: 85C e o
+    threshold de superaquecimento/parada preventiva (secao 2), mas a escala de CRITICIDADE
+    (secao 8) usa 90C. Resposta correta deve citar 90, nao confundir com 85." -- a resposta
+    certa (90, confirmado por numeros_esperados=[90] e pelo conteudo real da secao 8) e a
+    SEGUNDA secao citada, nao a primeira. A extracao pela primeira ocorrencia teria reportado
+    um FALSO gap doc-level/chunk-level nessa pergunta -- o retrieval estava certo (recuperava
+    a secao 8), so a metrica de avaliacao estava com o alvo errado. Corrigido com
+    SECOES_ESPERADAS_AMBIGUAS, verificado manualmente contra o manual e numeros_esperados."""
+    pergunta = {
+        "id": "rag-criticidade-inventada",
+        "nota": "ARMADILHA: 85C e o threshold (secao 2), mas a escala usa 90C (secao 8).",
+    }
+    assert secao_esperada(pergunta) == 8
+
+
+def test_secao_esperada_usa_primeira_ocorrencia_quando_nota_comeca_com_a_propria_secao():
+    """Contraprova: quando a nota ABRE com "Manual (secao N):" ou "ARMADILHA (secao N):", a
+    primeira secao citada e a resposta certa (o numero abre descrevendo a propria secao
+    correta; qualquer secao citada depois e so contraste/contexto) -- ex. real do golden set
+    (rag-legacy-peso-camada3): "Manual (secao 5): dado o baixo poder discriminativo dos
+    sensores numericos isolados (secao 2), a Camada 3 tem peso maior..." -- resposta certa e
+    secao 5, nao 2."""
+    pergunta = {
+        "id": "rag-legacy-peso-camada3",
+        "nota": "Manual (secao 5): dado o baixo poder discriminativo (secao 2), a Camada 3...",
+    }
+    assert secao_esperada(pergunta) == 5
 
 
 def test_secao_esperada_retorna_none_sem_numero_de_secao_na_nota():
