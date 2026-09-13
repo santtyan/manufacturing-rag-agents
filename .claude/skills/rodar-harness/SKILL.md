@@ -71,6 +71,13 @@ validado em dois protocolos: 0,9217 (amostra estratificada, 26 janelas de teste)
 (UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081). Trace da run instrumentado em
 `eval/traces/openpack_classificacao.jsonl` via `shared.trace`.
 
+**Aba de chat no Streamlit** (Fase 7f, 2026-09-14): `dashboard/app.py` tem a aba "5. OpenPack
+(Operações de Embalagem)", com sub-roteador hierárquico corpus-aware dentro da rota `rag`
+(`rag_openpack_responder_ou_manual`, decide entre o corpus de manuais e o corpus de janelas
+IMU usando `PALAVRAS_CHAVE_OPENPACK` do roteador). Rodar `python eval/rodar_golden.py` depois
+de qualquer mudança nessa aba ou em `eval/rag_gerador.py::carregar_rag_hibrido()` — as duas
+perguntas `openpack-*` do golden set exercitam especificamente os 2 gates dessa aba.
+
 ## Depois de rodar
 
 - Resuma: roteamento (N/total), faithfulness (%), e qualquer pergunta que mudou de resultado em relação à última run conhecida.
