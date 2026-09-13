@@ -12,8 +12,8 @@
     "DeepConvLSTM": 0.7081
   },
   "training_free": true,
-  "tempo_indexacao_s": 71.5,
-  "tempo_medio_busca_s": 0.522,
-  "tempo_total_s": 85.1,
+  "tempo_indexacao_s": 31.4,
+  "tempo_medio_busca_s": 0.586,
+  "tempo_total_s": 46.6,
   "n_documentos_indexados": 4000
 }

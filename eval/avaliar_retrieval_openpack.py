@@ -29,6 +29,7 @@ Uso: python eval/avaliar_retrieval_openpack.py [--k 5]
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -65,15 +66,18 @@ def knn_label_purity(rag, golden, operacao_por_janela, k=K_DEFAULT, usar_hybrid=
     """Para cada pergunta com alvo conhecido, recupera os k vizinhos mais proximos (excluindo a
     propria janela-alvo do calculo de pureza, ja que ela e trivialmente 'da mesma classe' consigo
     mesma) e mede a fracao que pertence a MESMA operacao da janela-alvo. Retorna lista de purezas
-    (uma por pergunta) e a lista de perguntas nao-respondiveis corretamente abstidas."""
+    (uma por pergunta), a lista de perguntas nao-respondiveis corretamente abstidas, e os tempos
+    de busca por pergunta (Fase 7b -- custo/latencia, regra 4 da skill metricas-avaliacao-ia-industrial)."""
     purezas = []
-    abstencoes_corretas = 0
+    tempos_busca = []
     n_nao_respondiveis = 0
 
     for pq in golden:
         alvo = pq["documento_relevante"]
+        t0 = time.time()
         candidatos = rag.buscar(pq["pergunta"], k=k + 4, usar_rerank=False,
                                  usar_hybrid=usar_hybrid, usar_score_rrf=True)
+        tempos_busca.append(time.time() - t0)
         vizinhos = agregar_por_fonte(candidatos)
 
         if alvo is None:
@@ -96,7 +100,7 @@ def knn_label_purity(rag, golden, operacao_por_janela, k=K_DEFAULT, usar_hybrid=
         acertos = sum(1 for v in vizinhos_excluindo_alvo if operacao_por_janela.get(v) == operacao_alvo)
         purezas.append(acertos / len(vizinhos_excluindo_alvo))
 
-    return purezas, n_nao_respondiveis
+    return purezas, n_nao_respondiveis, tempos_busca
 
 
 def main():
@@ -116,11 +120,14 @@ def main():
     operacao_por_janela = dict(zip(df_janelas["janela_id"], df_janelas["operacao"]))
 
     rag = RAGHibrido(chroma_dir=CHROMA_DIR, colecao=COLECAO)
+    t0_indexacao = time.time()
     rag.indexar(forcar=False, documentos_customizados=corpus_docs)
+    tempo_indexacao_s = time.time() - t0_indexacao
 
-    purezas, n_nao_resp = knn_label_purity(
+    purezas, n_nao_resp, tempos_busca = knn_label_purity(
         rag, golden, operacao_por_janela, k=args.k, usar_hybrid=not args.sem_hybrid
     )
+    tempo_medio_busca_s = sum(tempos_busca) / len(tempos_busca) if tempos_busca else 0.0
 
     media = sum(purezas) / len(purezas) if purezas else 0.0
     perfeitas = sum(1 for p in purezas if p == 1.0)
@@ -138,6 +145,8 @@ def main():
     print(f"\nAcaso esperado (10 classes balanceadas, ~100 janelas/classe): ~{100/10:.1f}%")
     print("Pureza acima do acaso indica que o retrieval discrimina por operacao "
           "(class-level), mesmo sem achar a janela exata (instance-level).")
+    print(f"\nTempo de indexacao   : {tempo_indexacao_s:.1f}s ({len(corpus_docs)} documentos)")
+    print(f"Tempo medio de busca : {tempo_medio_busca_s:.3f}s/pergunta")
 
     saida = {
         "k": args.k,
@@ -148,6 +157,9 @@ def main():
         "n_purezas_perfeitas": perfeitas,
         "n_purezas_zeradas": zeradas,
         "acaso_esperado": round(1 / 10, 3),
+        "tempo_indexacao_s": round(tempo_indexacao_s, 1),
+        "tempo_medio_busca_s": round(tempo_medio_busca_s, 3),
+        "n_documentos_indexados": len(corpus_docs),
         "purezas_por_pergunta": [
             {"id": pq["id"], "pureza": round(p, 3)}
             for pq, p in zip([g for g in golden if g["documento_relevante"] is not None], purezas)

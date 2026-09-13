@@ -7,6 +7,9 @@
   "n_purezas_perfeitas": 1,
   "n_purezas_zeradas": 33,
   "acaso_esperado": 0.1,
+  "tempo_indexacao_s": 72.5,
+  "tempo_medio_busca_s": 0.054,
+  "n_documentos_indexados": 4000,
   "purezas_por_pergunta": [
     {
       "id": "openpack-morf-01",

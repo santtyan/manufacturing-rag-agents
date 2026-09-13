@@ -28,6 +28,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from shared.trace import iniciar_trace, registrar_passo
+
 import pandas as pd
 import datasets  # noqa: F401 (import de protecao contra access violation torch x pyarrow -- ver skill rag-multimodal)
 from sklearn.metrics import f1_score
@@ -147,21 +150,36 @@ def main():
     tempos_busca = []
     n_sem_vizinho_treino = 0
 
-    for _, janela in janelas_teste.iterrows():
-        texto_query = montar_texto_pergunta_para_janela(janela["janela_id"], df_janelas)
-        if texto_query is None:
-            continue
+    # Fase 7c: trace (shared/trace.py) -- ate esta sessao, nenhum script do OpenPack capturava
+    # trace, so reportava numero final de custo. Um passo tipo="retrieval" por classificacao,
+    # com duracao_s real de cada chamada a rag.buscar() (nao ha LLM aqui, so retrieval).
+    with iniciar_trace("openpack_classificacao", entrada=f"split=pilot-challenge,k={args.k}",
+                        versoes={"corpus": "rag/corpus_openpack_janelas.json"}) as trace:
+        for _, janela in janelas_teste.iterrows():
+            texto_query = montar_texto_pergunta_para_janela(janela["janela_id"], df_janelas)
+            if texto_query is None:
+                continue
 
-        t0_busca = time.time()
-        predicao = classificar_por_vizinhos(rag, texto_query, operacao_por_janela, janelas_treino_ids, k=args.k)
-        tempos_busca.append(time.time() - t0_busca)
+            t0_busca = time.time()
+            predicao = classificar_por_vizinhos(rag, texto_query, operacao_por_janela, janelas_treino_ids, k=args.k)
+            duracao_busca = time.time() - t0_busca
+            tempos_busca.append(duracao_busca)
 
-        if predicao is None:
-            n_sem_vizinho_treino += 1
-            continue
+            registrar_passo(
+                trace, tipo="retrieval", action="classificar_por_vizinhos",
+                action_input=janela["janela_id"], observation=str(predicao),
+                duracao_s=round(duracao_busca, 4),
+            )
 
-        y_true.append(janela["operacao"])
-        y_pred.append(predicao)
+            if predicao is None:
+                n_sem_vizinho_treino += 1
+                continue
+
+            y_true.append(janela["operacao"])
+            y_pred.append(predicao)
+
+        trace.resultado_final = f"{len(y_true)}/{len(janelas_teste)} classificadas"
+        trace.sucesso = len(y_true) > 0
 
     if not y_true:
         raise RuntimeError("Nenhuma janela de teste classificada -- verificar retrieval/split.")
