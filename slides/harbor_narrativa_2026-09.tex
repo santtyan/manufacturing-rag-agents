@@ -394,6 +394,23 @@
   \end{decisaobloco}
 \end{frame}
 
+\begin{frame}{Ato 6 --- O número que de fato importa}
+  \small
+  \begin{numerobloco}{Benchmark oficial, não proxy de retrieval}
+    k-NN label purity é um proxy. A pergunta certa é: classifica a operação
+    melhor que os modelos supervisionados publicados no benchmark oficial do
+    dataset (\emph{openpack-torch}, split ``Pilot Challenge'')?
+    \textbf{F1-macro = 0,91--0,92} (dois protocolos, amostra e teste completo
+    de 2.591 janelas) contra UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081
+    --- superando os três, \textbf{sem treinar nenhum modelo}.
+  \end{numerobloco}
+
+  \pause
+  Custo, reportado junto: indexação ~50--72s, busca ~0,5s/janela
+  (\emph{Multimodal-RAG-Survey}, ACL 2025, arXiv:2502.08826, confirma que isso
+  é padrão de literatura, não só regra do Harbor).
+\end{frame}
+
 % ─────────────────────────────────────────────────────────────────────
 % Fechamento
 % ─────────────────────────────────────────────────────────────────────
@@ -402,8 +419,8 @@
     \begin{itemize}
       \item \textbf{Sim:} migração do self-repair e do roteador para LangGraph;
         top-p=0,7 como limiar de rerank multimodal (depois de consertada a régua);
-        OpenPack como 8º dataset, integrado nas três rotas do chat sem regressão
-        (roteamento 55/67 $\to$ 58/69).
+        OpenPack como 8º dataset no chat e no Streamlit, sem regressão
+        (roteamento 55/67 $\to$ 59/69), F1-macro 0,91--0,92 acima do benchmark oficial.
       \item \textbf{Não:} Agentic RAG, Contextual Retrieval, e o rerank multimodal como
         forma de compensar captioning ruim --- todos medidos, documentados, não
         promovidos.

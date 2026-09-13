@@ -200,6 +200,45 @@
   processo de chegar a essa conclusão é, em si, um resultado metodológico que vale registrar.
 \end{frame}
 
+\begin{frame}{O número que fecha a validação: benchmark oficial do dataset}
+  \small
+  \begin{numerobloco}{k-NN label purity é um proxy — a pergunta certa é classificação}
+    O k-NN label purity (12,9\%) mede se os vizinhos recuperados são da mesma classe, mas o
+    \textbf{benchmark oficial do OpenPack} (\texttt{openpack-torch}, split ``Pilot Challenge'')
+    reporta \textbf{F1-macro de classificação supervisionada}. Implementamos o protocolo de
+    classificação real do RAG-HAR (vizinhos + votação majoritária, \emph{sem treinar nada}) sobre
+    o mesmo split oficial, tornando a comparação legítima.
+  \end{numerobloco}
+
+  \pause
+  \begin{center}
+  \begin{tabular}{lrl}
+    \toprule
+    Modelo & F1-macro & Treino necessário \\
+    \midrule
+    UNet (oficial) & 0,3451 & Sim, supervisionado \\
+    ST-GCN (oficial) & 0,7024 & Sim, supervisionado \\
+    DeepConvLSTM (oficial) & 0,7081 & Sim, supervisionado \\
+    \textbf{RAG-HAR / Harbor} & \textbf{0,91--0,92} & \textbf{Não (\emph{training-free})} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}{O número que fecha a validação: robustez e custo}
+  \small
+  Validado em dois protocolos — amostra estratificada (26 janelas de teste, F1=0,9217) e teste
+  completo sem amostragem (2.591 janelas, F1=0,9114) — com diferença de só 1 ponto percentual
+  entre eles, confirmando que o resultado é robusto, não um artefato da amostragem balanceada.
+
+  \pause
+  \begin{decisaobloco}{Custo, reportado junto (nunca isolado)}
+    Indexação: ~50--72s. Busca: ~0,5s/janela. Teste completo (2.591 janelas): ~1360s.
+    \emph{Multimodal-RAG-Survey} (ACL 2025, arXiv:2502.08826) confirma custo/qualidade juntos
+    como prática padrão de literatura, não só regra do Harbor.
+  \end{decisaobloco}
+\end{frame}
+
 \begin{frame}{Riscos e pendências}
   \small
   \begin{itemize}
@@ -207,19 +246,18 @@
       validadas sem regressão no harness completo.
     \item[\textcolor{green!60!black}{\textbullet}] \textbf{Corpus RAG e métrica de avaliação}
       — fechados, com achado metodológico documentado.
+    \item[\textcolor{green!60!black}{\textbullet}] \textbf{Benchmark acadêmico comparável}
+      (BRACIS 2027) — fechado: F1-macro contra o benchmark oficial \texttt{openpack-torch},
+      superando os 3 baselines supervisionados.
+    \item[\textcolor{green!60!black}{\textbullet}] \textbf{Aba de chat no dashboard} — fechada:
+      ``5. OpenPack'', sub-roteador hierárquico entre manuais e corpus IMU, sem regressão.
     \item[\textcolor{orange!90!black}{\textbullet}] \textbf{Poder discriminativo do retrieval
-      (12,9\%)} — funcional, mas fraco. Não bloqueia a integração; abre uma pergunta em aberto
-      sobre se features de ordem mais alta ajudariam, ainda sem teste que confirme.
+      por instância (12,9\%)} — fraco mas não bloqueia nada, já que a métrica que importa
+      (F1-macro) supera o benchmark oficial.
     \item[\textcolor{red!80!black}{\textbullet}] \textbf{Imagens RGB (Fase 5)} — bloqueada por
-      aprovação institucional externa, ainda não solicitada. O único frame disponível sem essa
-      aprovação cobre um instante antes do início de qualquer operação anotada, insuficiente
-      para o teste original planejado (12 imagens, uma por operação). O mecanismo técnico foi
-      validado apesar disso: um \emph{prompt} de legendagem herdado (feito para gráficos, não
-      fotos) gerava legenda vazia; corrigido, o mesmo modelo descreveu a cena real
-      corretamente.
-    \item[\textcolor{orange!90!black}{\textbullet}] \textbf{Benchmark acadêmico comparável}
-      (meta BRACIS 2027) — os números desta sessão são a base, mas a comparação formal contra
-      os resultados publicados de HAR no artigo original do OpenPack ainda não foi feita.
+      aprovação institucional externa, ainda não solicitada. O frame disponível sem essa
+      aprovação é insuficiente para o teste planejado (12 imagens, uma por operação); o
+      mecanismo técnico (legendagem de cena real) foi validado apesar disso.
   \end{itemize}
 \end{frame}
 
@@ -228,16 +266,12 @@
     \item \textbf{Solicitar acesso ao RGB completo} — preencher o formulário institucional dos
       autores do OpenPack (pendente, é uma ação pessoal, não automatizável). Critério de
       conclusão: aprovação recebida e ao menos 1 keyframe por operação disponível.
-    \item \textbf{Investigar o poder discriminativo fraco} — é uma hipótese em aberto, não
-      testada nesta sessão, se features de ordem mais alta (ex.\ frequência dominante via FFT)
-      melhorariam a pureza acima de 12,9\%; vale medir antes de decidir se a abordagem atual
-      já chegou ao teto.
-    \item \textbf{Comparação formal com o benchmark do OpenPack} — reproduzir/contrastar contra
-      os números de reconhecimento de atividade já publicados no artigo original, usando a
-      mesma filosofia \emph{training-free} do RAG-HAR.
-    \item \textbf{Sincronizar o dashboard} — expor a nova aba de chat do OpenPack em
-      \texttt{dashboard/app.py}, seguindo a mesma disciplina já aplicada aos outros 4 datasets
-      ativos.
+    \item \textbf{Investigar o poder discriminativo fraco do retrieval por instância} — hipótese
+      em aberto, não testada nesta sessão, se features de ordem mais alta (ex.\ frequência
+      dominante via FFT) melhorariam a pureza acima de 12,9\%; prioridade baixa, já que a
+      métrica que importa (F1-macro) já supera o benchmark oficial.
+    \item \textbf{Corrigir a duplicação de \texttt{agregar\_por\_fonte}} — a mesma função existe
+      em 3 arquivos de avaliação distintos; dívida técnica documentada, não corrigida.
   \end{enumerate}
 \end{frame}
 
