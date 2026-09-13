@@ -156,23 +156,53 @@ def avaliar_legenda(doc_id: str, legenda: str, limites_plausiveis: dict = None) 
     if gt is None:
         raise KeyError(f"Sem ground truth para '{doc_id}' -- ver rag/metadados_imagens_ground_truth.py")
 
+    # ACHADO REAL (2026-09-14): sem_numeros_inventados() aceitava qualquer numero que coubesse
+    # em QUALQUER faixa do dict global de limites, nao so nas variaveis QUE A IMAGEM EM QUESTAO
+    # mostra -- com poucas variaveis isso raramente importava (faixas nao se sobrepunham por
+    # acidente), mas ao adicionar faixas de CONTAGEM (0..N_linhas, naturalmente ampla) para as
+    # colunas booleanas de anomalia, qualquer numero pequeno passou a caber dentro da margem de
+    # 50% dessas faixas amplas -- mascarando uma alucinacao GENUINA ja documentada (voltagem
+    # 0,086 V relatada quando o real e ~220,19 V: 0,086 cabe em [-26013, 78039], a faixa de
+    # contagem emprestada de uma variavel de anomalia sem relacao nenhuma com voltagem).
+    # Restringir aos limites das proprias variaveis_fonte do documento e mais fiel a intencao
+    # original do check (plausivel PARA O QUE ESSA IMAGEM MOSTRA) e fecha a brecha.
+    limites_da_imagem = {
+        var: (limites_plausiveis or {})[var]
+        for var in gt["variaveis_fonte"]
+        if var in (limites_plausiveis or {})
+    }
     resultados = {
         "nao_degenerado": nao_degenerado(legenda),
         "idioma_pt": idioma_pt(legenda),
         "tipo_grafico_correto": tipo_grafico_correto(legenda, gt["tipo"]),
         "menciona_eixos_corretos": menciona_eixos_corretos(legenda, gt["eixo_x"], gt["eixo_y"]),
         "contem_ranking": contem_ranking(legenda, gt["ranking"]),
-        "sem_numeros_inventados": sem_numeros_inventados(legenda, limites_plausiveis or {}),
+        "sem_numeros_inventados": sem_numeros_inventados(legenda, limites_da_imagem),
     }
+    n_checks = len(resultados)
     n_passou = sum(resultados.values())
-    resultados["passou_todos"] = n_passou == len(resultados)
-    resultados["taxa_aprovacao"] = n_passou / len(resultados)
+    # ACHADO REAL (2026-09-14, ao validar a via de legenda deterministica): len(resultados)
+    # precisa ser capturado ANTES de inserir passou_todos/taxa_aprovacao no mesmo dict --
+    # calcular depois de inserir "passou_todos" dividia por 7 chaves em vez de 6, subestimando
+    # taxa_aprovacao mesmo quando os 6 checks reais passavam (6/7=85,7% em vez de 6/6=100%).
+    # Mascarado ate agora porque nenhum VLM testado chegava perto de passar todos os checks.
+    resultados["passou_todos"] = n_passou == n_checks
+    resultados["taxa_aprovacao"] = n_passou / n_checks
     return resultados
 
 
 def _calcular_limites_plausiveis():
     """Calcula (min, max) real de cada variavel de origem, para o check
-    sem_numeros_inventados -- lido uma vez, reusado para todas as legendas."""
+    sem_numeros_inventados -- lido uma vez, reusado para todas as legendas.
+
+    ACHADO REAL (2026-09-14, ao validar a via de legenda determinística): colunas booleanas
+    (ex. *_anomalo do pipeline4) sao excluidas por select_dtypes("number") -- select_dtypes
+    considera bool como tipo separado de int/float. Isso deixava esse tipo de coluna SEM faixa
+    plausivel nenhuma, entao qualquer numero derivado dela (ex. contagem de True, "1634
+    leituras anomalas") era rejeitado como "inventado" mesmo sendo o valor exato do CSV --
+    bug generico do check, nao especifico de VLM ou de template determinístico: a contagem
+    True.sum() de uma coluna booleana de N linhas pode ir de 0 a N, entao a faixa plausivel de
+    uma CONTAGEM sobre coluna booleana e (0, len(df)), nao (0, 1) do valor bruto."""
     import pandas as pd
     raiz = Path(r"C:\Projetos\Harbor")
     csv2 = raiz / "outputs" / "pipeline2_legacy_sensor" / "separacao_features_por_classe.csv"
@@ -184,8 +214,22 @@ def _calcular_limites_plausiveis():
             limites[col] = (float(df2[col].min()), float(df2[col].max()))
     if csv4.exists():
         df4 = pd.read_csv(csv4)
-        for col in df4.select_dtypes("number").columns:
-            limites[col] = (float(df4[col].min()), float(df4[col].max()))
+        for col in df4.select_dtypes(["number", "bool"]).columns:
+            serie = df4[col]
+            if serie.dtype == bool:
+                # Valor bruto e sempre 0/1; a CONTAGEM de leituras marcadas (o que as legendas
+                # de fato citam) pode ir de 0 ate o total de linhas. NAO adicionar tambem a
+                # faixa (0,1) do valor bruto aqui -- sem_numeros_inventados() aceita qualquer
+                # numero que caiba em QUALQUER faixa do dict (design pre-existente, nao so
+                # da variavel da imagem em questao), entao uma faixa (0,1) solta no dict
+                # global vira brecha universal: qualquer legenda, sobre QUALQUER grafico,
+                # passaria a aceitar como "plausivel" todo numero entre -0.5 e 1.5 (achado
+                # real, 2026-09-14: mascarou uma alucinacao genuina de voltagem, 0,086 V
+                # relatado quando Voltage_V real e ~220,19 V -- 0,086 caiu na faixa emprestada
+                # do valor bruto booleano, nao na faixa real de voltagem).
+                limites[col] = (0.0, float(len(serie)))
+            else:
+                limites[col] = (float(serie.min()), float(serie.max()))
     return limites
 
 

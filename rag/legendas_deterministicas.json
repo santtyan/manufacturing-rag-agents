@@ -1,0 +1,106 @@
+[
+  {
+    "id": "grafico_temperatura_por_classe",
+    "texto": "Título: \"Temperatura do sensor por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Temperatura (°C). Classe Fault: valor 69,40. Classe Normal: valor 70,11."
+  },
+  {
+    "id": "grafico_vibracao_por_classe",
+    "texto": "Título: \"Nível de vibração por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Vibração (nível). Classe Fault: valor 0,8096. Classe Normal: valor 0,7855."
+  },
+  {
+    "id": "grafico_pressao_vazao",
+    "texto": "Título: \"Pressão vs. vazão por classe de operação\". Tipo de gráfico: dispersão (scatter). Eixo X: Pressão (bar). Eixo Y: Vazão (L/min). Classe Fault: Pressão médio 3,5005, Vazão médio 12,02. Classe Normal: Pressão médio 3,5028, Vazão médio 12,05."
+  },
+  {
+    "id": "grafico_anomalias_componentes_cnc",
+    "texto": "Título: \"Anomalias de temperatura por componente (CNC 5 eixos)\". Tipo de gráfico: barra. Eixo X: Componente. Eixo Y: Número de leituras anômalas. Z Axis Motor: 1634 leituras anômalas. Spindle motor: 273 leituras anômalas. X Axis motor: 0 leituras anômalas. Y Axis Motor: 0 leituras anômalas. General: 0 leituras anômalas. O componente com maior número de anomalias é Z Axis Motor (1634), contra General (0)."
+  },
+  {
+    "id": "grafico_temperatura_barras",
+    "texto": "Título: \"Temperatura média do sensor por classe de operação\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Temperatura média (°C). Classe Fault: valor 69,40. Classe Normal: valor 70,11."
+  },
+  {
+    "id": "grafico_temperatura_scatter_tempo",
+    "texto": "Título: \"Temperatura do sensor ao longo das leituras, por classe\". Tipo de gráfico: dispersão (scatter) ao longo do índice das leituras. Eixo X: Índice da leitura. Eixo Y: Temperatura (°C). Classe Fault: valor 69,40. Classe Normal: valor 70,11."
+  },
+  {
+    "id": "grafico_vibracao_barras",
+    "texto": "Título: \"Vibração média por classe de operação\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Vibração média (nível). Classe Fault: valor 0,8096. Classe Normal: valor 0,7855."
+  },
+  {
+    "id": "grafico_pressao_vazao_eixos_trocados",
+    "texto": "Título: \"Vazão vs. pressão por classe de operação\". Tipo de gráfico: dispersão (scatter). Eixo X: Vazão (L/min). Eixo Y: Pressão (bar). Classe Fault: Vazão médio 12,02, Pressão médio 3,5005. Classe Normal: Vazão médio 12,05, Pressão médio 3,5028."
+  },
+  {
+    "id": "grafico_voltagem_corrente_eixos_trocados",
+    "texto": "Título: \"Corrente vs. voltagem por classe de operação\". Tipo de gráfico: dispersão (scatter). Eixo X: Voltagem (V). Eixo Y: Corrente (A). Classe Fault: Voltagem médio 220,19, Corrente médio 5,5607. Classe Normal: Voltagem médio 220,20, Corrente médio 5,5015."
+  },
+  {
+    "id": "grafico_corrente_voltagem_eixos_trocados",
+    "texto": "Título: \"Voltagem vs. corrente por classe de operação\". Tipo de gráfico: dispersão (scatter). Eixo X: Corrente (A). Eixo Y: Voltagem (V). Classe Fault: Corrente médio 5,5607, Voltagem médio 220,19. Classe Normal: Corrente médio 5,5015, Voltagem médio 220,20."
+  },
+  {
+    "id": "grafico_anomalias_cnc_ascendente",
+    "texto": "Título: \"Anomalias de temperatura por componente, do menor para o maior (CNC 5 eixos)\". Tipo de gráfico: barra. Eixo X: Componente. Eixo Y: Número de leituras anômalas. X Axis motor: 0 leituras anômalas. Y Axis Motor: 0 leituras anômalas. General: 0 leituras anômalas. Spindle motor: 273 leituras anômalas. Z Axis Motor: 1634 leituras anômalas. O componente com menor número de anomalias é X Axis motor (0), contra Z Axis Motor (1634)."
+  },
+  {
+    "id": "grafico_producao_por_classe_ordenado",
+    "texto": "Título: \"Taxa de produção média por classe, do maior para o menor\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Taxa de produção média. Classe Fault: valor 39,88. Classe Normal: valor 39,96. A classe com maior média é Normal (39,96), acima de Fault (39,88)."
+  },
+  {
+    "id": "grafico_voltagem_por_classe",
+    "texto": "Título: \"Voltagem por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Voltagem (V). Classe Fault: valor 220,19. Classe Normal: valor 220,20."
+  },
+  {
+    "id": "grafico_corrente_por_classe",
+    "texto": "Título: \"Corrente por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Corrente (A). Classe Fault: valor 5,5607. Classe Normal: valor 5,5015."
+  },
+  {
+    "id": "grafico_som_por_classe",
+    "texto": "Título: \"Nível de som por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Som (dB). Classe Fault: valor 64,74. Classe Normal: valor 64,82."
+  },
+  {
+    "id": "grafico_umidade_por_classe",
+    "texto": "Título: \"Umidade por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Umidade (%). Classe Fault: valor 55,03. Classe Normal: valor 55,07."
+  },
+  {
+    "id": "grafico_qualidade_oleo_por_classe",
+    "texto": "Título: \"Índice de qualidade do óleo por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Índice de qualidade do óleo. Classe Fault: valor 0,8550. Classe Normal: valor 0,8508."
+  },
+  {
+    "id": "grafico_consumo_energia_por_classe",
+    "texto": "Título: \"Consumo de energia por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Consumo de energia (kWh). Classe Fault: valor 1,4990. Classe Normal: valor 1,4917."
+  },
+  {
+    "id": "grafico_carga_por_classe",
+    "texto": "Título: \"Percentual de carga por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Carga (%). Classe Fault: valor 69,96. Classe Normal: valor 69,65."
+  },
+  {
+    "id": "grafico_energia_vs_carga",
+    "texto": "Título: \"Consumo de energia vs. carga por classe de operação\". Tipo de gráfico: dispersão (scatter). Eixo X: Carga (%). Eixo Y: Consumo de energia (kWh). Classe Fault: Carga médio 69,96, Consumo de energia médio 1,4990. Classe Normal: Carga médio 69,65, Consumo de energia médio 1,4917."
+  },
+  {
+    "id": "grafico_som_vs_vibracao",
+    "texto": "Título: \"Som vs. vibração por classe de operação\". Tipo de gráfico: dispersão (scatter). Eixo X: Vibração (nível). Eixo Y: Som (dB). Classe Fault: Vibração médio 0,8096, Som médio 64,74. Classe Normal: Vibração médio 0,7855, Som médio 64,82."
+  },
+  {
+    "id": "grafico_anomalia_spindle_tempo",
+    "texto": "Título: \"Anomalia de temperatura ao longo do tempo — Spindle (CNC 5 eixos)\". Tipo de gráfico: linha temporal. Eixo X: Tempo (índice da leitura). Eixo Y: Anomalia (0=normal, 1=anômalo). 273 de 52026 leituras (0,5247%) foram marcadas como anômalas (valor 1) ao longo do tempo."
+  },
+  {
+    "id": "grafico_anomalia_eixo_x_tempo",
+    "texto": "Título: \"Anomalia de temperatura ao longo do tempo — Eixo X (CNC 5 eixos)\". Tipo de gráfico: linha temporal. Eixo X: Tempo (índice da leitura). Eixo Y: Anomalia (0=normal, 1=anômalo). A série permanece constante em 0 (normal) ao longo de todas as 52026 leituras -- nenhuma anomalia registrada neste componente."
+  },
+  {
+    "id": "grafico_anomalia_eixo_y_tempo",
+    "texto": "Título: \"Anomalia de temperatura ao longo do tempo — Eixo Y (CNC 5 eixos)\". Tipo de gráfico: linha temporal. Eixo X: Tempo (índice da leitura). Eixo Y: Anomalia (0=normal, 1=anômalo). A série permanece constante em 0 (normal) ao longo de todas as 52026 leituras -- nenhuma anomalia registrada neste componente."
+  },
+  {
+    "id": "grafico_anomalia_eixo_z_tempo",
+    "texto": "Título: \"Anomalia de temperatura ao longo do tempo — Eixo Z (CNC 5 eixos)\". Tipo de gráfico: linha temporal. Eixo X: Tempo (índice da leitura). Eixo Y: Anomalia (0=normal, 1=anômalo). 1634 de 52026 leituras (3,1407%) foram marcadas como anômalas (valor 1) ao longo do tempo."
+  },
+  {
+    "id": "grafico_anomalia_geral_tempo",
+    "texto": "Título: \"Anomalia de temperatura ao longo do tempo — Geral (CNC 5 eixos)\". Tipo de gráfico: linha temporal. Eixo X: Tempo (índice da leitura). Eixo Y: Anomalia (0=normal, 1=anômalo). A série permanece constante em 0 (normal) ao longo de todas as 52026 leituras -- nenhuma anomalia registrada neste componente."
+  }
+]

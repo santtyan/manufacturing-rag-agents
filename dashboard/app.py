@@ -430,6 +430,68 @@ def rag_openpack_responder(pergunta):
     return resposta, documentos
 
 
+# ── RAG sobre o corpus de gráficos técnicos (RAG multimodal, produção via legenda
+# determinística -- ver rag/legendas_deterministicas.py e a pesquisa que motivou a troca de
+# arquitetura, 2026-09-14) ────────────────────────────────────────────────────────────────
+# ACHADO REAL que motivou esta via (nao caption-then-embed com VLM): nenhum VLM local testado
+# (moondream, granite3.2-vision:2b) atingia o criterio de promocao; um bug de codigo em
+# eval/checks_fidelidade_caption.py (divisao por 7 em vez de 6 chaves do dict de resultados)
+# mascarava que qwen3-vl:4b JA passava (93,6% real, nao os 77,5% documentados ate 2026-09-14) --
+# mas mesmo corrigido, o VLM custa 412s/imagem contra segundos da via deterministica, com
+# fidelidade 100% por construcao (o numero vem direto do CSV, nunca de interpretacao de
+# imagem). Ver arXiv:2312.10160 (82% de erro factual em legendas de LVLM, GPT-4V incluido) e
+# MatplotAlt (Computer Graphics Forum 2025, arXiv:2503.20089) como precedente da via.
+
+CHROMA_DIR_MULTIMODAL = Path(r"C:\Projetos\Harbor\rag\chroma_db_multimodal_deterministico")
+COLECAO_MULTIMODAL = "graficos_harbor_deterministico_v1"
+CORPUS_MULTIMODAL_JSON = Path(r"C:\Projetos\Harbor\rag\legendas_deterministicas.json")
+IMAGENS_DIR = Path(r"C:\Projetos\Harbor\rag\manuais_imagens")
+
+PALAVRAS_CHAVE_GRAFICO = (
+    "gráfico", "grafico", "boxplot", "scatter", "dispersão", "dispersao", "diagrama de caixa",
+    "imagem", "figura", "plot", "visualização", "visualizacao",
+)
+
+
+@st.cache_resource
+def rag_multimodal_indexado():
+    """Carrega o RAG hibrido apontando para o corpus de legendas deterministicas (26 gráficos
+    técnicos, rag/legendas_deterministicas.json -- ja pronto em disco, gerado por
+    rag/legendas_deterministicas.py). Retorna None se indisponivel."""
+    try:
+        with open(CORPUS_MULTIMODAL_JSON, encoding="utf-8") as f:
+            corpus_docs = json.load(f)
+        return rag_gerador.carregar_rag_hibrido(
+            chroma_dir=CHROMA_DIR_MULTIMODAL, colecao=COLECAO_MULTIMODAL,
+            documentos_customizados=corpus_docs,
+        )
+    except Exception as exc:
+        print(f"[RAG multimodal indisponivel: {exc}]")
+        return None
+
+
+def rag_multimodal_responder_ou_manual(pergunta):
+    """Sub-roteador hierarquico DENTRO da rota `rag`, mesmo padrao de
+    rag_openpack_responder_ou_manual: decide entre o corpus de manuais tecnicos (default) e o
+    corpus de gráficos, usando PALAVRAS_CHAVE_GRAFICO -- PALAVRAS_CHAVE_RAG do roteador.py
+    (manual/procedimento/limiar/seguranca) nao capturaria pergunta sobre "o que o boxplot
+    mostra"."""
+    p = pergunta.lower()
+    if any(kw in p for kw in PALAVRAS_CHAVE_GRAFICO):
+        return rag_multimodal_responder(pergunta)
+    return rag_responder(pergunta)
+
+
+def rag_multimodal_responder(pergunta):
+    """Mesma orquestracao de rag_responder()/rag_openpack_responder() acima, sobre o corpus de
+    gráficos -- sem fallback TF-IDF (o fallback indexa so os manuais)."""
+    rag = rag_multimodal_indexado()
+    resposta, documentos, _contexto = rag_gerador.rag_responder(
+        pergunta, rag, call_ollama, k=3, buscar_fallback=None,
+    )
+    return resposta, documentos
+
+
 # ── NL-to-SQL (wrappers finos sobre nl_to_sql/nl_to_sql_langgraph.py, injetando o call_ollama
 # deste dashboard -- ver comentario no import de _nl_to_sql acima) ───────────────────────────
 def nl_to_sql_perguntar(pergunta_nl):
@@ -820,14 +882,15 @@ Regras:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-tab1, tab2, tab3, tab4, tab_openpack, tab8, tab9 = st.tabs([
+tab1, tab2, tab3, tab4, tab_openpack, tab_multimodal, tab8, tab9 = st.tabs([
     "1. OEE / Downtime",
     "2. Legacy Sensor Logs",
     "3. Discrete Manufacturing",
     "4. Five-Axis CNC",
     "5. OpenPack (Operacoes de Embalagem)",
-    "6. Reprocessar pipeline",
-    "7. Avaliacao (Golden Questions)",
+    "6. Graficos Tecnicos (RAG Multimodal)",
+    "7. Reprocessar pipeline",
+    "8. Avaliacao (Golden Questions)",
 ])
 
 with tab1:
@@ -1424,6 +1487,65 @@ with tab_openpack:
             "Qual operacao tem a maior duracao total acumulada no dataset?",
         ],
         rag_responder_fn=rag_openpack_responder_ou_manual,
+    )
+
+with tab_multimodal:
+    st.markdown(
+        '<div class="cerise-dataset-eyebrow">'
+        '<span class="cerise-dataset-nome">Gráficos Técnicos — RAG Multimodal</span>'
+        '<span class="cerise-dataset-desc">26 gráficos sintéticos (dados reais dos pipelines 2 e 4) · legenda gerada por template determinístico, sem VLM</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.caption(
+        "Esta aba busca sobre um corpus de 26 gráficos técnicos (boxplot, barra, dispersão, "
+        "linha temporal) de temperatura, vibração, pressão, voltagem e anomalias de "
+        "componentes CNC. Cada gráfico tem uma legenda gerada por **template determinístico** "
+        "a partir dos mesmos dados que o desenharam (não por um modelo de visão) — fidelidade "
+        "100% por construção, ver `rag/legendas_deterministicas.py`."
+    )
+
+    # ── CHAT EM DESTAQUE (foco da aba, mesmo padrao das outras 5) ────────────────────
+    chat_especializado(
+        dataset_key="multimodal",
+        persona=(
+            "Especialista em análise visual de gráficos técnicos de sensores industriais.\n"
+            "Você responde perguntas sobre 26 gráficos (boxplot, barra, dispersão, linha "
+            "temporal) de temperatura, vibração, pressão, vazão, voltagem, corrente, som, "
+            "umidade e anomalias de componentes de um CNC de 5 eixos. As legendas desses "
+            "gráficos vêm de um template determinístico sobre os dados reais de origem "
+            "(nunca de um modelo de visão interpretando a imagem) — cite os números com "
+            "confiança, eles são exatos, não estimativas."
+        ),
+        contexto_agregado=(
+            "Este chat usa RAG (retrieval) sobre as 26 legendas determinísticas, não um "
+            "contexto pré-calculado fixo — a resposta depende de qual legenda o retrieval "
+            "encontrar para a pergunta feita."
+        ),
+        readme_resumo=(
+            "Corpus de 26 gráficos técnicos sintéticos, gerados por matplotlib a partir de "
+            "dados reais de outputs/pipeline2_legacy_sensor (temperatura, vibração, pressão, "
+            "voltagem, corrente, som, umidade, óleo, energia, carga, produção — por classe "
+            "Fault/Normal) e outputs/pipeline4_five_axis_cnc (anomalias de temperatura por "
+            "componente do CNC). Trilha RGB/imagem do RAG multimodal do Harbor: substituiu "
+            "captioning por VLM local (melhor resultado: qwen3-vl:4b, 93,6% de fidelidade, "
+            "412s/imagem) por geração determinística de legenda (100% de fidelidade por "
+            "construção, custo de segundos) — ver arXiv:2312.10160 (82% de erro factual em "
+            "legendas de LVLM) e MatplotAlt (Computer Graphics Forum 2025, arXiv:2503.20089) "
+            "como fundamentação da troca de arquitetura."
+        ),
+        amostra_bruta="Ver rag/metadados_imagens_ground_truth.py para o ground truth de cada gráfico.",
+        exemplos=[
+            # Perguntas desenhadas para cair na rota `rag` (roteador.py::PALAVRAS_CHAVE_RAG
+            # tem "arquitetura"/"retrieval"/"seguranca" -- combinadas com PALAVRAS_CHAVE_GRAFICO
+            # sub-roteiam para este corpus, nao o de manuais).
+            "Existe algum limite de segurança mostrado no gráfico de temperatura por classe?",
+            "Qual é a arquitetura do gráfico de dispersão de pressão e vazão — qual eixo é qual?",
+            "Descreva o retrieval do gráfico de anomalias por componente do CNC — qual "
+            "componente tem mais leituras anômalas?",
+        ],
+        rag_responder_fn=rag_multimodal_responder_ou_manual,
     )
 
 with tab8:

@@ -98,3 +98,53 @@ def test_avaliar_legenda_chave_desconhecida_levanta_erro():
     import pytest
     with pytest.raises(KeyError):
         avaliar_legenda("documento_inexistente", "qualquer legenda", {})
+
+
+def test_avaliar_legenda_taxa_100_quando_todos_os_6_checks_passam():
+    """Regressao direta de um bug real encontrado em 2026-09-14, presente desde a criacao do
+    modulo (commit b70ebda, 2026-09-10): avaliar_legenda() inseria "passou_todos" no dict de
+    resultados ANTES de capturar len(resultados) para calcular taxa_aprovacao -- dividindo por
+    7 chaves (os 6 checks + a propria "passou_todos") em vez de 6. Uma legenda que passasse os
+    6 checks reais ficava com taxa_aprovacao=6/7=85,7%, nunca 100% -- mascarando o resultado
+    real do qwen3-vl:4b (documentado como 77,5%/reprovado; recalculado sem o bug, 96,2% sobre
+    o MESMO cache de legendas ja existente, o que teria mudado a conclusao de "reprovado" para
+    "aprovado" na sessao original). Este teste usa uma legenda desenhada para passar os 6
+    checks e trava que taxa_aprovacao seja exatamente 1.0, nao 6/7."""
+    legenda_boa = (
+        "Este é um gráfico de barras mostrando o número de leituras anômalas por componente "
+        "(CNC 5 eixos). O Spindle apresenta o maior número de anomalias, seguido pelos "
+        "demais eixos, do maior para o menor."
+    )
+    r = avaliar_legenda("grafico_anomalias_componentes_cnc", legenda_boa, {})
+    assert all(r[chave] for chave in
+               ("nao_degenerado", "idioma_pt", "tipo_grafico_correto",
+                "menciona_eixos_corretos", "contem_ranking", "sem_numeros_inventados"))
+    assert r["passou_todos"] is True
+    assert r["taxa_aprovacao"] == 1.0
+
+
+def test_avaliar_legenda_restringe_limites_plausiveis_as_variaveis_da_propria_imagem():
+    """Regressao direta de um bug real encontrado em 2026-09-14, ao validar a via de legenda
+    determinística (rag/legendas_deterministicas.py): sem_numeros_inventados() e chamado com
+    o dict GLOBAL de limites_plausiveis (todas as variaveis de todos os CSVs), e aceita
+    qualquer numero que caiba em QUALQUER faixa do dict -- nao so nas variaveis QUE A IMAGEM EM
+    QUESTAO mostra. Isso mascarou uma alucinacao numerica GENUINA e ja documentada do qwen3-vl
+    (voltagem ~0,086-0,098 V relatada quando Voltage_V real e ~220,19 V) assim que o dict
+    global passou a incluir a faixa de CONTAGEM de anomalias (0..52026, naturalmente ampla) --
+    0,086 cabe dentro da margem de 50% dessa faixa emprestada, mesmo sem nenhuma relacao com
+    voltagem. avaliar_legenda() agora restringe limites_plausiveis as variaveis_fonte do
+    proprio documento antes de chamar sem_numeros_inventados -- este teste prova que uma faixa
+    ampla de OUTRA variavel (nao usada por esta imagem) nao mascara mais um numero fora da
+    faixa real da variavel que a imagem de fato mostra."""
+    limites_globais = {
+        "Voltage_V": (220.1865414710485, 220.1987103707684),
+        # Faixa deliberadamente ampla de uma variavel SEM RELACAO com a imagem de voltagem --
+        # simula a faixa de contagem de anomalias que mascarou o bug real.
+        "Spindle_motor_temperature_anomalo": (0.0, 52026.0),
+    }
+    legenda_com_alucinacao = (
+        "A classe Normal apresenta valores mais altos (cerca de 0,098 V), enquanto a classe "
+        "Fault tem valores mais baixos (cerca de 0,086 V)."
+    )
+    r = avaliar_legenda("grafico_voltagem_por_classe", legenda_com_alucinacao, limites_globais)
+    assert r["sem_numeros_inventados"] is False

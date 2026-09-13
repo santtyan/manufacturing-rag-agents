@@ -23,6 +23,7 @@ rag/chroma_db_benchmark_lexico/
 rag/vector_store/
 rag/chroma_db_langchain/
 rag/chroma_db_multimodal/
+rag/chroma_db_multimodal_deterministico/
 rag/legendas_cache.json
 experiments/langchain_rag/chroma_db_fiel/
 experiments/langchain_rag/chroma_db_bm25rrf/

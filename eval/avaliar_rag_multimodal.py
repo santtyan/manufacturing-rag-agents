@@ -27,6 +27,7 @@ import csv
 import json
 import statistics
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, r"C:\Projetos\Harbor\rag")
@@ -71,16 +72,26 @@ def avaliar_pergunta(rag, pergunta_obj, k=K, usar_rerank=False):
 
 
 def main():
-    if not CACHE_LEGENDAS.exists():
-        print(f"Cache de legendas nao encontrado em {CACHE_LEGENDAS}.")
+    # --cache-legendas permite apontar para um cache alternativo (ex. legendas geradas por
+    # via deterministica em vez de VLM) sem duplicar este script -- mesmo padrao ja usado em
+    # eval/avaliar_benchmark_multimodal_2x2.py (ver skill rag-multimodal, item 4 do plano).
+    if "--cache-legendas" in sys.argv:
+        idx = sys.argv.index("--cache-legendas")
+        caminho_cache = Path(sys.argv[idx + 1])
+    else:
+        caminho_cache = CACHE_LEGENDAS
+
+    if not caminho_cache.exists():
+        print(f"Cache de legendas nao encontrado em {caminho_cache}.")
         print("Rode primeiro: python rag/rag_multimodal_langchain.py --captionar")
         return
 
     usar_rerank = "--rerank" in sys.argv
     sufixo = "_rerank" if usar_rerank else ""
+    sufixo += "" if caminho_cache == CACHE_LEGENDAS else f"_{caminho_cache.stem}"
     resultados_path = EVAL_DIR / f"resultados_rag_multimodal{sufixo}.csv"
 
-    docs = json.loads(CACHE_LEGENDAS.read_text(encoding="utf-8"))
+    docs = json.loads(caminho_cache.read_text(encoding="utf-8"))
     dados = json.loads(GOLDEN.read_text(encoding="utf-8"))
     perguntas = dados["perguntas"]
 
@@ -89,9 +100,14 @@ def main():
           f"em {len(perguntas)} perguntas (k={K})...\n")
 
     rag = RAGHibrido(chroma_dir=CHROMA_DIR, colecao=COLECAO)
+    t0_indexacao = time.time()
     rag.indexar(forcar=True, documentos_customizados=docs)
+    tempo_indexacao_s = time.time() - t0_indexacao
 
+    t0_busca = time.time()
     resultados = [avaliar_pergunta(rag, pq, k=K, usar_rerank=usar_rerank) for pq in perguntas]
+    tempo_total_busca_s = time.time() - t0_busca
+    tempo_medio_busca_s = tempo_total_busca_s / len(perguntas) if perguntas else 0.0
     for r in resultados:
         status = "OK " if r["recall_at_k"] == 1.0 else "MISS"
         print(f"[{r['id']:30}] {status} esperado={r['documento_esperado']:35} "
@@ -115,6 +131,8 @@ def main():
     print(f"Recall@{K} medio    : {recall_medio*100:.0f}%")
     print(f"Precision@{K} media : {precision_media*100:.0f}%")
     print(f"MRR                : {mrr:.3f}")
+    print(f"Tempo de indexacao : {tempo_indexacao_s:.2f}s ({len(docs)} documentos)")
+    print(f"Tempo medio busca  : {tempo_medio_busca_s:.3f}s/pergunta")
     print(f"Resultados salvos  : {resultados_path}")
     print("\nEste numero e o BASELINE do caption-then-embed atual -- ver Fase 4 do plano de "
           "disciplina experimental PDC: a escolha de trocar de arquitetura (ColPali/embeddings "
