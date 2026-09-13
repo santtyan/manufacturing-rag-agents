@@ -18,6 +18,23 @@ maioria das perguntas usa so 1 manual, o "documento certo" (nao chunk_id especif
 o alvo de relevancia -- suficiente para medir Recall@k/Precision@k/MRR na escala do
 corpus atual sem exigir anotacao manual de chunk-a-chunk.
 
+ACHADO REAL (2026-09-14, investigacao do resultado negativo do Agentic RAG): o recall acima
+mede so acerto de DOCUMENTO ("achou o arquivo certo"), nao de CHUNK ("achou a SECAO certa
+dentro do arquivo"). O Agentic RAG (rag/rag_agentic.py) piorou porque a causa raiz diagnosticada
+foi "documento certo, mas a resposta esta em outra secao do mesmo arquivo" -- um modo de falha
+INVISIVEL na metrica de documento. Pesquisa de estado da arte (Seven Failure Points When
+Engineering a RAG System, Barnett et al., arXiv:2401.05856) formaliza esse caso como FP2
+(Missed the Top Ranked Documents), com a nuance de existir so no nivel de chunk.
+
+Para medir isso SEM reanotar o golden set: 41 das 49 perguntas de rota "rag" ja tem o numero da
+secao esperada escrito no proprio campo "nota" (ex. "Manual (secao 5): ..."), porque quem
+escreveu as perguntas ja verificava contra o manual ao criar cada uma. `secao_esperada()` extrai
+esse numero por regex; `secao_do_chunk()` extrai o mesmo numero do cabeculho "## N. Titulo" que
+cada chunk retornado ja carrega (rag_hibrido.py::chunk_texto() preserva o cabecalho no chunk).
+Perguntas sem numero de secao na nota (armadilhas que descrevem a secao ERRADA esperada, ou
+perguntas sem nota estruturada) ficam de fora do chunk-level -- continuam contribuindo para o
+doc-level normalmente.
+
 Uso: python eval/avaliar_retrieval.py [--rerank]
      (default: usar_rerank=False, mede o RETRIEVAL isolado. Com --rerank, mede o pipeline
      completo retrieval+rerank de ponta a ponta -- ver avaliar_pergunta() para o porque de
@@ -25,6 +42,7 @@ Uso: python eval/avaliar_retrieval.py [--rerank]
 """
 import csv
 import json
+import re
 import statistics
 import sys
 from pathlib import Path
@@ -39,6 +57,9 @@ GOLDEN = EVAL_DIR / "golden_questions.json"
 
 K = 5  # top-k avaliado (k_candidatos default do RAGHibrido.buscar ja e 10 nos bastidores)
 
+REGEX_SECAO_NOTA = re.compile(r"secao\s+(\d+)", re.IGNORECASE)
+REGEX_SECAO_CHUNK = re.compile(r"^##\s+(\d+)\.", re.MULTILINE)
+
 
 def arquivo_esperado(pergunta_obj):
     """Extrai o nome do arquivo .md esperado do campo 'fonte' (ex:
@@ -49,9 +70,26 @@ def arquivo_esperado(pergunta_obj):
     return fonte.rsplit("/", 1)[-1]
 
 
+def secao_esperada(pergunta_obj):
+    """Extrai o numero da secao esperada do campo 'nota', se presente (ex. "Manual (secao 5):
+    ..." -> 5). Retorna None se a nota nao cita secao explicitamente -- essas perguntas nao
+    entram na metrica de chunk-level (ver docstring do modulo)."""
+    nota = pergunta_obj.get("nota", "")
+    m = REGEX_SECAO_NOTA.search(nota)
+    return int(m.group(1)) if m else None
+
+
+def secao_do_chunk(texto_chunk):
+    """Extrai o numero da secao do cabecalho '## N. Titulo' que cada chunk carrega (preservado
+    por rag_hibrido.py::chunk_texto()). Retorna None se o chunk nao comecar com esse padrao
+    (ex. veio do fallback _chunk_por_linhas sem cabecalho proprio)."""
+    m = REGEX_SECAO_CHUNK.search(texto_chunk)
+    return int(m.group(1)) if m else None
+
+
 def avaliar_pergunta(rag, pergunta_obj, k=K, usar_rerank=False):
     """Roda buscar() e calcula recall@k/precision@k/rr (reciprocal rank) contra o arquivo
-    esperado.
+    esperado (doc-level) E contra a secao esperada quando disponivel (chunk-level).
 
     usar_rerank=False (default): mede a qualidade do RETRIEVAL (hybrid E5+TF-IDF)
     isoladamente. O rerank e uma etapa de POS-processamento que roda por cima do retrieval;
@@ -75,6 +113,26 @@ def avaliar_pergunta(rag, pergunta_obj, k=K, usar_rerank=False):
             rr = 1.0 / i
             break
 
+    # Chunk-level: so calculado quando a nota cita a secao esperada explicitamente. Um chunk
+    # so conta como acerto de CHUNK se, alem de vir do arquivo certo, tambem carregar a secao
+    # certa -- e possivel um candidato ter fonte==alvo mas secao != secao_esperada (mesmo modo
+    # de falha diagnosticado no Agentic RAG).
+    sec_esperada = secao_esperada(pergunta_obj)
+    recall_chunk_at_k = None
+    rr_chunk = None
+    if sec_esperada is not None:
+        secoes_dos_candidatos = [
+            secao_do_chunk(c["texto"]) if fonte == alvo else None
+            for c, fonte in zip(candidatos, fontes)
+        ]
+        relevantes_chunk_no_topk = sum(1 for s in secoes_dos_candidatos if s == sec_esperada)
+        recall_chunk_at_k = 1.0 if relevantes_chunk_no_topk > 0 else 0.0
+        rr_chunk = 0.0
+        for i, s in enumerate(secoes_dos_candidatos, start=1):
+            if s == sec_esperada:
+                rr_chunk = 1.0 / i
+                break
+
     return {
         "id": pergunta_obj["id"],
         "arquivo_esperado": alvo,
@@ -82,6 +140,9 @@ def avaliar_pergunta(rag, pergunta_obj, k=K, usar_rerank=False):
         "recall_at_k": recall_at_k,
         "precision_at_k": round(precision_at_k, 3),
         "reciprocal_rank": round(rr, 3),
+        "secao_esperada": sec_esperada,
+        "recall_chunk_at_k": recall_chunk_at_k,
+        "reciprocal_rank_chunk": round(rr_chunk, 3) if rr_chunk is not None else None,
     }
 
 
@@ -113,8 +174,11 @@ def main():
             continue
         resultados.append(r)
         status = "OK " if r["recall_at_k"] == 1.0 else "MISS"
+        chunk_status = ""
+        if r["recall_chunk_at_k"] is not None:
+            chunk_status = " chunk=OK" if r["recall_chunk_at_k"] == 1.0 else " chunk=MISS"
         print(f"[{r['id']:26}] {status} esperado={r['arquivo_esperado']:45} "
-              f"precision@{K}={r['precision_at_k']:.2f} RR={r['reciprocal_rank']:.2f}")
+              f"precision@{K}={r['precision_at_k']:.2f} RR={r['reciprocal_rank']:.2f}{chunk_status}")
 
     if not resultados:
         print("\nNenhum resultado avaliavel.")
@@ -122,22 +186,43 @@ def main():
 
     with resultados_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["id", "arquivo_esperado", "recall_at_k", "precision_at_k", "reciprocal_rank", "fontes_recuperadas"])
+        w.writerow(["id", "arquivo_esperado", "recall_at_k", "precision_at_k", "reciprocal_rank",
+                     "secao_esperada", "recall_chunk_at_k", "reciprocal_rank_chunk", "fontes_recuperadas"])
         for r in resultados:
             w.writerow([r["id"], r["arquivo_esperado"], r["recall_at_k"], r["precision_at_k"],
-                        r["reciprocal_rank"], ";".join(r["fontes_recuperadas"])])
+                        r["reciprocal_rank"], r["secao_esperada"], r["recall_chunk_at_k"],
+                        r["reciprocal_rank_chunk"], ";".join(r["fontes_recuperadas"])])
 
     recall_medio = statistics.mean(r["recall_at_k"] for r in resultados)
     precision_media = statistics.mean(r["precision_at_k"] for r in resultados)
     mrr = statistics.mean(r["reciprocal_rank"] for r in resultados)
 
+    # Chunk-level: so sobre o subconjunto com secao_esperada conhecida (ver docstring do
+    # modulo -- perguntas sem numero de secao explicito na nota nao entram aqui).
+    com_chunk = [r for r in resultados if r["recall_chunk_at_k"] is not None]
+    recall_chunk_medio = statistics.mean(r["recall_chunk_at_k"] for r in com_chunk) if com_chunk else None
+    mrr_chunk = statistics.mean(r["reciprocal_rank_chunk"] for r in com_chunk) if com_chunk else None
+
     print("\n" + "=" * 60)
     print(f"Modo               : {modo}")
     print(f"Perguntas avaliadas: {len(resultados)}")
-    print(f"Recall@{K} medio    : {recall_medio*100:.0f}%")
-    print(f"Precision@{K} media : {precision_media*100:.0f}%")
-    print(f"MRR                : {mrr:.3f}")
-    print(f"Resultados salvos  : {resultados_path}")
+    print(f"Recall@{K} medio (DOCUMENTO) : {recall_medio*100:.1f}%")
+    print(f"Precision@{K} media          : {precision_media*100:.0f}%")
+    print(f"MRR (documento)              : {mrr:.3f}")
+    if com_chunk:
+        print(f"\nChunk-level (subconjunto com secao esperada conhecida na nota, {len(com_chunk)}/{len(resultados)} perguntas):")
+        print(f"Recall@{K} medio (CHUNK)     : {recall_chunk_medio*100:.1f}%")
+        print(f"MRR (chunk)                  : {mrr_chunk:.3f}")
+        gap = recall_medio - recall_chunk_medio
+        print(f"\nGap doc-level - chunk-level  : {gap*100:+.1f} pontos percentuais")
+        if gap > 0.01:
+            print("Gap positivo confirma o diagnostico: ha perguntas onde o ARQUIVO certo e "
+                  "recuperado mas a SECAO certa nao vem no top-k -- modo de falha invisivel na "
+                  "metrica de documento (ver docstring do modulo, achado do Agentic RAG).")
+        else:
+            print("Gap ~zero: NAO ha evidencia de 'documento certo, secao errada' neste "
+                  "subconjunto -- reconsiderar a causa raiz do resultado negativo do Agentic RAG.")
+    print(f"\nResultados salvos  : {resultados_path}")
 
 
 if __name__ == "__main__":
