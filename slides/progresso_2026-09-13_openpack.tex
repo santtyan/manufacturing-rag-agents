@@ -258,20 +258,77 @@
       aprovação institucional externa, ainda não solicitada. O frame disponível sem essa
       aprovação é insuficiente para o teste planejado (12 imagens, uma por operação); o
       mecanismo técnico (legendagem de cena real) foi validado apesar disso.
+    \item[\textcolor{orange!90!black}{\textbullet}] \textbf{Escopo de dado usado é parcial} —
+      só 1 de 9 modalidades do dataset e uma amostra de 1.000 janelas, não o OpenPack completo
+      (detalhe no próximo slide). Não invalida os resultados; é uma fronteira honesta a
+      declarar antes de qualquer comparação com trabalhos que usem o dataset inteiro.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Próximos passos}
+\begin{frame}{Escopo de dado usado — o OpenPack completo}
+  \small
+  \begin{numerobloco}{OpenPack completo (Yoshimura et al., PerCom 2024)}
+    16 sujeitos, 53,8h de gravação, 20.129 operações anotadas, \textbf{9 modalidades}:
+    aceleração, giroscópio, quaternion, BVP e EDA (sensores E4), keypoints, nuvem de pontos
+    LiDAR, imagens de profundidade (depth), e leituras de dispositivos IoT (leitor de código
+    de barras). Inclui também metadados ricos (experiência do sujeito, traços físicos, lista
+    de atividades irregulares).
+  \end{numerobloco}
+
+  \pause
+  \textbf{Por que isso importa:} o F1-macro de 0,91--0,92 já supera os baselines oficiais
+  usando uma fração pequena do sinal disponível — não é o teto do que o dataset permite, é o
+  primeiro resultado honesto sobre um subconjunto.
+\end{frame}
+
+\begin{frame}{Escopo de dado usado — o que o Harbor usa hoje}
+  \small
+  \begin{decisaobloco}{Restrições explícitas}
+    \begin{itemize}
+      \item Só \textbf{4 IMUs} (aceleração + giroscópio + quaternion) — via o pacote
+        pré-processado do Zenodo. \textbf{BVP/EDA, keypoints, LiDAR, depth e IoT nunca foram
+        baixados nem avaliados.}
+      \item \textbf{102 sessões processadas}, amostradas para \textbf{1.000 janelas} de um
+        total de 78.667 possíveis — não o dataset completo (16 sujeitos/53,8h/20.129
+        operações).
+      \item \textbf{RGB/vídeo/depth/LiDAR bloqueados}: exigem aprovação institucional dos
+        autores (formulário com dados pessoais do solicitante) — ação pendente, não
+        limitação técnica.
+      \item \textbf{Metadados de sujeito não usados} — e uso futuro precisaria reconciliar com
+        o gate de recusa de identificação de pessoa (\texttt{pede\_identificacao\_de\_pessoa}),
+        exigência da própria licença do dataset.
+    \end{itemize}
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Próximos passos (1/2) — escopo de dado}
+  \small
   \begin{enumerate}
     \item \textbf{Solicitar acesso ao RGB completo} — preencher o formulário institucional dos
       autores do OpenPack (pendente, é uma ação pessoal, não automatizável). Critério de
       conclusão: aprovação recebida e ao menos 1 keyframe por operação disponível.
+    \item \textbf{Avaliar as modalidades de sensor não usadas} (BVP, EDA, keypoints) — hipótese
+      em aberto, não testada: será que agregam sinal discriminativo para as perguntas atuais
+      do chat? Medir antes de decidir se vale o custo de integração.
+    \item \textbf{Escalar a amostra} de 1.000 para mais janelas (ou o dataset completo) se o
+      F1-macro precisar de mais robustez estatística para publicação (meta BRACIS 2027).
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Próximos passos (2/2) — dívida técnica e documentação}
+  \small
+  \begin{enumerate}
+    \setcounter{enumi}{3}
     \item \textbf{Investigar o poder discriminativo fraco do retrieval por instância} — hipótese
       em aberto, não testada nesta sessão, se features de ordem mais alta (ex.\ frequência
       dominante via FFT) melhorariam a pureza acima de 12,9\%; prioridade baixa, já que a
       métrica que importa (F1-macro) já supera o benchmark oficial.
     \item \textbf{Corrigir a duplicação de \texttt{agregar\_por\_fonte}} — a mesma função existe
       em 3 arquivos de avaliação distintos; dívida técnica documentada, não corrigida.
+    \item \textbf{Incorporar o diagrama de arquitetura a um slide} —
+      \texttt{arquitetura\_sistema\_harbor.html} existe desde 2026-09-11 como Artifact solo,
+      nunca referenciado por nenhum \texttt{.tex}; decidir se entra em
+      \texttt{harbor\_narrativa\_2026-09.tex} ou continua à parte.
   \end{enumerate}
 \end{frame}
 

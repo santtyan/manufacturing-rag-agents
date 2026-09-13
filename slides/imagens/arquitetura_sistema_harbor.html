@@ -129,7 +129,7 @@
   <div class="scroll-container">
     <figure style="margin:0">
     <svg viewBox="0 0 1020 400" xmlns="http://www.w3.org/2000/svg" role="img"
-         aria-label="Diagrama da arquitetura do Harbor: pergunta do usuário entra pelo dashboard Streamlit; o roteador de fonte única decide entre rota de contexto pré-calculado, RAG híbrido sobre manuais e sobre o corpus OpenPack, ou NL-to-SQL sobre o Postgres, com answerability gates interceptando antes do LLM (incluindo os 2 gates do OpenPack: cruzamento pessoa-máquina e identificação de sujeito); Ollama é compartilhado por todas as rotas que precisam gerar texto; pipelines 1 a 4 e o pipeline 8 (OpenPack) alimentam a rota de contexto, o pipeline 8 também alimenta a rota SQL e um corpus RAG textual determinístico próprio, com aba dedicada no Streamlit desde a Fase 7f.">
+         aria-label="Diagrama da arquitetura do Harbor: pergunta do usuário entra pelo dashboard Streamlit; o roteador de fonte única decide entre rota de contexto pré-calculado, RAG híbrido sobre manuais, sobre o corpus OpenPack e sobre o corpus de gráficos técnicos, ou NL-to-SQL sobre o Postgres, com answerability gates interceptando antes do LLM (incluindo os 2 gates do OpenPack: cruzamento pessoa-máquina e identificação de sujeito); Ollama é compartilhado por todas as rotas que precisam gerar texto; pipelines 1 a 4 e o pipeline 8 (OpenPack) alimentam a rota de contexto, o pipeline 8 também alimenta a rota SQL e um corpus RAG textual determinístico próprio, com aba dedicada no Streamlit desde a Fase 7f; um corpus separado de 26 gráficos técnicos, com legenda gerada por template determinístico sobre os dados de origem (sem VLM), alimenta uma sexta aba desde 2026-09-14.">
 
       <!-- STEP LABELS -->
       <text x="70" y="26" class="step-label">Entrada</text>
@@ -187,7 +187,7 @@
         <rect x="606" y="150" width="150" height="60" rx="10" fill="var(--magenta-fill)" stroke="var(--magenta)" stroke-width="1.8"/>
         <text x="681" y="172" text-anchor="middle" class="box-title" font-size="12">RAG híbrido</text>
         <text x="681" y="186" text-anchor="middle" class="box-sub">rag_hibrido_langchain.py</text>
-        <text x="681" y="198" text-anchor="middle" class="box-sub">E5+BM25 RRF, rerank + corpus OpenPack</text>
+        <text x="681" y="198" text-anchor="middle" class="box-sub">E5+BM25 RRF + corpus OpenPack + gráficos</text>
       </g>
       <path d="M 756 180 L 796 180" stroke="var(--arrow)" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
 
