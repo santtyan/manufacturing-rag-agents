@@ -78,6 +78,28 @@ IMU usando `PALAVRAS_CHAVE_OPENPACK` do roteador). Rodar `python eval/rodar_gold
 de qualquer mudança nessa aba ou em `eval/rag_gerador.py::carregar_rag_hibrido()` — as duas
 perguntas `openpack-*` do golden set exercitam especificamente os 2 gates dessa aba.
 
+## RAG multimodal de gráfico técnico (geração determinística, produção desde 2026-09-14)
+
+```powershell
+# Gera as 26 legendas determinísticas (sem VLM/Ollama, ~1s)
+python rag/legendas_deterministicas.py
+
+# Fidelidade — critério de promoção esperado: 100% (numeros vem direto do CSV)
+python eval/checks_fidelidade_caption.py rag/legendas_deterministicas.json
+
+# Retrieval (Recall@3/Precision@3/MRR) -- comparar com o cache do VLM se precisar
+python eval/avaliar_rag_multimodal.py --cache-legendas rag/legendas_deterministicas.json
+```
+
+Ver skill `rag-multimodal` (seção "Item 6b") para a fundamentação completa: nenhum VLM local
+testado atinge o critério de promoção (achado confirmado por arXiv:2312.10160, 82% de erro
+factual em legendas de LVLM é estrutural, não um gap de "ainda não achamos o VLM certo") — a
+via correta para gráfico gerado a partir de dado tabular conhecido é template determinístico
+sobre os dados de origem (mesma filosofia já usada no OpenPack/RAG-HAR), não caption-then-embed
+com VLM. Aba "6. Gráficos Técnicos (RAG Multimodal)" no Streamlit, mesmo padrão de sub-roteador
+hierárquico da aba OpenPack (`rag_multimodal_responder_ou_manual`,
+`PALAVRAS_CHAVE_GRAFICO`).
+
 ## Depois de rodar
 
 - Resuma: roteamento (N/total), faithfulness (%), e qualquer pergunta que mudou de resultado em relação à última run conhecida.

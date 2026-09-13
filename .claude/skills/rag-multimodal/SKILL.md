@@ -271,9 +271,11 @@ sem precisar rodar o harness completo. Próximo candidato do plano: `qwen3-vl:4b
 ## Item 3 do plano: candidato `qwen3-vl:4b` testado — qualidade muito superior, custo proibitivo (2026-09-09)
 
 **Superado pelo resultado do corpus completo em 2026-09-10, ver seção "Item 3 do plano:
-CONCLUÍDO" mais abaixo** — a decisão de custo/benefício aqui foi tomada (rodar mesmo assim), e
-o resultado real do harness completo (77,5% de fidelidade, reprovado no critério de promoção)
-está documentado lá. Seção mantida como registro histórico do smoke test que embasou a decisão.
+CONCLUÍDO" mais abaixo** — a decisão de custo/benefício aqui foi tomada (rodar mesmo assim). O
+número documentado ali como "77,5%, reprovado" foi **corrigido em 2026-09-14 para 93,6%,
+também reprovado, mas por razão diferente** — ver a seção "CORREÇÃO CRÍTICA" mais abaixo antes
+de citar qualquer número de fidelidade deste modelo. Seção mantida como registro histórico do
+smoke test que embasou a decisão original.
 
 Mesmo smoke test de 1 imagem. Resultado real:
 
@@ -347,17 +349,58 @@ corrigir **2 bugs de falso positivo** encontrados no próprio check `sem_numeros
 | qwen3-vl corpus completo sem vazios | 76,4% | 11/26 | 15/26 |
 | qwen3-vl com os 2 bugs do check corrigidos | **77,5%** | **13/26** | **17/26** |
 
-**RESULTADO FINAL: reprovado pelo critério de promoção** (≥90% de taxa média E 100% sem números
-inventados) — mas melhoria real e substancial confirmada sobre o moondream (42,3%→77,5%),
-número já confiável (não inflado por bug de metodologia). Restam pelo menos 2 casos de
-alucinação numérica GENUÍNA confirmada contra o CSV de origem: voltagem reportada em
-~0,086-0,099 V quando o valor real de `Voltage_V` é ~220,19-220,20 V (3 ordens de grandeza de
-erro) — vale investigar se é troca de rótulo de eixo ou confusão de escala do VLM, caso o item
-3 seja retomado com outro candidato de VLM no futuro.
+**RESULTADO ORIGINAL (2026-09-10): reprovado pelo critério de promoção** (≥90% de taxa média E
+100% sem números inventados) — mas melhoria real e substancial confirmada sobre o moondream
+(42,3%→77,5%). Restam pelo menos 2 casos de alucinação numérica GENUÍNA confirmada contra o CSV
+de origem: voltagem reportada em ~0,086-0,099 V quando o valor real de `Voltage_V` é
+~220,19-220,20 V (3 ordens de grandeza de erro).
 
-**Conclusão prática**: nenhum VLM local testado até agora atinge o critério formal — consistente
-com a literatura de VLMs pequenos alucinando valores numéricos específicos em gráficos técnicos.
-Não relançar captioning de novo salvo se aparecer um VLM candidato novo.
+## CORREÇÃO CRÍTICA (2026-09-14): o número 77,5% estava errado por um bug de código
+
+Ao validar a via de legenda determinística (ver seção "Item 6" mais abaixo), foi encontrado um
+**bug real em `avaliar_legenda()` de `eval/checks_fidelidade_caption.py`, presente desde a
+criação do módulo (commit `b70ebda`, o mesmo que gerou o número 77,5% acima) e nunca corrigido
+até agora**: a função inseria a chave `"passou_todos"` no dict `resultados` **antes** de
+capturar `len(resultados)` para calcular `taxa_aprovacao` — dividindo por **7** (os 6 checks +
+a própria chave `"passou_todos"`) em vez de **6**. Uma legenda que passasse os 6 checks reais
+tinha `taxa_aprovacao = 6/7 = 85,7%`, nunca 100%.
+
+Recalculando o resultado do `qwen3-vl:4b` sobre o **mesmo cache já existente**
+(`rag/legendas_cache_qwen3-vl_4b.json`, nada foi re-executado), com o bug corrigido:
+
+| | Documentado 2026-09-10 (com bug) | Real, recalculado 2026-09-14 |
+|---|---|---|
+| Taxa de aprovação média | 77,5% | **96,2%** (antes de outra correção — ver abaixo) |
+| Passou todos os checks | 13/26 | 21/26 |
+| Sem números inventados | 17/26 | 26/26 (antes de outra correção) |
+
+Ao investigar por que `sem_numeros_inventados` deu 26/26 (contradizendo a alucinação de
+voltagem já documentada acima), foi encontrado um **segundo bug, este introduzido durante a
+mesma sessão de correção** (não pré-existente): `sem_numeros_inventados()` aceita um número se
+ele cabe em **qualquer faixa do dict global** de `limites_plausiveis`, não só nas variáveis QUE
+A IMAGEM EM QUESTÃO mostra. Isso sempre foi uma fragilidade de design, mas só virou um problema
+prático quando `_calcular_limites_plausiveis()` ganhou uma faixa de **contagem** para colunas
+booleanas do pipeline4 (0 a 52.026, naturalmente ampla) — a margem de 50% dessa faixa emprestada
+cobre qualquer número pequeno como "0,086", mascarando de volta a alucinação de voltagem.
+**Corrigido restringindo `limites_plausiveis` às `variaveis_fonte` do próprio `doc_id` dentro de
+`avaliar_legenda()`**, antes de chamar `sem_numeros_inventados`.
+
+**Resultado final, com os dois bugs corrigidos**:
+
+| | 2026-09-10 (documentado, com bug) | 2026-09-14 (corrigido) |
+|---|---|---|
+| Taxa de aprovação média | 77,5% | **93,6%** |
+| Passou todos os checks | 13/26 | 18/26 |
+| Sem números inventados | 17/26 | 22/26 (a alucinação de voltagem volta a ser pega) |
+| Critério de promoção | Reprovado | **Reprovado** (mas por margem bem menor) |
+
+**Conclusão prática, atualizada**: o `qwen3-vl:4b` é melhor do que o documentado originalmente,
+mas ainda reprova — as 4 falhas restantes de `sem_numeros_inventados` incluem a alucinação
+genuína de voltagem (3 ordens de grandeza de erro), que nenhuma correção de bug torna aceitável.
+16 testes de regressão diretos em `tests/test_checks_fidelidade_caption.py` (2 novos) e
+`tests/test_legendas_deterministicas.py` (11 novos) travam os dois bugs. **Esta correção não
+muda a decisão de arquitetura da seção "Item 6" abaixo** — pelo contrário, reforça-a: mesmo o
+número real (93,6%) ainda reprova, e a via determinística chega a 100% pelas mesmas variáveis.
 
 ## Item 4 do plano: recalibração de top-p RETOMADA, mas travada em custo de rerank em CPU (2026-09-10/11)
 
@@ -464,9 +507,12 @@ em si não descreve o conteúdo real da imagem (moondream: "bar graph", "line gr
 indexado. O rerank reordena o que já foi selecionado; não resgata candidatos que o retrieval
 textual nunca trouxe para perto do top-k por causa de uma legenda ruim.
 
-**Implicação para a arquitetura de produção**: o esforço deve ir para achar/aprovar um VLM de
-qualidade suficiente (item 3, ainda sem candidato aprovado — qwen3-vl chegou perto, 77,5% de
-fidelidade, mas reprovado pelo critério de ≥90%), não para otimizar o rerank multimodal. O
+**Implicação para a arquitetura de produção, na época (2026-09-11)**: o esforço deveria ir para
+achar/aprovar um VLM de qualidade suficiente (item 3, ainda sem candidato aprovado — qwen3-vl
+chegou perto, 77,5% de fidelidade na época — número corrigido em 2026-09-14 para 93,6%, ver
+seção de correção mais abaixo — mas reprovado pelo critério de ≥90%), não para otimizar o
+rerank multimodal. Essa implicação foi **superada em 2026-09-14 pela via determinística** (ver
+"Item 6b" mais abaixo) — o esforço não precisou ir para nenhum dos dois lados. O
 rerank ColModernVBERT como está calibrado hoje (top-p=0,7) é valioso como ganho incremental
 SOBRE um bom captioning (ver item 4: rerank supera "sem rerank" quando o VLM já é o mesmo dos
 dois lados), mas não é substituto para resolver a qualidade da legenda em si. Não promover o
@@ -517,20 +563,83 @@ inicialmente. Referência de vocabulário de métricas: `Multimodal-RAG-Survey` 
 ACL 2025 Findings, arXiv:2502.08826) — usar para nomear categorias de avaliação, não como
 fundamento de arquitetura (é majoritariamente sobre imagem/vídeo/áudio via CLIP/VLM).
 
-**O que continua bloqueado**: a trilha RGB (imagens sintéticas de gráfico, câmera do OpenPack)
-segue sem VLM aprovado (qwen3-vl:4b reprovado, 77,5% < critério de 90%) — item 6 permanece
-parcialmente aberto para essa trilha especificamente. A aba de chat do OpenPack no dashboard foi
-concluída na Fase 7f (2026-09-14, ver abaixo) — não é mais pendência.
+**O que continua bloqueado, na época**: a trilha RGB de gráfico sintético seguia sem VLM
+aprovado. **Resolvido em 2026-09-14 — ver "Item 6b" logo abaixo.** A aba de chat do OpenPack no
+dashboard foi concluída na Fase 7f (2026-09-14, ver `rodar-harness`) — não é mais pendência.
+
+## Item 6b CONCLUÍDO — trilha RGB/gráfico via geração determinística, em produção (2026-09-14)
+
+Pedido do usuário: "vamos colocar em produção, no Streamlit" o RAG multimodal de imagem. A
+pesquisa de estado da arte (Pareto/ROI/padrão-ouro, ver histórico da sessão) concluiu que **a
+arquitetura estava errada, não o modelo**:
+
+- **[arXiv:2312.10160](https://arxiv.org/html/2312.10160)** mede **82,06% de erro factual em
+  legendas de LVLM** — GPT-4V incluído (81,27%) — com *Value Errors* como tipo dominante. Mesmo
+  com tabela ground-truth injetada, a factualidade só chega a ~30%: o gargalo é a
+  *interpretação por modelo*, não a extração. Os resultados do qwen3-vl (mesmo corrigidos para
+  93,6%, ver seção de correção acima) são o comportamento normal da classe, não um defeito
+  isolado corrigível trocando de VLM.
+- **Nenhum modelo chart-specific tem GGUF/Ollama** (TinyChart, ChartGemma, DePlot, Chart-R1) —
+  todos exigem `transformers` puro, mesmo conflito de dependências que já matou ONNX/optimum
+  neste projeto (ver item 4 acima). ChartGemma despenca de 86,6% (ChartQA) para 11,52%
+  (ChartQAPro): ranking em benchmark saturado não prevê desempenho real.
+- **Precedente revisado por pares**: **MatplotAlt** (Computer Graphics Forum 2025,
+  [arXiv:2503.20089](https://arxiv.org/abs/2503.20089)) gera alt-text de figura matplotlib por
+  template sobre os dados de origem — exatamente esta técnica. **ChartCap** (ICCV 2025,
+  [arXiv:2508.03164](https://arxiv.org/html/2508.03164)) formula o princípio: *"charts can be
+  deterministically generated from an intermediate modality — namely, code"*.
+
+**Implementado**: `rag/legendas_deterministicas.py`, mesma filosofia de
+`rag/rag_openpack_texto.py` (features → texto por template, sem VLM), usando o ground truth já
+existente em `rag/metadados_imagens_ground_truth.py` (título, eixos, ranking, `variaveis_fonte`)
+e os CSVs de origem reais (`outputs/pipeline2_legacy_sensor/`,
+`outputs/pipeline4_five_axis_cnc/`). Contrato de saída idêntico a `rag/legendas_cache*.json`
+(`{"id","texto"}`), sem mudança no `RAGHibrido`.
+
+**NOTA DE METODOLOGIA (não confundir com "trapaça")**: `metadados_imagens_ground_truth.py` diz
+que usar esses metadados como entrada do VLM "seria trapaça" — correto nesse contexto, pois
+avaliar um VLM que deveria *ler* a imagem com o gabarito na mão invalidaria a avaliação. Mas a
+via determinística **substitui** o VLM — usar o dado de origem é o método, não trapaça (é
+exatamente o que MatplotAlt faz). Nenhuma imagem é "lida" — o texto vem do mesmo DataFrame que
+desenhou o gráfico.
+
+**Resultado, comparado ao melhor VLM (qwen3-vl:4b, números corrigidos — ver seção acima)**:
+
+| Métrica | qwen3-vl:4b (VLM) | Via determinística |
+|---|---|---|
+| Taxa de aprovação | 93,6% | **100%** |
+| Passou todos os checks | 18/26 | **26/26** |
+| Sem números inventados | 22/26 | **26/26** |
+| Critério de promoção | Reprovado | **Aprovado** |
+| Recall@3 / MRR (retrieval) | 93% / 0,724 | 90% / 0,747 (empate dentro do ruído) |
+| Custo de captioning | 412s/imagem (~3h/corpus) | segundos (pandas puro) |
+| Depende de Ollama | Sim | Não |
+
+**Integrado ao Streamlit**: nova aba "6. Gráficos Técnicos (RAG Multimodal)" em
+`dashboard/app.py`, mesmo padrão de `chat_especializado()`/sub-roteador hierárquico já usado na
+aba OpenPack (`rag_multimodal_responder_ou_manual`, `PALAVRAS_CHAVE_GRAFICO`). Corpus indexado
+em coleção separada (`chroma_db_multimodal_deterministico`), sem tocar na de manuais nem na
+antiga `chroma_db_multimodal` (cache do VLM, mantido como referência histórica/comparativa, não
+apagado).
+
+18 testes novos (`tests/test_legendas_deterministicas.py`), incluindo um teste de integração
+que confere as 26 legendas contra o harness real e trava 100% de aprovação como critério de
+build. Zero VLM aprovado continua sendo verdade — só deixou de ser o bloqueio, porque a
+arquitetura certa nunca precisou de um.
 
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
-- [ ] **2b. Resolver VLM de qualidade suficiente** — prioridade real, mais evidente agora com
-      número: as legendas do `moondream` incluem uma saída sem sentido semântico
-      (`"[0.0, 0.13, 0.99, 0.28]"`). Tentar `qwen2.5-vl`/Qwen2.5-VL novamente quando houver
-      mais espaço em disco, ou `llava` (~4GB).
-- [x] **6 (parcial). Integrar ao dashboard/chat de produção — trilha IMU/OpenPack** — ver seção
-      acima. Aba de chat no Streamlit concluída (Fase 7f, 2026-09-14). Resta só a trilha RGB
-      (segue bloqueada por falta de VLM aprovado).
+- [x] **2b. Resolver VLM de qualidade suficiente — DESPRIORIZADO, resultado negativo
+      documentado (2026-09-14)**: não é mais a prioridade. arXiv:2312.10160 confirma que
+      alucinação numérica é estrutural em VLMs pequenos lendo gráficos (82% de erro factual,
+      GPT-4V incluído) — trocar de modelo (`qwen2.5-vl`, `llava`, etc.) teria ROI baixo e risco
+      alto. A via determinística (Item 6b) resolveu o problema de produção sem precisar de
+      nenhum VLM aprovado. Só revisitar se a trilha RGB de FOTO REAL (câmera, não gráfico
+      sintético) precisar de captioning no futuro — ali não há dado tabular de origem para
+      gerar texto por template, então a via determinística não se aplica.
+- [x] **6 (completo). Integrar ao dashboard/chat de produção — trilhas IMU/OpenPack E
+      RGB/gráfico** — ver seções acima. Ambas as trilhas de RAG multimodal do Harbor estão em
+      produção no Streamlit desde 2026-09-14 (Fases 7f e 6b), nenhuma usando VLM.
 - [ ] **7. ColPali/ColQwen2 como via secundária** — decisão adiada explicitamente até o dataset
       real chegar (ver critério de escolha acima): usar quando recall for o gargalo medido E as
       queries forem visualmente difíceis, não antes.

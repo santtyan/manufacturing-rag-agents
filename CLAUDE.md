@@ -43,6 +43,11 @@ python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 # — ver nota na skill rodar-harness) e classificação F1-macro vs. benchmark oficial
 python eval/avaliar_retrieval_openpack.py
 python eval/avaliar_classificacao_openpack.py [--k 5]
+
+# RAG multimodal de gráfico técnico (geração determinística, sem VLM — ver skill rag-multimodal)
+python rag/legendas_deterministicas.py
+python eval/checks_fidelidade_caption.py rag/legendas_deterministicas.json
+python eval/avaliar_rag_multimodal.py --cache-legendas rag/legendas_deterministicas.json
 ```
 
 `eval/rodar_golden.py` importa `dashboard/roteador.py` e `eval/rag_gerador.py` — **nunca duplique lógica de roteamento ou geração RAG dentro de `eval/`**; isso já causou uma regressão fantasma de 67,9%→52% (ver histórico em `dashboard/roteador.py`). Se adicionar um gate novo de roteamento, ele deve viver só em `dashboard/roteador.py`.
@@ -66,7 +71,7 @@ Seguem a regra fixada em `migrar-para-langchain`: nenhuma migração troca o imp
 
 ### Serviços
 
-- **`dashboard/app.py`** (Streamlit, porta 8501) — chat principal, consome `dashboard/roteador.py` + `rag/rag_hibrido_langchain.py` + `nl_to_sql/nl_to_sql.py`. Contém `st.set_page_config()` em nível de módulo, por isso não é importável fora do Streamlit — é o motivo de `roteador.py` e `rag_gerador.py` terem sido extraídos como módulos separados.
+- **`dashboard/app.py`** (Streamlit, porta 8501) — chat principal, consome `dashboard/roteador.py` + `rag/rag_hibrido_langchain.py` + `nl_to_sql/nl_to_sql.py`. Contém `st.set_page_config()` em nível de módulo, por isso não é importável fora do Streamlit — é o motivo de `roteador.py` e `rag_gerador.py` terem sido extraídos como módulos separados. 8 abas de chat especializado (`chat_especializado()`, mesmo padrão em todas): 4 datasets originais + OpenPack (Fase 7f) + Gráficos Técnicos/RAG multimodal (2026-09-14) + 2 utilitárias (reprocessar pipeline, avaliação). As duas últimas abas de dataset usam sub-roteador hierárquico dentro da rota `rag` (`rag_openpack_responder_ou_manual`, `rag_multimodal_responder_ou_manual`) para escolher entre o corpus de manuais e um corpus próprio — padrão corpus-aware routing (UniversalRAG/RAGRouter).
 - **`infra/docker-compose.yml`** — Postgres 16 (`harbor_manufatura`).
 
 **Removidos** (entregas planejadas para reimplementação futura, ver `docs/mapeamento_cronograma.md`): API FastAPI de diagnóstico (`/diagnostico`, 3 camadas — regra determinística → Isolation Forest → veredito LLM, com precedência da regra sobre o LLM quando `CRITICO`) e servidor MCP (`consultar_banco`, `buscar_manual`, `diagnosticar_leitura` via FastMCP stdio), ambos em 2026-09-12; N8N (container + workflows de automação), na sessão seguinte. Os módulos compartilhados que API/MCP consumiam (`dashboard/roteador.py`, `rag/rag_hibrido_langchain.py`, `nl_to_sql/nl_to_sql.py`) continuam em produção via `dashboard/app.py`, sem impacto.
@@ -94,7 +99,7 @@ Fluxos recorrentes já empacotados como skills — usar em vez de reimprovisar o
 - **`atualizar-slide-migracao-langchain`** — gera/atualiza slides Beamer da migração para LangChain/LangGraph, comparando Python puro x LangChain com números reais por módulo migrado.
 - **`comparar-tfidf-bm25`** — roda o benchmark que compara os dois algoritmos lexicais de `rag_hibrido.py`.
 - **`migrar-para-langchain`** — guia vivo para migrar módulos do Harbor (roteador, RAG híbrido, NL-to-SQL, diagnóstico em camadas) para LangChain/LangGraph, em ordem de risco crescente.
-- **`rag-multimodal`** — guia e checklist de implementação para RAG multimodal (texto + imagem): caption-then-embed com VLM local, rerank ColModernVBERT, calibração de top-p, critério de promoção de VLM.
+- **`rag-multimodal`** — guia e checklist de implementação para RAG multimodal (texto + imagem). Em produção desde 2026-09-14 via **geração determinística** (`rag/legendas_deterministicas.py`), não VLM — alucinação numérica em VLMs pequenos lendo gráfico é estrutural (arXiv:2312.10160), não um gap de "modelo certo ainda não testado"; para gráfico gerado a partir de dado tabular conhecido, template sobre os dados de origem bate qualquer VLM em fidelidade (100% vs. 93,6%) e custo (segundos vs. 412s/imagem). Ver skill para o histórico completo e a correção de um bug de avaliação que mascarava o resultado real dos VLMs testados.
 - **`roadmap-rag-survey`** — mapeia o RAG do Harbor contra a taxonomia Naive/Advanced/Modular RAG do survey de Gao et al. (arXiv:2312.10997), lista priorizada de técnicas a implementar.
 - **`roadmap-slm-multiagente`** — guia vivo do fit do Harbor com o Projeto 1 do PDC (multiagentes confiáveis + SLMs em português); lista priorizada de itens implementáveis.
 - **`refatorar-organizar-repositorio`** — audita dívida técnica estrutural (duplicação, arquivos órfãos, nomenclatura, organização de pastas) e aplica refatoração com comportamento preservado em mudanças pequenas e reversíveis; skill genérica, não específica do Harbor.

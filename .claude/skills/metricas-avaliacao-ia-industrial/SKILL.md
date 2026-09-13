@@ -37,6 +37,18 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
   contra o acaso esperado (1/n_classes). Resultado: pureza=12,9% (acaso=10%). Formalizado como
   🔶 porque cobre só o OpenPack até agora — ainda não é usado em nenhum outro corpus do Harbor
   que precise dela (todos os outros são instance-level de fato).
+- ✅ Fidelidade de caption multimodal (`eval/checks_fidelidade_caption.py`, 6 checks
+  determinísticos): **achado importante (2026-09-14) sobre validar a própria métrica** — um bug
+  de divisão (`len(dict)` capturado depois de inserir uma chave extra no mesmo dict, dividindo
+  por 7 em vez de 6) subestimava `taxa_aprovacao` de QUALQUER legenda que passasse todos os
+  checks reais, mascarando por 4 dias que o `qwen3-vl:4b` já batia perto do critério de promoção
+  (documentado como 77,5%/reprovado; real, 93,6%, ainda reprovado mas por margem bem menor). Um
+  segundo bug relacionado (`sem_numeros_inventados` aceitando número de qualquer faixa do dict
+  global, não só das variáveis da imagem em questão) mascarava uma alucinação numérica genuína
+  já catalogada. **Lição generalizável**: um harness/check que nunca é exercitado por um caso
+  que deveria passar 100% (aqui, só apareceu ao validar uma via determinística nova) pode
+  esconder bugs de aritmética básica por muito tempo — vale ter pelo menos 1 caso de controle
+  positivo perfeito em qualquer suíte de avaliação nova.
 
 ### LLM
 - ✅ Faithfulness: métrica central de `eval/rodar_golden.py` (números esperados citados na resposta).
