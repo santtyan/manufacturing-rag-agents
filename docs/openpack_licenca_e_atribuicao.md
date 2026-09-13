@@ -62,6 +62,16 @@ Claude nesta sessão.** Se aprovado no futuro, retomar a Fase 5 com o dataset co
 amostrar keyframes reais de cada uma das 10 operações, em vez do único frame pré-operação hoje
 disponível.
 
+**STATUS (2026-09-14): formulário enviado pelo usuário.** Aguardando aprovação manual dos
+autores (processo assíncrono, sem prazo definido — ver item 2 acima). Nenhuma ação adicional
+possível até a aprovação chegar (acesso via pasta do Google Drive vinculada à conta usada no
+formulário). Quando aprovado, retomar a Fase 5 do plano histórico de integração: baixar
+keyframes reais das 10 operações (não o único frame pré-operação hoje disponível), reindexar
+com `rag/rag_multimodal_langchain.py` usando `PROMPT_CAPTION_CENA` (já validado no smoke test
+abaixo), e decidir se a legenda de cena real também deveria ser determinística ou se, nesse
+caso, VLM é mesmo necessário (não há dado tabular de origem para gerar template, ao contrário
+dos gráficos técnicos — ver skill `rag-multimodal`, seção "Item 6b").
+
 ### Smoke test já executado (2026-09-13), válido independente da aprovação
 
 Com o único frame disponível (`U0209_S0500_frame_meio.jpg`, fora do repo,
