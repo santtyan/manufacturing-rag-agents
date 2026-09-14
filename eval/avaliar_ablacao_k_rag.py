@@ -39,21 +39,22 @@ EVAL_DIR = Path(__file__).resolve().parent
 RESULTADOS = EVAL_DIR / "resultados_ablacao_k_rag.json"
 
 
-def rodar_k(rag, perguntas_rag, k):
+def rodar_k(rag, perguntas_rag, k, usar_adaptive_k=False):
     """Roda rag_gerador.rag_responder() (fonte unica compartilhada com producao/harness) para
-    cada pergunta com o k dado, mede faithfulness (via rodar_golden.avaliar) e tempo por
-    pergunta. Retorna lista de resultados por pergunta + agregados."""
+    cada pergunta com o k dado (ou Adaptive-k, se usar_adaptive_k=True), mede faithfulness (via
+    rodar_golden.avaliar) e tempo por pergunta. Retorna lista de resultados por pergunta."""
     resultados = []
     for pq in perguntas_rag:
         t0 = time.time()
-        resposta, _docs, contexto = rag_gerador.rag_responder(
+        resposta, docs, contexto = rag_gerador.rag_responder(
             pq["pergunta"], rag, call_ollama, k=k,
             buscar_fallback=rag_gerador.buscar_fallback_tfidf,
+            usar_adaptive_k=usar_adaptive_k,
         )
         duracao_s = time.time() - t0
         r = avaliar(pq, resposta, contexto)
         r["duracao_s"] = round(duracao_s, 2)
-        r["k"] = k
+        r["k"] = len(docs) if usar_adaptive_k else k  # k EFETIVO usado nesta pergunta
         resultados.append(r)
     return resultados
 
@@ -79,6 +80,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--k", type=str, default="3,5,10",
                          help="valores de k a testar, separados por virgula (default: 3,5,10)")
+    parser.add_argument("--adaptive", action="store_true",
+                         help="tambem roda Adaptive-k (P1b do plano, EMNLP 2025 arXiv:2506.08479) "
+                              "-- corta pelo gap de score RRF em vez de k fixo")
     args = parser.parse_args()
     valores_k = [int(k.strip()) for k in args.k.split(",")]
 
@@ -93,7 +97,8 @@ def main():
               "de forma comparavel).")
         return
 
-    resultado_final = {"k_testados": valores_k, "por_k": {}}
+    chaves = [str(k) for k in valores_k] + (["adaptive"] if args.adaptive else [])
+    resultado_final = {"k_testados": valores_k, "adaptive_testado": args.adaptive, "por_k": {}}
     for k in valores_k:
         print(f"--- k={k} ---")
         resultados = rodar_k(rag, perguntas_rag, k)
@@ -113,18 +118,46 @@ def main():
         print(f"Duracao media      : {agregados['duracao_media_s']:.2f}s/pergunta")
         print(f"Duracao total      : {agregados['duracao_total_s']:.1f}s\n")
 
+    if args.adaptive:
+        print("--- adaptive-k (EMNLP 2025, arXiv:2506.08479) ---")
+        resultados = rodar_k(rag, perguntas_rag, k=None, usar_adaptive_k=True)
+        agregados = agregar(resultados)
+        agregados["k_efetivo_medio"] = round(sum(r["k"] for r in resultados) / len(resultados), 2)
+        resultado_final["por_k"]["adaptive"] = {
+            "agregados": agregados,
+            "por_pergunta": [
+                {"id": r["id"], "faithfulness": r["faithfulness"], "alucinou": r["alucinou"],
+                 "duracao_s": r["duracao_s"], "k_efetivo": r["k"]}
+                for r in resultados
+            ],
+        }
+        ff = agregados["faithfulness_medio"]
+        ff_str = f"{ff*100:.1f}%" if ff is not None else "-"
+        print(f"Faithfulness medio : {ff_str} (sobre {agregados['n_com_faithfulness']} perguntas)")
+        print(f"Alucinacoes        : {agregados['alucinacoes']}/{agregados['n_perguntas']}")
+        print(f"k efetivo medio    : {agregados['k_efetivo_medio']}")
+        print(f"Duracao media      : {agregados['duracao_media_s']:.2f}s/pergunta")
+        print(f"Duracao total      : {agregados['duracao_total_s']:.1f}s\n")
+
     RESULTADOS.write_text(json.dumps(resultado_final, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print("=" * 70)
     print("RESUMO -- qualidade e custo lado a lado (regra 4 da skill "
           "metricas-avaliacao-ia-industrial)")
     print("=" * 70)
-    print(f"{'k':>4} | {'faithfulness':>12} | {'alucinacoes':>11} | {'s/pergunta':>10} | {'total s':>8}")
+    print(f"{'k':>10} | {'faithfulness':>12} | {'alucinacoes':>11} | {'s/pergunta':>10} | {'total s':>8}")
     for k in valores_k:
         ag = resultado_final["por_k"][str(k)]["agregados"]
         ff = ag["faithfulness_medio"]
         ff_str = f"{ff*100:.1f}%" if ff is not None else "-"
-        print(f"{k:>4} | {ff_str:>12} | {ag['alucinacoes']:>4}/{ag['n_perguntas']:<6} | "
+        print(f"{k:>10} | {ff_str:>12} | {ag['alucinacoes']:>4}/{ag['n_perguntas']:<6} | "
+              f"{ag['duracao_media_s']:>9.2f}s | {ag['duracao_total_s']:>7.1f}s")
+    if args.adaptive:
+        ag = resultado_final["por_k"]["adaptive"]["agregados"]
+        ff = ag["faithfulness_medio"]
+        ff_str = f"{ff*100:.1f}%" if ff is not None else "-"
+        rotulo = f"adaptive(~{ag['k_efetivo_medio']})"
+        print(f"{rotulo:>10} | {ff_str:>12} | {ag['alucinacoes']:>4}/{ag['n_perguntas']:<6} | "
               f"{ag['duracao_media_s']:>9.2f}s | {ag['duracao_total_s']:>7.1f}s")
     print(f"\nResultados salvos em {RESULTADOS}")
 

@@ -127,7 +127,8 @@ Responda em portugues, de forma direta (2-4 frases), citando a fonte."""
 
 # ── 3. Orquestração: busca + prompt + LLM + verificação anti-alucinação ───────────────
 
-def rag_responder(pergunta, rag, call_ollama, k=3, buscar_fallback=None, verbose=False):
+def rag_responder(pergunta, rag, call_ollama, k=3, buscar_fallback=None, verbose=False,
+                   usar_adaptive_k=False):
     """Busca no RAG (com fallback opcional) + gera resposta via LLM + verifica contra o
     contexto. Retorna (resposta, documentos, contexto).
 
@@ -138,8 +139,16 @@ def rag_responder(pergunta, rag, call_ollama, k=3, buscar_fallback=None, verbose
         rag.buscar() nao retornar nada.
     verbose: se True, imprime os chunks recuperados e a resposta final -- util para debug de
         retrieval sem chamar rag.buscar() manualmente fora do fluxo normal.
+    usar_adaptive_k (2026-09-14, P1b do plano "RAG agentico + chunking"): quando True, ignora
+        o k fixo e usa adaptive_k() -- ver docstring dessa funcao para o motivo (ablacao real
+        mostrou que k=10 fixo resolve 2/49 perguntas mas custa 2,2x em TODA pergunta, mesmo nas
+        que ja funcionavam com k=3; Adaptive-k, EMNLP 2025, corta pelo gap real de score sem
+        custo extra). Default False preserva o comportamento de producao ate ser promovido.
     """
-    documentos = _recuperar_documentos(pergunta, rag, k, buscar_fallback)
+    if usar_adaptive_k and rag is not None:
+        documentos = adaptive_k(pergunta, rag)
+    else:
+        documentos = _recuperar_documentos(pergunta, rag, k, buscar_fallback)
     if verbose:
         _log_documentos_recuperados(pergunta, documentos)
 
@@ -170,6 +179,70 @@ def _recuperar_documentos(pergunta, rag, k, buscar_fallback):
     if not documentos and buscar_fallback is not None:
         documentos = buscar_fallback(pergunta, k)
     return documentos
+
+
+K_PISO_ADAPTIVE = 3
+K_TETO_ADAPTIVE = 10
+QUEDA_RELATIVA_MINIMA = 0.4  # corta no 1o gap onde o score cai >=40% em relacao ao anterior
+
+
+def adaptive_k(pergunta, rag, k_piso=K_PISO_ADAPTIVE, k_teto=K_TETO_ADAPTIVE,
+               queda_relativa_minima=QUEDA_RELATIVA_MINIMA):
+    """Adaptive-k (Taguchi, Maekawa, Bhutani, EMNLP 2025, arXiv:2506.08479): em vez de um k FIXO
+    para toda pergunta, corta o numero de chunks passados ao gerador no primeiro "steepest drop"
+    -- a maior queda relativa de score entre chunks consecutivos -- respeitando um piso e um teto.
+
+    ACHADO REAL que motivou esta implementacao (2026-09-14): a ablacao de k=3/5/10
+    (eval/avaliar_ablacao_k_rag.py) mostrou que k=10 fixo resolve exatamente 2 das 49 perguntas
+    do golden set (as que tem "documento certo, secao errada" no rerank -- ver
+    eval/avaliar_retrieval.py), mas custa 2,2x mais (66s vs 30s/pergunta) em TODA pergunta,
+    inclusive as 11/13 mensuraveis que ja funcionavam bem com k=3. Adaptive-k resolve as mesmas
+    2 perguntas sem pagar o custo extra nas outras: quando ha um chunk isolado com score muito
+    mais alto que o resto (a maioria das perguntas), corta cedo (perto do piso); quando os
+    scores caem gradualmente sem um gap claro (as 2 perguntas-problema, onde a secao certa e a
+    errada tem score parecido por serem tematicamente proximas -- ver achado do Cross-Encoder
+    ser peissimo preditor), NAO acha um gap forte perto do topo e avanca ate o teto, dando ao
+    LLM chance de ver a secao certa mesmo nao sendo a 1a.
+
+    Usa o score RRF (usar_score_rrf=True), NAO o score do Cross-Encoder -- achado real do
+    projeto (2026-09-09): score de reranker e peissimo preditor de acerto (casos que erram com
+    score alto, casos que acertam com score baixo), entao um threshold sobre ele seria tao
+    pouco confiavel quanto o proprio reranker. O score RRF vem do retrieval hibrido (E5+BM25),
+    a mesma fonte que P0 confirmou nao introduzir o gap sozinha (gap so aparecia com rerank
+    ligado) -- mais estavel para calibrar um limiar de corte.
+
+    Retorna a lista de candidatos ja RERANKEADA (usar_rerank=True continua ativo -- Adaptive-k
+    so decide QUANTOS, o rerank decide a ORDEM final de quem entra)."""
+    candidatos_rrf = rag.buscar(
+        pergunta, k=k_teto, usar_rerank=False, usar_hybrid=True,
+        usar_score_rrf=True, k_candidatos=k_teto,
+    )
+    if len(candidatos_rrf) <= k_piso:
+        k_efetivo = len(candidatos_rrf)
+    else:
+        k_efetivo = k_teto
+        for i in range(k_piso, len(candidatos_rrf)):
+            score_anterior = candidatos_rrf[i - 1]["score"]
+            score_atual = candidatos_rrf[i]["score"]
+            if score_anterior <= 0:
+                continue
+            queda_relativa = (score_anterior - score_atual) / score_anterior
+            if queda_relativa >= queda_relativa_minima:
+                k_efetivo = i  # corta ANTES do candidato i (0-indexado -> i chunks mantidos)
+                break
+
+    # ACHADO REAL (2026-09-14, ao validar esta funcao): chamar rag.buscar(k=k_efetivo,
+    # usar_rerank=True) de novo NAO reranqueia o mesmo conjunto de candidatos_rrf -- o pipeline
+    # com rerank tem seu proprio k_candidatos default (10) e pode trazer um conjunto de
+    # candidatos diferente do corte que Adaptive-k acabou de calcular, jogando fora o proprio
+    # trabalho do corte. Reranquear DIRETAMENTE os candidatos_rrf ja obtidos, sem nova busca.
+    candidatos_cortados = candidatos_rrf[:k_efetivo]
+    reranker_model = rag._carregar_reranker()
+    scores_rerank = reranker_model.score([(pergunta, c["texto"]) for c in candidatos_cortados])
+    for c, s in zip(candidatos_cortados, scores_rerank):
+        c["score"] = round(float(s), 4)
+    candidatos_cortados.sort(key=lambda c: c["score"], reverse=True)
+    return candidatos_cortados
 
 
 def _log_documentos_recuperados(pergunta, documentos):
