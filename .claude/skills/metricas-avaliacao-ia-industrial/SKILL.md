@@ -26,9 +26,20 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
   for adicionar, reusar a função `ndcg_at_k` já escrita em `avaliar_benchmark_multimodal_2x2.py`
   em vez de reimplementar.
 - ✅ Recall@5/Precision@5/MRR medidos também para duas técnicas avançadas de RAG nesta rodada
-  (2026-09-09): Agentic RAG (`rag/rag_agentic.py`, resultado negativo, não promovido) e
-  Contextual Retrieval (`rag_hibrido_langchain.py::indexar(usar_contexto=True)`, resultado
-  misto, não promovido) — ver `roadmap-rag-survey` itens 3 e 5 para os números completos.
+  (2026-09-09): Agentic RAG (`rag/rag_agentic.py`, resultado negativo inicial com n=15 — **n
+  pequeno demais, ver correção abaixo**) e Contextual Retrieval
+  (`rag_hibrido_langchain.py::indexar(usar_contexto=True)`, resultado misto, não promovido) —
+  ver `roadmap-rag-survey` itens 3 e 5 para os números completos.
+- ✅ **Recall/MRR em nível de CHUNK, não só de documento** (novo, 2026-09-14,
+  `eval/avaliar_retrieval.py::secao_esperada()`/`secao_do_chunk()`) — achado que motivou: o
+  Agentic RAG piorou porque "documento certo, chunk errado" é um modo de falha invisível na
+  métrica de documento (Recall@5=98% mesmo quando a seção certa não está no top-k). Formalizado
+  como [Seven Failure Points, FP2](https://arxiv.org/abs/2401.05856). Extraído do campo `nota`
+  do golden set (41/49 perguntas já citam a seção esperada, sem precisar reanotar) — **cuidado**:
+  5 notas citam 2 seções (armadilha + resposta certa), a extração ingênua pela 1ª ocorrência dá
+  falso positivo, ver `SECOES_ESPERADAS_AMBIGUAS` no código. Resultado real: gap doc-level vs.
+  chunk-level é ~zero sem rerank (98,0%/97,5%), mas real com rerank (98,0%/95,0%, 2 casos
+  genuínos) — o rerank, não o retrieval bruto nem o chunking, introduz o erro.
 - 🔶 **k-NN label purity** (nova, 2026-09-13, `eval/avaliar_retrieval_openpack.py`) — variante de
   Recall/Precision para corpus de retrieval *class-level* (várias instâncias legítimas por
   classe, ex. séries de sensor segmentadas em janelas), onde Recall@k clássico mede a métrica
@@ -102,6 +113,12 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
 - ❌ GPU — não medido; a própria máquina de desenvolvimento não tem GPU CUDA disponível
   (`torch.cuda.is_available() == False`, confirmado 2026-09-09), então localmente nem faria
   sentido medir isso ainda — só relevante se/quando o projeto rodar em hardware com GPU.
+- 🔶 Custo agêntico (nº de iterações, taxa de re-retrieval, latência extra) — exigido pelo SoK
+  de agentic RAG ([arXiv:2603.07379](https://arxiv.org/pdf/2603.07379): "output-only metrics
+  are insufficient for agentic RAG"). `eval/avaliar_rag_agentic.py` (2026-09-14) instrumenta
+  isso via `shared.trace`, mas **nunca foi executado** — script pronto, execução pendente (ver
+  plano `quero-utilizar-esse-dataset-quizzical-harbor.md`). Sem esse número, a comparação
+  Agentic RAG vs. baseline continua incompleta mesmo com a qualidade já medida.
 
 ## Métricas adicionais já usadas no projeto, fora da tabela CERISE
 

@@ -100,6 +100,33 @@ com VLM. Aba "6. Gráficos Técnicos (RAG Multimodal)" no Streamlit, mesmo padr�
 hierárquico da aba OpenPack (`rag_multimodal_responder_ou_manual`,
 `PALAVRAS_CHAVE_GRAFICO`).
 
+## RAG agêntico e chunking (investigação 2026-09-13/14, ver plano `quero-utilizar-esse-dataset-quizzical-harbor.md`)
+
+```powershell
+# Retrieval em nivel de DOCUMENTO e de CHUNK lado a lado (P0) -- usar --rerank para o modo de
+# producao (o gap so aparece com rerank ligado)
+python eval/avaliar_retrieval.py --rerank
+
+# Ablacao de k fixo (chunks passados ao GERADOR, nao ao retrieval) sobre as 49 perguntas rag
+python eval/avaliar_ablacao_k_rag.py --k 3,5,10 --adaptive
+
+# RAG agentico (rag/rag_agentic.py) vs. baseline, n=49, com custo/trace -- SCRIPT PRONTO,
+# AINDA NAO EXECUTADO (pendencia aberta em 2026-09-14, ver plano)
+python eval/avaliar_rag_agentic.py
+```
+
+**Achado real (2026-09-14)**: o Agentic RAG (`rag/rag_agentic.py`) foi medido em 2026-09-09 com
+n=15 e deu resultado negativo (Recall@1 12/15→11/15) — **n pequeno demais** (1 pergunta de
+diferença). Investigação mais funda achou que a causa raiz não era falta de reformulação de
+query: era o retrieval/rerank ordenando mal quando duas seções do mesmo manual são
+tematicamente próximas (ex. dois limiares de "criticidade" do mesmo sensor). A correção real —
+`eval/rag_gerador.py::adaptive_k()`, que corta o nº de chunks passados ao *gerador* pelo gap de
+score RRF (Adaptive-k, EMNLP 2025, arXiv:2506.08479) — resolveu os casos genuínos sem nenhuma
+técnica agêntica. **`eval/avaliar_ablacao_k_rag.py --adaptive` rodou por >10h sem terminar em
+2026-09-14 (vs. ~24min na 1ª medição da mesma configuração) e foi interrompido por desligamento
+de máquina** — investigar a causa da lentidão antes de re-rodar, não assumir que é só "a máquina
+estava lenta" sem profiling (ver `feedback_confirmar_cpu_antes_matar_processo`).
+
 ## Depois de rodar
 
 - Resuma: roteamento (N/total), faithfulness (%), e qualquer pergunta que mudou de resultado em relação à última run conhecida.

@@ -103,14 +103,31 @@ fixada pelo usuário, 2026-09-08).
       (mesmo padrão do DBA-Agent, não score de reranker — ver docstring do módulo para o
       motivo, score do Cross-Encoder se mostrou péssimo preditor de acerto) que avalia se o
       texto recuperado responde à pergunta; se não, reformula a query e busca de novo (1 vez).
-      **Resultado medido: PIOROU** (Recall@1 sobre 15 perguntas do golden set: 12/15 chamada
-      única → 11/15 agentic). Causa raiz investigada: o documento certo é recuperado, mas às
-      vezes o chunk específico não contém a resposta (está em outra seção do mesmo arquivo) —
-      reformular a query não resolve um problema de chunking, e pode afastar do documento já
-      encontrado. **Não promovido para produção** — fica documentado como protótipo medido,
-      não como substituto de `RAGHibrido.buscar()`. 3 testes unitários. O design correto
-      precisaria, ao rejeitar um chunk, tentar um chunk vizinho do MESMO documento antes de
-      reformular a query inteira (não implementado, item de continuidade futura).
+      **Resultado medido originalmente: PIOROU** (Recall@1 sobre 15 perguntas do golden set:
+      12/15 chamada única → 11/15 agentic). **Não promovido para produção** — fica documentado
+      como protótipo medido, não como substituto de `RAGHibrido.buscar()`. 3 testes unitários.
+
+      **CORREÇÃO IMPORTANTE (2026-09-14)**: n=15 era pequeno demais (1 pergunta de diferença) —
+      reexecução com n=49 fica pendente em `eval/avaliar_rag_agentic.py` (script pronto, nunca
+      executado). Mais importante: a causa raiz registrada originalmente ("chunking, precisaria
+      tentar um chunk vizinho do mesmo documento") estava **parcialmente errada**. Investigação
+      com uma métrica nova de chunk-level (`eval/avaliar_retrieval.py`) mostrou que o gap
+      "documento certo, chunk errado" é real mas pequeno (2 casos genuínos de 40 mensuráveis) e
+      **não é causado por chunking** — o corpus é minúsculo (~60 chunks) e o retrieval híbrido
+      já traz o chunk certo na maioria dos casos; a causa é o **rerank ordenando mal quando duas
+      seções do mesmo manual são tematicamente muito próximas** (ex. dois limiares de
+      "criticidade" do mesmo sensor em seções diferentes). A correção real, muito mais simples
+      que "chunk vizinho" ou qualquer técnica agêntica: `eval/rag_gerador.py::adaptive_k()` —
+      corta o nº de chunks passados ao *gerador* (não ao retrieval) pelo gap de score RRF já
+      calculado (Adaptive-k, EMNLP 2025, arXiv:2506.08479), sem chamada extra de LLM. Resolveu
+      os 2 casos genuínos com custo médio bem menor que k=10 fixo (mediana k=4 sobre as 49
+      perguntas). Pesquisa também trouxe suporte formal independente para o resultado negativo
+      original: [Is Agentic RAG worth it? (ACL 2026 Industry,
+      arXiv:2601.07711)](https://arxiv.org/abs/2601.07711) mostra que agentic RAG é
+      sistematicamente até 3,6× mais caro e **pior que rerank puro** em selecionar documentos
+      relevantes — o Harbor já tem rerank Cross-Encoder, o que explica o resultado observado.
+      Ver plano `quero-utilizar-esse-dataset-quizzical-harbor.md` para o detalhe completo,
+      incluindo 2 bugs de metodologia encontrados e corrigidos durante a investigação.
 - [ ] **4. Multi-query (query expansion) via `EnsembleRetriever` com múltiplas queries** (III-C-1)
       — gerar 2-3 variações da pergunta via `ChatOllama`, rodar cada uma contra o
       `RAGLangChainBM25RRF`, fundir com RRF (mesmo mecanismo já usado para sparse+dense, agora
