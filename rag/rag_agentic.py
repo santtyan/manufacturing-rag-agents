@@ -147,9 +147,17 @@ def buscar_agentic(pergunta, rag: RAGHibrido, k=3):
     """Substituto de RAGHibrido.buscar() com retrieval adaptativo: se o primeiro resultado
     tiver score baixo, reformula a query uma vez e busca de novo. Retorna a mesma lista de
     candidatos que buscar() retornaria (drop-in no formato de saida)."""
+    return buscar_agentic_com_estado(pergunta, rag, k)["candidatos"]
+
+
+def buscar_agentic_com_estado(pergunta, rag: RAGHibrido, k=3) -> dict:
+    """Mesma logica de buscar_agentic(), mas devolve o ESTADO FINAL completo do grafo (nao so
+    'candidatos') -- usado por eval/avaliar_rag_agentic.py (P3 do plano de 2026-09-14) para
+    instrumentar custo agentico real: 'tentativas' (quantas vezes reformulou, 0 = respondeu de
+    primeira) e 'pergunta_efetiva' (a query final usada, igual a original se nunca reformulou).
+    Sem isso nao ha como medir taxa de re-retrieval sem re-executar o grafo por fora."""
     grafo = _obter_grafo()
     estado_inicial: EstadoRAGAgentic = {
         "pergunta": pergunta, "pergunta_efetiva": pergunta, "k": k, "rag": rag, "tentativas": 0,
     }
-    resultado = grafo.invoke(estado_inicial, config={"recursion_limit": 6})
-    return resultado["candidatos"]
+    return grafo.invoke(estado_inicial, config={"recursion_limit": 6})
