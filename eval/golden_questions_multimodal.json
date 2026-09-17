@@ -1,156 +1,345 @@
 {
   "_meta": {
-    "descricao": "Golden set para avaliar retrieval do RAG multimodal (caption-then-embed) sobre as 26 imagens sinteticas de rag/manuais_imagens/ (geradas por rag/gerar_imagens_sinteticas.py a partir de dados reais dos pipelines 2 e 4). Cada pergunta tem UM id de imagem relevante (documento_relevante) -- mesmo formato de golden set de 1-documento-relevante ja usado em eval/avaliar_retrieval.py, nao o formato multi-relevante do NanoBEIR/BEIR.",
-    "criado_em": "2026-09-08",
-    "expandido_em": "2026-09-09",
-    "motivo_expansao": "Com corpus de 4 documentos e k=3, um ranqueador aleatorio ja acerta Recall@3=75% por construcao -- o baseline medido de 86% estava a 1 pergunta de distancia do acaso puro e Precision@3 estava hard-capped em 33%. Corpus expandido para 26 imagens com distratores adversariais deliberados (mesmo dado/tipo diferente, eixos trocados, ordenacao diferente, variaveis novas) para o golden set conseguir de fato detectar qualidade de captioning -- ver rag/gerar_imagens_sinteticas.py para o detalhe de cada familia de distrator.",
-    "arquitetura_avaliada": "caption-then-embed (rag/rag_multimodal_langchain.py) -- Fase 4 do plano de disciplina experimental PDC: medir antes de trocar de arquitetura (ColPali/embeddings unificados). Sem numero de baseline, trocar seria fe, nao medicao."
+    "descricao": "Golden set para avaliar o RAG multimodal de graficos tecnicos (item 6b da skill rag-multimodal, geracao deterministica de legendas a partir do dado de origem, sem VLM). Schema alinhado ao golden principal (eval/golden_questions.json) em 2026-09-15 -- item 5.2 do plano de teste/benchmark: rota_esperada, numeros_esperados, numeros_proibidos e tolerancia permitem medir faithfulness da resposta, nao so se o retrieval achou o grafico certo.",
+    "atualizado_em": "2026-09-15",
+    "criado_em": "sessao 2026-09-08/09",
+    "arquitetura_avaliada": "rag/legendas_deterministicas.py (template sobre o DataFrame de origem, sem VLM) indexado no mesmo RAGHibrido de producao, colecao chroma_db_multimodal_deterministico.",
+    "composicao": "20 morfologicas/qualitativas (nenhuma exige numero especifico na resposta -- pedem comparacao/existencia de relacao/tipo de grafico) + 4 armadilhas novas (2026-09-15, ver notas 'ARMADILHA')."
   },
   "perguntas": [
     {
       "id": "mm-cnc-anomalias-componente",
       "pergunta": "qual componente do CNC teve mais anomalias de temperatura?",
-      "documento_relevante": "grafico_anomalias_componentes_cnc"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_anomalias_componentes_cnc",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": "Pergunta qualitativa (qual componente), resposta correta cita o nome do componente com mais anomalias, nao um numero."
     },
     {
       "id": "mm-cnc-anomalias-ranking",
       "pergunta": "mostre o ranking de anomalias por componente do CNC, do maior para o menor",
-      "documento_relevante": "grafico_anomalias_componentes_cnc"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_anomalias_componentes_cnc",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-cnc-anomalias-ranking-ascendente",
       "pergunta": "mostre o ranking de anomalias por componente do CNC, do menor para o maior",
-      "documento_relevante": "grafico_anomalias_cnc_ascendente"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_anomalias_cnc_ascendente",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-pressao-vazao",
       "pergunta": "existe relacao entre pressao e vazao no sistema?",
-      "documento_relevante": "grafico_pressao_vazao"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_pressao_vazao",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-pressao-vazao-grafico",
       "pergunta": "mostre um grafico de dispersao relacionando pressao no eixo x e vazao no eixo y",
-      "documento_relevante": "grafico_pressao_vazao"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_pressao_vazao",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-vazao-pressao-eixos-trocados",
       "pergunta": "mostre um grafico de dispersao relacionando vazao no eixo x e pressao no eixo y",
-      "documento_relevante": "grafico_pressao_vazao_eixos_trocados"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_pressao_vazao_eixos_trocados",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": "Par adversarial de mm-pressao-vazao-grafico -- eixos trocados, testa se o retrieval discrimina qual variavel esta em qual eixo."
     },
     {
       "id": "mm-temperatura-classe-boxplot",
       "pergunta": "mostre a distribuicao (boxplot) de temperatura entre leituras normais e com falha",
-      "documento_relevante": "grafico_temperatura_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_temperatura_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-temperatura-classe-barra",
       "pergunta": "mostre a temperatura media em barras, comparando classe normal e com falha",
-      "documento_relevante": "grafico_temperatura_barras"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_temperatura_barras",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": "Par adversarial com mm-temperatura-classe-boxplot -- mesma variavel (temperatura), tipo de grafico diferente (boxplot vs barra)."
     },
     {
       "id": "mm-temperatura-tempo",
-      "pergunta": "como a temperatura varia ao longo das leituras, por classe de operacao?",
-      "documento_relevante": "grafico_temperatura_scatter_tempo"
+      "pergunta": "como a temperatura varia ao longo das leituras, por classe de operacao",
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_temperatura_scatter_tempo",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-vibracao-classe-boxplot",
       "pergunta": "mostre a distribuicao (boxplot) de vibracao entre operacao normal e com falha",
-      "documento_relevante": "grafico_vibracao_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_vibracao_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-vibracao-classe-barra",
       "pergunta": "mostre a vibracao media em barras, por classe de operacao",
-      "documento_relevante": "grafico_vibracao_barras"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_vibracao_barras",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-vibracao-anomalia",
       "pergunta": "a vibracao ajuda a distinguir leituras anomalas de leituras normais?",
-      "documento_relevante": "grafico_vibracao_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_vibracao_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-voltagem-corrente",
       "pergunta": "mostre corrente no eixo x e voltagem no eixo y, por classe",
-      "documento_relevante": "grafico_corrente_voltagem_eixos_trocados"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_corrente_voltagem_eixos_trocados",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-corrente-voltagem",
       "pergunta": "mostre voltagem no eixo x e corrente no eixo y, por classe",
-      "documento_relevante": "grafico_voltagem_corrente_eixos_trocados"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_voltagem_corrente_eixos_trocados",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": "Par adversarial com mm-voltagem-corrente -- eixos trocados."
     },
     {
       "id": "mm-producao-ranking",
       "pergunta": "qual classe tem a maior taxa de producao media?",
-      "documento_relevante": "grafico_producao_por_classe_ordenado"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_producao_por_classe_ordenado",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-voltagem-classe",
       "pergunta": "como a voltagem se distribui entre classe normal e com falha?",
-      "documento_relevante": "grafico_voltagem_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_voltagem_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-corrente-classe",
       "pergunta": "como a corrente eletrica se distribui entre classe normal e com falha?",
-      "documento_relevante": "grafico_corrente_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_corrente_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-som-classe",
       "pergunta": "existe diferenca no nivel de som entre operacao normal e com falha?",
-      "documento_relevante": "grafico_som_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_som_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-umidade-classe",
       "pergunta": "a umidade varia entre leituras normais e com falha?",
-      "documento_relevante": "grafico_umidade_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_umidade_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-qualidade-oleo-classe",
       "pergunta": "o indice de qualidade do oleo difere entre classe normal e com falha?",
-      "documento_relevante": "grafico_qualidade_oleo_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_qualidade_oleo_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-consumo-energia-classe",
       "pergunta": "o consumo de energia varia entre operacao normal e com falha?",
-      "documento_relevante": "grafico_consumo_energia_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_consumo_energia_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-carga-classe",
       "pergunta": "o percentual de carga difere entre classe normal e com falha?",
-      "documento_relevante": "grafico_carga_por_classe"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_carga_por_classe",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-energia-vs-carga",
       "pergunta": "existe relacao entre consumo de energia e percentual de carga?",
-      "documento_relevante": "grafico_energia_vs_carga"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_energia_vs_carga",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-som-vs-vibracao",
       "pergunta": "existe relacao entre nivel de som e nivel de vibracao?",
-      "documento_relevante": "grafico_som_vs_vibracao"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_som_vs_vibracao",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-anomalia-spindle-tempo",
       "pergunta": "como a anomalia de temperatura do spindle varia ao longo do tempo?",
-      "documento_relevante": "grafico_anomalia_spindle_tempo"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_anomalia_spindle_tempo",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-anomalia-eixo-x-tempo",
       "pergunta": "mostre a serie temporal de anomalia de temperatura do eixo X do CNC",
-      "documento_relevante": "grafico_anomalia_eixo_x_tempo"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_anomalia_eixo_x_tempo",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": "Par adversarial com eixo Y e eixo Z (mesma pergunta, componente diferente) -- testa se o retrieval discrimina qual eixo."
     },
     {
       "id": "mm-anomalia-eixo-y-tempo",
       "pergunta": "mostre a serie temporal de anomalia de temperatura do eixo Y do CNC",
-      "documento_relevante": "grafico_anomalia_eixo_y_tempo"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_anomalia_eixo_y_tempo",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-anomalia-eixo-z-tempo",
       "pergunta": "mostre a serie temporal de anomalia de temperatura do eixo Z do CNC",
-      "documento_relevante": "grafico_anomalia_eixo_z_tempo"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_anomalia_eixo_z_tempo",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
     },
     {
       "id": "mm-anomalia-geral-tempo",
       "pergunta": "mostre a serie temporal de anomalia de temperatura geral do CNC",
-      "documento_relevante": "grafico_anomalia_geral_tempo"
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_anomalia_geral_tempo",
+      "numeros_esperados": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json",
+      "nota": ""
+    },
+    {
+      "id": "mm-armadilha-eixo-inexistente",
+      "pergunta": "mostre o grafico de anomalia de temperatura do eixo W do CNC",
+      "rota_esperada": "rag",
+      "documento_relevante": null,
+      "numeros_esperados": [],
+      "numeros_proibidos": [],
+      "tolerancia": 0.0,
+      "fonte": "armadilha",
+      "nota": "ARMADILHA (2026-09-15): o CNC de 5 eixos do dataset tem eixos X, Y, Z, Spindle e geral -- nao existe 'eixo W'. Resposta correta deve dizer que nao ha esse grafico/eixo, NAO inventar um numero ou confundir com outro eixo (ver caso canonico de object hallucination documentado na skill rag-multimodal, secao Item 6b: VLM le 'Figure 14' errado por confusao de referencia)."
+    },
+    {
+      "id": "mm-armadilha-cruzamento-inexistente",
+      "pergunta": "qual a correlacao entre temperatura do CNC e o indice de qualidade do oleo?",
+      "rota_esperada": "rag",
+      "documento_relevante": null,
+      "numeros_esperados": [],
+      "numeros_proibidos": [],
+      "tolerancia": 0.0,
+      "fonte": "armadilha",
+      "nota": "ARMADILHA (2026-09-15): nao existe grafico de dispersao cruzando temperatura do CNC com qualidade do oleo no corpus (os graficos de dispersao existentes sao pressao-vazao, energia-carga, som-vibracao). Resposta correta deve dizer que nao ha esse grafico, nao afirmar uma correlacao usando outro grafico como se respondesse a pergunta."
+    },
+    {
+      "id": "mm-armadilha-numero-nao-plotado",
+      "pergunta": "qual foi a temperatura maxima registrada no CNC, em graus Celsius?",
+      "rota_esperada": "rag",
+      "documento_relevante": "grafico_temperatura_por_classe",
+      "numeros_esperados": [],
+      "numeros_proibidos": [],
+      "tolerancia": 0.0,
+      "fonte": "armadilha",
+      "nota": "ARMADILHA (2026-09-15): grafico_temperatura_por_classe (boxplot) reporta a MEDIA de temperatura por classe (Fault: 69,40; Normal: 70,11), nao um valor MAXIMO -- um boxplot tem quartis/mediana, nao maximo absoluto citado na legenda. Resposta correta deve responder com o que a legenda de fato contem (medias por classe) ou dizer que o maximo absoluto nao esta disponivel nessa visualizacao, NAO inventar um numero de 'maximo' que a legenda nunca mencionou."
+    },
+    {
+      "id": "mm-armadilha-dimensao-ausente",
+      "pergunta": "o consumo de energia varia entre o turno da manha e o turno da noite?",
+      "rota_esperada": "rag",
+      "documento_relevante": null,
+      "numeros_esperados": [],
+      "numeros_proibidos": [],
+      "tolerancia": 0.0,
+      "fonte": "armadilha",
+      "nota": "ARMADILHA (2026-09-15): os graficos tecnicos deste corpus comparam por CLASSE de operacao (Normal/Fault), nao por turno -- nao existe a dimensao 'turno' em nenhum grafico. Resposta correta deve dizer que essa comparacao nao esta disponivel nos dados, NAO reaproveitar a comparacao por classe como se respondesse sobre turno."
     }
   ]
 }

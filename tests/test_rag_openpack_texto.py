@@ -48,8 +48,8 @@ def test_features_estatisticas_janela_vetor_vazio_nao_quebra():
 
 
 def test_montar_texto_janela_gera_todas_as_secoes_esperadas():
-    """O texto final deve conter uma linha por canal (6 canais) mais a linha de metadado e a
-    linha de Perfil -- contrato minimo que o RAGHibrido espera indexar."""
+    """O texto final deve conter uma linha por canal (6 canais) mais a linha de Perfil --
+    contrato minimo que o RAGHibrido espera indexar."""
     meta = {"sujeito": "U0101", "sessao": "S0100", "operacao": "Picking", "operation_label": 100}
     feats_segmento = {
         canal: {"media": 1.0, "maximo": 2.0, "minimo": 0.5, "desvio_padrao": 0.3,
@@ -58,35 +58,43 @@ def test_montar_texto_janela_gera_todas_as_secoes_esperadas():
     }
     texto = montar_texto_janela(meta, feats_segmento, "completo", ("moderada", "regular"))
 
-    assert "U0101" in texto
-    assert "S0100" in texto
-    assert "Picking" in texto
     assert "Perfil:" in texto
     for canal in CANAIS:
         assert canal is not None  # sanity: CANAIS nao esta vazio
     assert texto.count("picos.") == len(CANAIS)  # uma linha "N picos." por canal
 
 
-def test_montar_texto_janela_identificador_sujeito_tem_pontuacao_colada():
-    """ACHADO REAL desta sessao (investigacao do Recall@5=0%, 2026-09-13): o template gera
-    "sujeito U0101, sessao..." -- a virgula fica colada ao identificador, o que quebra
-    tokenizacao BM25 baseada em str.split() (token vira "U0101," != "U0101" da query limpa).
-    Este teste DOCUMENTA o comportamento atual (ainda nao corrigido -- a mitigacao adotada foi
-    trocar a metrica de avaliacao para k-NN label purity, nao consertar o template). Se este
-    teste comecar a FALHAR no futuro, e porque o template foi corrigido -- nesse caso, atualizar
-    este teste para refletir a correcao, nao reverter a correcao."""
-    meta = {"sujeito": "U0101", "sessao": "S0100", "operacao": "Picking", "operation_label": 100}
+def test_montar_texto_janela_nao_vaza_identificador_nem_rotulo():
+    """CORRIGE bug critico de avaliacao (2026-09-15, ver memoria
+    bug_vazamento_rotulo_openpack_2026-09-15): ate a versao anterior deste teste, o texto
+    indexado continha sujeito/sessao/operacao/classe -- e este proprio teste (entao chamado
+    test_montar_texto_janela_gera_todas_as_secoes_esperadas / test_montar_texto_janela_
+    identificador_sujeito_tem_pontuacao_colada) AFIRMAVA isso como comportamento esperado,
+    protegendo o bug. O vazamento foi descoberto ao rodar LOSO: 3 sujeitos seguidos deram
+    F1=1,0000 exato porque eval/avaliar_classificacao_openpack.py e
+    eval/avaliar_loso_openpack.py usam o proprio texto da janela de teste como query -- o k-NN
+    casava "operacao X" da query com "operacao X" dos vizinhos por BM25 lexical, nao pelo sinal
+    de sensor.
+
+    Este teste agora verifica a PROPRIEDADE DE VALIDADE oposta: nenhuma palavra do identificador
+    de sujeito/sessao nem do rotulo de operacao/classe pode aparecer no texto indexado --
+    independente de qual sujeito/operacao for passado em `meta`. Testado com 2 metas distintas
+    para nao acoplar a um unico valor."""
+    casos = [
+        {"sujeito": "U0101", "sessao": "S0100", "operacao": "Picking", "operation_label": 100},
+        {"sujeito": "U0209", "sessao": "S0500", "operacao": "Assemble Box", "operation_label": 300},
+    ]
     feats_segmento = {
         canal: {"media": 1.0, "maximo": 2.0, "minimo": 0.5, "desvio_padrao": 0.3,
                 "q1": 0.8, "q3": 1.2, "mediana": 1.0, "n_picos": 3}
         for canal in CANAIS
     }
-    texto = montar_texto_janela(meta, feats_segmento, "completo", ("moderada", "regular"))
-
-    tokens = texto.split()
-    # Comportamento atual (achado real, nao corrigido): o token e "U0101," com virgula colada.
-    assert "U0101," in tokens
-    assert "U0101" not in tokens
+    for meta in casos:
+        texto = montar_texto_janela(meta, feats_segmento, "completo", ("moderada", "regular"))
+        assert meta["sujeito"] not in texto
+        assert meta["sessao"] not in texto
+        assert meta["operacao"] not in texto
+        assert str(meta["operation_label"]) not in texto
 
 
 def test_agregar_por_fonte_mantem_ordem_e_colapsa_sub_vetores():

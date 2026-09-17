@@ -51,6 +51,10 @@ sys.path.insert(0, r"C:\Projetos\Harbor\rag")
 sys.path.insert(0, str(Path(__file__).parent))
 
 from rag_hibrido import RAGHibrido
+# nDCG@k reusado de avaliar_benchmark_multimodal_2x2.py -- item 7.6/6.3 do plano de 2026-09-15
+# (lacuna ja documentada na skill metricas-avaliacao-ia-industrial: "funcao ndcg_at_k ja existe
+# pronta, e reuso, nao implementacao"). Nao reimplementar aqui.
+from avaliar_benchmark_multimodal_2x2 import ndcg_at_k
 
 EVAL_DIR = Path(__file__).parent
 GOLDEN = EVAL_DIR / "golden_questions.json"
@@ -136,6 +140,11 @@ def avaliar_pergunta(rag, pergunta_obj, k=K, usar_rerank=False):
             rr = 1.0 / i
             break
 
+    # nDCG@k: relevancia binaria por posicao (1 se fonte==alvo, 0 caso contrario) -- mesmo
+    # contrato de ndcg_at_k() (lista de relevancias ja ordenada pelo rank do retrieval).
+    relevancias_ordenadas = [1.0 if f == alvo else 0.0 for f in fontes]
+    ndcg = ndcg_at_k(relevancias_ordenadas, k=k)
+
     # Chunk-level: so calculado quando a nota cita a secao esperada explicitamente. Um chunk
     # so conta como acerto de CHUNK se, alem de vir do arquivo certo, tambem carregar a secao
     # certa -- e possivel um candidato ter fonte==alvo mas secao != secao_esperada (mesmo modo
@@ -163,6 +172,7 @@ def avaliar_pergunta(rag, pergunta_obj, k=K, usar_rerank=False):
         "recall_at_k": recall_at_k,
         "precision_at_k": round(precision_at_k, 3),
         "reciprocal_rank": round(rr, 3),
+        "ndcg_at_k": round(ndcg, 3),
         "secao_esperada": sec_esperada,
         "recall_chunk_at_k": recall_chunk_at_k,
         "reciprocal_rank_chunk": round(rr_chunk, 3) if rr_chunk is not None else None,
@@ -210,15 +220,18 @@ def main():
     with resultados_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["id", "arquivo_esperado", "recall_at_k", "precision_at_k", "reciprocal_rank",
-                     "secao_esperada", "recall_chunk_at_k", "reciprocal_rank_chunk", "fontes_recuperadas"])
+                     "ndcg_at_k", "secao_esperada", "recall_chunk_at_k", "reciprocal_rank_chunk",
+                     "fontes_recuperadas"])
         for r in resultados:
             w.writerow([r["id"], r["arquivo_esperado"], r["recall_at_k"], r["precision_at_k"],
-                        r["reciprocal_rank"], r["secao_esperada"], r["recall_chunk_at_k"],
-                        r["reciprocal_rank_chunk"], ";".join(r["fontes_recuperadas"])])
+                        r["reciprocal_rank"], r["ndcg_at_k"], r["secao_esperada"],
+                        r["recall_chunk_at_k"], r["reciprocal_rank_chunk"],
+                        ";".join(r["fontes_recuperadas"])])
 
     recall_medio = statistics.mean(r["recall_at_k"] for r in resultados)
     precision_media = statistics.mean(r["precision_at_k"] for r in resultados)
     mrr = statistics.mean(r["reciprocal_rank"] for r in resultados)
+    ndcg_medio = statistics.mean(r["ndcg_at_k"] for r in resultados)
 
     # Chunk-level: so sobre o subconjunto com secao_esperada conhecida (ver docstring do
     # modulo -- perguntas sem numero de secao explicito na nota nao entram aqui).
@@ -232,6 +245,7 @@ def main():
     print(f"Recall@{K} medio (DOCUMENTO) : {recall_medio*100:.1f}%")
     print(f"Precision@{K} media          : {precision_media*100:.0f}%")
     print(f"MRR (documento)              : {mrr:.3f}")
+    print(f"nDCG@{K} medio               : {ndcg_medio:.3f}")
     if com_chunk:
         print(f"\nChunk-level (subconjunto com secao esperada conhecida na nota, {len(com_chunk)}/{len(resultados)} perguntas):")
         print(f"Recall@{K} medio (CHUNK)     : {recall_chunk_medio*100:.1f}%")

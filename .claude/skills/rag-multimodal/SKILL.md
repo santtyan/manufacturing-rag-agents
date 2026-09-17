@@ -540,12 +540,38 @@ fidelidade perfeita do texto, o **retrieval por instância** (BM25/E5 tentando a
 certa") falhou (Recall@5=0%) — não por bug, mas porque séries de sensor segmentadas em janelas
 são um problema de retrieval **class-level**, não instance-level (nenhuma janela específica é "a
 resposta certa"; o que importa é achar vizinhos da mesma classe). Corrigido trocando a métrica
-para k-NN label purity (12,9%, ver skill `metricas-avaliacao-ia-industrial`) e, mais importante,
-implementando o protocolo de **classificação** k-NN do próprio RAG-HAR: **F1-macro = 0,9217 e
-0,9114** (dois protocolos) contra o benchmark oficial `openpack-torch`, superando os 3 baselines
-supervisionados (UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081) — ver skill `rodar-harness`
-para os comandos e `eval/resultados_classificacao_openpack_completo.json` para o resultado
-completo.
+para k-NN label purity (12,9%, confirmado imune ao bug abaixo, ver skill
+`metricas-avaliacao-ia-industrial`) e implementando o protocolo de **classificação** k-NN do
+próprio RAG-HAR contra o benchmark oficial `openpack-torch` — **números CORRIGIDOS em
+2026-09-15, ver bloco logo abaixo; os 0,9217/0,9114 publicados até 2026-09-14 eram inflados por
+um bug de avaliação.**
+
+**BUG CRÍTICO DE AVALIAÇÃO corrigido em 2026-09-15 — vazamento de rótulo**: o texto gerado por
+`rag_openpack_texto.py::montar_texto_janela()` citava sujeito/sessão/operação/classe na primeira
+linha, e essa mesma linha entrava tanto no corpus quanto na QUERY de avaliação
+(`montar_texto_pergunta_para_janela()` usa o texto da própria janela de teste como query). O k-NN
+de classificação casava rótulo↔rótulo por BM25 lexical, não sinal de sensor. Descoberto ao rodar
+LOSO pela primeira vez: 3 sujeitos seguidos deram F1=1,0000 exato. Agravante: um teste unitário
+(`tests/test_rag_openpack_texto.py`) afirmava a presença do rótulo como comportamento esperado —
+protegia o bug. Corrigido: identificação agora só em **metadado** do documento, nunca no texto
+embeddado; teste reescrito para verificar a ausência.
+
+**Números REAIS pós-correção**, validados por 3 checagens (ausência léxica 0/4000, rótulo
+embaralhado F1=0,0182 < acaso 0,10, LOSO sem F1=1,0000 exato): split oficial "Pilot Challenge"
+F1-macro = **0,0750** (amostra pequena, 26 janelas) e **0,1664** (teste completo, 2.591 janelas,
+número de referência); **LOSO** (21 sujeitos, protocolo padrão-ouro em HAR) F1-macro médio =
+**0,1626 ± 0,0686** (min 0,0311/U0107, max 0,3270/U0101), consistente com o teste completo.
+**Todos abaixo** dos 3 baselines supervisionados (UNet=0,3451, ST-GCN=0,7024,
+DeepConvLSTM=0,7081) — o método training-free não supera as redes neste dataset. Ver
+`[[bug_vazamento_rotulo_openpack_2026-09-15]]`, `eval/resultados_classificacao_openpack.json`,
+`eval/resultados_classificacao_openpack_completo.json`, `eval/resultados_loso_openpack.json`.
+
+**Achado adicional, sem relação com o bug acima (2026-09-15)**: o dataset pré-processado completo
+(21 sujeitos, 102 sessões, vs. o sample de 1 sujeito usado até então) revelou **duas levas de
+coleta não documentadas pelos autores** — sujeitos U0101-U0106 têm as colunas `quat_*` zeradas em
+100% das sessões, U0107-U0210 têm sinal válido em 100% das sessões, sem caso misto. O corpus do
+Harbor é confirmado imune (não usa quaternion no texto indexado) e o split oficial usa só
+sujeitos da leva sem quaternion. Ver `[[openpack_duas_levas_coleta_quaternion_2026-09-15]]`.
 
 **Princípio geral, confirmado de forma independente 3 vezes (varredura de ~20 referências de
 GitHub/papers enviadas pelo usuário em 2026-09-13, nenhuma diretamente aplicável ao domínio
@@ -627,6 +653,52 @@ que confere as 26 legendas contra o harness real e trava 100% de aprovação com
 build. Zero VLM aprovado continua sendo verdade — só deixou de ser o bloqueio, porque a
 arquitetura certa nunca precisou de um.
 
+**Validação externa independente (pesquisa de estado da arte, 2026-09-14, posterior à
+decisão)**: três achados publicados depois desta implementação confirmam a escolha sem que o
+Harbor tenha se apoiado neles para decidir:
+- **[ChartFI](https://arxiv.org/pdf/2605.23694)** (benchmark 2026 de faithfulness de descrição
+  de gráfico por MLLM) conclui que *"table-grounded methods generally demonstrate higher
+  faithfulness rates"* que a via visual — exatamente o resultado 100% vs. 93,6% acima, agora com
+  um benchmark externo dedicado ao mesmo fenômeno, não só o arXiv:2312.10160 já citado.
+- **[Chart-to-Text](https://arxiv.org/pdf/2203.06486)** / **[VisText](https://arxiv.org/pdf/2307.05356)**:
+  *"image-only models performing the worst of all chart captioning models, showing high
+  confidence in inaccurate captions"* — confirma que o problema é estrutural (classe de
+  modelo), não escolha de modelo específico.
+- **Caso de falha canônico em RAG multimodal industrial 2026** (via
+  [ragaboutit.com](https://ragaboutit.com/5-object-hallucinations-breaking-multimodal-rag-blind/)):
+  VLM recupera a imagem certa (esquema "Figure 14"), mas a pergunta é sobre uma peça ("Part
+  B-7") que não está naquela figura — o modelo lê um número de outro lugar do desenho e o
+  devolve com confiança como se fosse a especificação certa. É a mesma classe de erro que
+  `eval/checks_fidelidade_caption.py` existe para pegar.
+
+**Onde o Harbor fica à frente do padrão descrito na literatura**: a taxonomia 2026 de RAG
+multimodal (survey [arXiv:2510.15253](https://arxiv.org/pdf/2510.15253)) nomeia três arquiteturas
+— caption-and-index (a mais simples), unified vision embeddings (Cohere Embed 4,
+voyage-multimodal-3.5) e page-as-image/late interaction (ColPali/ColQwen3/ColNomic, SOTA em
+ViDoRe). O Harbor tem a primeira em produção — mas numa variante que a literatura consultada não
+nomeia: *caption determinístico a partir do dado de origem*, não do pixel. Para gráfico gerado
+de tabela conhecida, isso torna a fidelidade um invariante estrutural (100% por construção), não
+uma métrica a perseguir. É um resultado com peso de método, não só de engenharia — considerar
+citar como contribuição em qualquer publicação da linha RAG do projeto.
+
+**"Fidelidade 100% por construção" agora é invariante VERIFICADO, não só afirmado (2026-09-15,
+item 5.5 do plano)**: `eval/teste_provenencia_numerica_legendas.py` (novo) extrai todo número do
+texto de cada legenda e confirma que ele bate com um valor recalculado independentemente a
+partir do CSV de origem (`estatisticas_da_variavel()`), sem depender de como o texto foi
+gerado. Resultado: 78/78 números com proveniência confirmada, 0 falhas, sobre as 26 legendas.
+Isso é diferente dos checks de fidelidade (`eval/checks_fidelidade_caption.py`), que validam
+por REGRA heurística — este valida por invariante.
+
+**Golden set da Trilha A ganhou schema rico e 4 armadilhas (2026-09-15, itens 5.1/5.2)**:
+`eval/golden_questions_multimodal.json` migrado de 3 para 8 campos (schema do golden principal:
+`rota_esperada`, `numeros_esperados`, `tolerancia` etc.) e de 29 para 33 perguntas — as 4 novas
+são armadilhas (eixo inexistente, cruzamento inexistente, número não plotado, dimensão ausente).
+`eval/avaliar_rag_multimodal.py` precisou ser corrigido para tratar `documento_relevante=None`
+sem quebrar (armadilhas ficam fora da média de Recall/Precision/MRR, que pressupõem "existe 1
+documento certo"). Achado incidental: a armadilha "número não plotado" teve MISS real no
+retrieval (não é bug do teste) — dado de entrada para o item 5.4 (gate de fidelidade na
+resposta), ainda pendente.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [x] **2b. Resolver VLM de qualidade suficiente — DESPRIORIZADO, resultado negativo
@@ -640,11 +712,19 @@ arquitetura certa nunca precisou de um.
 - [x] **6 (completo). Integrar ao dashboard/chat de produção — trilhas IMU/OpenPack E
       RGB/gráfico** — ver seções acima. Ambas as trilhas de RAG multimodal do Harbor estão em
       produção no Streamlit desde 2026-09-14 (Fases 7f e 6b), nenhuma usando VLM.
-- [ ] **7. ColPali/ColQwen2 como via secundária** — decisão adiada explicitamente até o dataset
-      real chegar (ver critério de escolha acima): usar quando recall for o gargalo medido E as
-      queries forem visualmente difíceis, não antes.
-- [ ] **8. GraphRAG-sobre-estrutura (ex. DEXPI)** — só relevante se um dia houver diagrama real
-      em formato estruturado formal (P&ID), não para os dados sintéticos atuais.
+- [x] **7. ColPali/ColQwen2 como via secundária — FECHADO por enquanto, com critério de
+      reabertura (2026-09-14)**: não é pendência em aberto, é decisão já tomada. Critério de
+      promoção já escrito acima ("usar quando recall for o gargalo medido E as queries forem
+      visualmente difíceis") e nenhuma das duas condições vale hoje — ColModernVBERT já
+      instalado/medido (~49s/imagem em CPU, sem GPU disponível na máquina), e nenhum gap de
+      recall foi medido que a via determinística/textual não resolva. **Reabrir apenas se**:
+      (a) surgir corpus com queries visualmente difíceis de verdade (diagrama denso, múltiplos
+      componentes rotulados sem texto extraível), OU (b) GPU ficar disponível, tornando o custo
+      de CPU irrelevante.
+- [x] **8. GraphRAG-sobre-estrutura (ex. DEXPI) — FECHADO por enquanto, com critério de
+      reabertura (2026-09-14)**: exige diagrama real em formato estruturado formal (P&ID/DEXPI),
+      que o projeto não tem — dados são sintéticos, sem esse padrão. **Reabrir apenas se** um
+      dataset com P&ID estruturado formal entrar no escopo do projeto.
 
 ## Como usar esta skill
 

@@ -18,8 +18,16 @@ from eval.avaliar_benchmark_multimodal_2x2 import carregar_corpus_openpack
 
 def test_pipeline_completo_sample_gera_corpus_indexavel():
     """Roda carregar_sessao -> segmentar_janelas -> gerar_corpus_rag sobre o sample U0209 e
-    confere que o resultado tem o schema EXATO esperado por
-    RAGHibrido.indexar(documentos_customizados=...): lista de {"id","texto","fonte"}."""
+    confere que o resultado tem o schema esperado por
+    RAGHibrido.indexar(documentos_customizados=...): {"id","texto","fonte"} obrigatorios.
+
+    ATUALIZADO 2026-09-15/16 (bug do vazamento de rotulo): o contrato ganhou um 4o campo,
+    "metadados" (dict com sujeito/sessao/operacao/operation_label), usado pela aba de chat para
+    compor a resposta ao usuario SEM que essa informacao entre no texto embeddado -- ver
+    rag/rag_openpack_texto.py::gerar_corpus_rag() e memoria
+    bug_vazamento_rotulo_openpack_2026-09-15. RAGHibrido.indexar() ignora chaves extras alem de
+    id/texto/fonte, entao o campo novo e aditivo, nao quebra o consumidor -- por isso o teste
+    verifica presenca (>=), nao igualdade exata de chaves."""
     df_sinais = carregar_sessao("U0209", "S0500", usar_sample=True)
     df_janelas = segmentar_janelas(df_sinais, freq_hz=33.33)
     assert len(df_janelas) > 0, "sample U0209 deveria gerar pelo menos 1 janela valida"
@@ -30,9 +38,11 @@ def test_pipeline_completo_sample_gera_corpus_indexavel():
 
     assert len(documentos) > 0
     for doc in documentos:
-        assert set(doc.keys()) == {"id", "texto", "fonte"}
+        assert {"id", "texto", "fonte"} <= set(doc.keys())
         assert isinstance(doc["texto"], str) and len(doc["texto"]) > 0
         assert doc["id"].startswith(doc["fonte"])
+        assert "metadados" in doc and isinstance(doc["metadados"], dict)
+        assert {"sujeito", "sessao", "operacao", "operation_label"} <= set(doc["metadados"].keys())
 
 
 def _gerar_sem_gravar(sinais_por_sessao, df_janelas):
@@ -45,6 +55,34 @@ def _gerar_sem_gravar(sinais_por_sessao, df_janelas):
         documentos = gerar_corpus_rag(sinais_por_sessao, df_janelas, caminho_saida=caminho_tmp)
         assert caminho_tmp.exists()
     return documentos
+
+
+def test_pipeline_completo_nao_vaza_rotulo_no_corpus_indexavel():
+    """Teste de INTEGRACAO para o bug de 2026-09-15 (ver memoria
+    bug_vazamento_rotulo_openpack_2026-09-15): roda o caminho completo
+    carregar_sessao -> segmentar_janelas -> gerar_corpus_rag sobre o sample real (nao dados
+    sinteticos, ao contrario de tests/test_rag_openpack_texto.py) e confirma que NENHUM
+    documento do corpus final contem o nome de operacao no TEXTO indexavel -- fecha o gap que
+    o teste unitario sozinho nao cobria (corpus gerado isoladamente estava certo, era a
+    MONTAGEM da query de avaliacao que reintroduzia o vazamento por outro caminho)."""
+    from pipelines.pipeline8_openpack import CLASSES_OPERACAO
+
+    df_sinais = carregar_sessao("U0209", "S0500", usar_sample=True)
+    df_janelas = segmentar_janelas(df_sinais, freq_hz=33.33)
+    sinais_por_sessao = {("U0209", "S0500"): df_sinais}
+    documentos = _gerar_sem_gravar(sinais_por_sessao, df_janelas.head(10))
+
+    assert len(documentos) > 0
+    operacoes = set(CLASSES_OPERACAO.values()) if isinstance(CLASSES_OPERACAO, dict) else set(CLASSES_OPERACAO)
+    for doc in documentos:
+        for operacao in operacoes:
+            assert operacao not in doc["texto"], (
+                f"VAZAMENTO: documento {doc['id']} contem o rotulo de operacao '{operacao}' "
+                f"no texto indexado -- regressao do bug corrigido em 2026-09-15."
+            )
+        assert "classe " not in doc["texto"].lower(), (
+            f"VAZAMENTO: documento {doc['id']} contem 'classe <N>' no texto indexado."
+        )
 
 
 def test_gates_openpack_nao_regridem_roteamento_existente():

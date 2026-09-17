@@ -22,9 +22,10 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
 ### Recuperação
 - ✅ Recall@k/Precision@k/MRR: `eval/avaliar_retrieval.py` (RAG texto), `eval/avaliar_retrieval_nanobeir.py` (benchmark acadêmico), `eval/avaliar_rag_multimodal.py` e `eval/avaliar_benchmark_multimodal_2x2.py` (RAG multimodal).
 - ✅ nDCG (multimodal, desde 2026-09-09): `eval/avaliar_benchmark_multimodal_2x2.py`.
-- ❌ nDCG no RAG de texto — `eval/avaliar_retrieval.py` ainda só tem Recall/Precision/MRR. Se
-  for adicionar, reusar a função `ndcg_at_k` já escrita em `avaliar_benchmark_multimodal_2x2.py`
-  em vez de reimplementar.
+- ✅ nDCG no RAG de texto (fechado em 2026-09-15, item 7.6/6.3 do plano): `eval/avaliar_retrieval.py`
+  agora importa e reusa `ndcg_at_k` de `avaliar_benchmark_multimodal_2x2.py` (nenhuma
+  reimplementação) — relevância binária por posição (1 se fonte==alvo). Resultado:
+  nDCG@5 médio = 0,891 (coerente com MRR = 0,898 do mesmo conjunto de 49 perguntas).
 - ✅ Recall@5/Precision@5/MRR medidos também para duas técnicas avançadas de RAG nesta rodada
   (2026-09-09): Agentic RAG (`rag/rag_agentic.py`, resultado negativo inicial com n=15 — **n
   pequeno demais, ver correção abaixo**) e Contextual Retrieval
@@ -45,9 +46,28 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
   classe, ex. séries de sensor segmentadas em janelas), onde Recall@k clássico mede a métrica
   errada (deu 0% mesmo com retrieval funcionando, porque nenhuma janela específica é "a resposta
   certa"). Mede a fração dos k vizinhos que compartilham o rótulo/classe da janela de origem,
-  contra o acaso esperado (1/n_classes). Resultado: pureza=12,9% (acaso=10%). Formalizado como
-  🔶 porque cobre só o OpenPack até agora — ainda não é usado em nenhum outro corpus do Harbor
-  que precise dela (todos os outros são instance-level de fato).
+  contra o acaso esperado (1/n_classes). Resultado: pureza=12,9% (acaso=10%), **reconfirmado
+  idêntico em 2026-09-15 sobre o corpus corrigido** (ver bug de vazamento abaixo) — este script
+  já era imune por construção, porque a query vem de `golden_questions_openpack.json` (perguntas
+  em linguagem natural), não do texto indexado. Formalizado como 🔶 porque cobre só o OpenPack
+  até agora — ainda não é usado em nenhum outro corpus do Harbor que precise dela (todos os
+  outros são instance-level de fato).
+- ✅ **F1-macro de classificação OpenPack** (`eval/avaliar_classificacao_openpack.py`,
+  `eval/avaliar_loso_openpack.py`) — **adicionada à tabela nesta rodada (2026-09-15); nunca
+  tinha entrado formalmente**, apesar de ser o número mais citado do projeto. Split oficial
+  "Pilot Challenge": F1-macro = 0,0750 (amostra pequena) e 0,1664 (teste completo, 2.591
+  janelas, referência). LOSO (21 sujeitos, protocolo padrão-ouro): F1-macro médio =
+  0,1626 ± 0,0686, consistente com o teste completo. Todos abaixo dos 3 baselines
+  supervisionados — ver bug de vazamento abaixo para o porquê dos números terem mudado dos
+  0,9217/0,9114 publicados até 2026-09-14.
+- ✅ **Proveniência numérica das legendas** (`eval/teste_provenencia_numerica_legendas.py`,
+  novo em 2026-09-15, item 5.5 do plano): diferente dos checks de fidelidade abaixo (que
+  validam por REGRA heurística), este verifica por **invariante** — para cada número no texto
+  de cada legenda, confirma que ele bate com um valor de fato recalculado a partir do CSV de
+  origem via `estatisticas_da_variavel()`, independente do texto já gerado. Resultado: 78/78
+  números com proveniência confirmada (0 falhas), sobre as 26 legendas do corpus. Transforma a
+  tese "fidelidade 100% por construção" (skill `rag-multimodal`, item 6b) de afirmação em
+  invariante verificado — material forte para um manuscrito, não só um número reportado.
 - ✅ Fidelidade de caption multimodal (`eval/checks_fidelidade_caption.py`, 6 checks
   determinísticos): **achado importante (2026-09-14) sobre validar a própria métrica** — um bug
   de divisão (`len(dict)` capturado depois de inserir uma chave extra no mesmo dict, dividindo
@@ -60,6 +80,21 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
   que deveria passar 100% (aqui, só apareceu ao validar uma via determinística nova) pode
   esconder bugs de aritmética básica por muito tempo — vale ter pelo menos 1 caso de controle
   positivo perfeito em qualquer suíte de avaliação nova.
+- ❌➜✅ **BUG CRÍTICO DE AVALIAÇÃO corrigido em 2026-09-15 — vazamento de rótulo no OpenPack**:
+  até então, o texto indexado usado como corpus e como QUERY de avaliação continha o nome da
+  operação (`rag/rag_openpack_texto.py`) — o k-NN de classificação casava rótulo com rótulo por
+  BM25 lexical, não sinal de sensor, inflando F1-macro de ~0,08-0,16 reais para 0,9217/0,9114
+  publicados. Descoberto rodando LOSO pela primeira vez: 3 sujeitos seguidos deram F1=1,0000
+  exato (perfeição repetida = sintoma clássico de vazamento). **Agravante**: um teste unitário
+  (`tests/test_rag_openpack_texto.py`) afirmava a presença do rótulo no texto como comportamento
+  ESPERADO — protegia o bug ativamente, não só deixava passar.
+  **Lição generalizável, complementando a lição acima sobre fidelidade de caption**: aquela
+  lição cobre o CONTROLE POSITIVO (ter 1 caso que deve passar 100%); esta cobre o **CONTROLE
+  NEGATIVO**, que faltava — um teste de sanidade tipo *data randomization test* (embaralhar
+  rótulos e verificar que a métrica desaba para o acaso; padrão desde Zhang et al. 2016,
+  formalizado em Sanity Checks for Saliency Maps, NeurIPS 2018) teria pego este bug no primeiro
+  dia. **Regra nova**: todo harness de classificação/retrieval deve ter os dois controles, não
+  só o positivo. Ver `[[bug_vazamento_rotulo_openpack_2026-09-15]]` para evidência completa.
 
 ### LLM
 - ✅ Faithfulness: métrica central de `eval/rodar_golden.py` (números esperados citados na resposta).
@@ -113,12 +148,33 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
 - ❌ GPU — não medido; a própria máquina de desenvolvimento não tem GPU CUDA disponível
   (`torch.cuda.is_available() == False`, confirmado 2026-09-09), então localmente nem faria
   sentido medir isso ainda — só relevante se/quando o projeto rodar em hardware com GPU.
+- 🔶 **Hardware + tokens/s, primeira medição formal (2026-09-16, atividade do grupo PDC)** —
+  `llama3.2:1b` via Ollama 0.34.1, Intel i5-1235U (12ª ger., sem GPU dedicada), 23,7 GB RAM,
+  arquivo do modelo 1,32 GB. **10,15–15,42 tokens/s** em geração pura (3 execuções, mesmo
+  prompt — variação real de ~50%, reportar como faixa, não número único). **Achado**: com
+  prompt longo (~1.700 tokens), o gargalo em CPU sem GPU é **ingestão do contexto de entrada**
+  (`prompt_eval_duration`), não a geração da resposta — tempo total 50,6s, mas
+  `eval_duration` (geração) só 1,3s. Formalizado como 🔶 porque cobre só 1 modelo/1 máquina;
+  ver `[[atividade_pdc_rodar_modelo_local_2026-09-16]]`.
 - 🔶 Custo agêntico (nº de iterações, taxa de re-retrieval, latência extra) — exigido pelo SoK
   de agentic RAG ([arXiv:2603.07379](https://arxiv.org/pdf/2603.07379): "output-only metrics
   are insufficient for agentic RAG"). `eval/avaliar_rag_agentic.py` (2026-09-14) instrumenta
   isso via `shared.trace`, mas **nunca foi executado** — script pronto, execução pendente (ver
   plano `quero-utilizar-esse-dataset-quizzical-harbor.md`). Sem esse número, a comparação
   Agentic RAG vs. baseline continua incompleta mesmo com a qualidade já medida.
+- 🔶 **Variância entre execuções** (nova, 2026-09-16, item 8 do plano de teste/benchmark) —
+  para qualquer sistema não-determinístico (LLM com temperature>0), uma métrica de qualidade
+  medida em **1 execução só** não é suficiente para decidir promoção: literatura de 2026 exige
+  N=3-10 execuções, reportar média±desvio, e só considerar a diferença real se sobreviver ao
+  desvio. `eval/avaliar_variancia_adaptive_k.py` implementa isso para a decisão de promover
+  Adaptive-k (ganho original de 88,5% vs 76,9% do melhor k fixo vinha de 1 execução só — ainda
+  não confirmado se sobrevive a N=3, ver CLAUDE.md). Formalizado como 🔶 porque cobre só essa
+  decisão; generalizar para outras comparações de configuração no futuro.
+  **Achado colateral importante**: um bug de timeout (`subprocess.run(timeout=2400)` sem
+  `try/except`) no script de N execuções foi mal-diagnosticado por 5-6h como "Ollama travando"
+  — ver `[[bug_timeout_silencioso_subprocess_2026-09-16]]`. Lição para qualquer harness que
+  chama subprocessos longos: sempre capturar `TimeoutExpired` e logar no stdout, nunca deixar
+  o traceback só no stderr sem ninguém checando.
 
 ## Métricas adicionais já usadas no projeto, fora da tabela CERISE
 

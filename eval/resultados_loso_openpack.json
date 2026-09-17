@@ -1,0 +1,175 @@
+{
+  "protocolo": "LOSO (Leave-One-Subject-Out)",
+  "k": 5,
+  "n_sujeitos": 21,
+  "n_sujeitos_classificados": 21,
+  "n_janelas_totais": 1000,
+  "f1_macro_medio": 0.1626,
+  "f1_macro_desvio": 0.0686,
+  "f1_macro_min": {
+    "sujeito": "U0107",
+    "f1": 0.0311
+  },
+  "f1_macro_max": {
+    "sujeito": "U0101",
+    "f1": 0.327
+  },
+  "resultados_por_sujeito": {
+    "U0101": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.327,
+      "duracao_s": 50.3
+    },
+    "U0102": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.0798,
+      "duracao_s": 39.0
+    },
+    "U0103": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.2218,
+      "duracao_s": 44.4
+    },
+    "U0104": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1845,
+      "duracao_s": 34.4
+    },
+    "U0105": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.2366,
+      "duracao_s": 30.9
+    },
+    "U0106": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.205,
+      "duracao_s": 30.8
+    },
+    "U0107": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.0311,
+      "duracao_s": 33.6
+    },
+    "U0108": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.0792,
+      "duracao_s": 32.8
+    },
+    "U0109": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1536,
+      "duracao_s": 32.9
+    },
+    "U0110": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1521,
+      "duracao_s": 34.7
+    },
+    "U0111": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1436,
+      "duracao_s": 30.5
+    },
+    "U0201": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.0556,
+      "duracao_s": 36.8
+    },
+    "U0202": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1383,
+      "duracao_s": 34.7
+    },
+    "U0203": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.226,
+      "duracao_s": 30.7
+    },
+    "U0204": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.169,
+      "duracao_s": 31.9
+    },
+    "U0205": {
+      "n_janelas_teste": 50,
+      "n_classificadas": 50,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1515,
+      "duracao_s": 30.2
+    },
+    "U0206": {
+      "n_janelas_teste": 40,
+      "n_classificadas": 40,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1834,
+      "duracao_s": 23.7
+    },
+    "U0207": {
+      "n_janelas_teste": 40,
+      "n_classificadas": 40,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1625,
+      "duracao_s": 24.0
+    },
+    "U0208": {
+      "n_janelas_teste": 40,
+      "n_classificadas": 40,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.0937,
+      "duracao_s": 25.2
+    },
+    "U0209": {
+      "n_janelas_teste": 40,
+      "n_classificadas": 40,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.1722,
+      "duracao_s": 25.0
+    },
+    "U0210": {
+      "n_janelas_teste": 40,
+      "n_classificadas": 40,
+      "n_sem_vizinho_treino": 0,
+      "f1_macro": 0.2483,
+      "duracao_s": 24.3
+    }
+  },
+  "baselines_oficiais": {
+    "UNet": 0.3451,
+    "ST-GCN": 0.7024,
+    "DeepConvLSTM": 0.7081
+  },
+  "training_free": true,
+  "tempo_indexacao_s": 72.8,
+  "tempo_total_s": 681.1,
+  "n_documentos_indexados": 4000
+}

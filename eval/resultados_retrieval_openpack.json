@@ -4,16 +4,16 @@
   "n_perguntas_avaliadas": 45,
   "n_nao_respondiveis": 5,
   "pureza_media": 0.129,
-  "n_purezas_perfeitas": 1,
-  "n_purezas_zeradas": 33,
+  "n_purezas_perfeitas": 0,
+  "n_purezas_zeradas": 25,
   "acaso_esperado": 0.1,
-  "tempo_indexacao_s": 72.5,
-  "tempo_medio_busca_s": 0.054,
+  "tempo_indexacao_s": 16.0,
+  "tempo_medio_busca_s": 0.043,
   "n_documentos_indexados": 4000,
   "purezas_por_pergunta": [
     {
       "id": "openpack-morf-01",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-morf-02",
@@ -21,11 +21,11 @@
     },
     {
       "id": "openpack-morf-03",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-morf-04",
-      "pureza": 0.6
+      "pureza": 0.0
     },
     {
       "id": "openpack-morf-05",
@@ -33,11 +33,11 @@
     },
     {
       "id": "openpack-morf-06",
-      "pureza": 0.2
+      "pureza": 0.0
     },
     {
       "id": "openpack-morf-07",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-morf-08",
@@ -45,7 +45,7 @@
     },
     {
       "id": "openpack-morf-09",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-morf-10",
@@ -53,11 +53,11 @@
     },
     {
       "id": "openpack-morf-11",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-morf-12",
-      "pureza": 0.4
+      "pureza": 0.0
     },
     {
       "id": "openpack-morf-13",
@@ -65,11 +65,11 @@
     },
     {
       "id": "openpack-morf-14",
-      "pureza": 0.6
+      "pureza": 0.0
     },
     {
       "id": "openpack-morf-15",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-morf-16",
@@ -77,11 +77,11 @@
     },
     {
       "id": "openpack-morf-17",
-      "pureza": 0.0
+      "pureza": 0.4
     },
     {
       "id": "openpack-morf-18",
-      "pureza": 0.0
+      "pureza": 0.8
     },
     {
       "id": "openpack-morf-19",
@@ -93,31 +93,31 @@
     },
     {
       "id": "openpack-disc-01",
-      "pureza": 0.6
+      "pureza": 0.4
     },
     {
       "id": "openpack-disc-02",
-      "pureza": 0.2
+      "pureza": 0.4
     },
     {
       "id": "openpack-disc-03",
-      "pureza": 1.0
+      "pureza": 0.0
     },
     {
       "id": "openpack-disc-04",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-disc-05",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-disc-06",
-      "pureza": 0.0
+      "pureza": 0.6
     },
     {
       "id": "openpack-disc-07",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-disc-08",
@@ -125,7 +125,7 @@
     },
     {
       "id": "openpack-disc-09",
-      "pureza": 0.0
+      "pureza": 0.4
     },
     {
       "id": "openpack-disc-10",
@@ -145,7 +145,7 @@
     },
     {
       "id": "openpack-disc-14",
-      "pureza": 0.6
+      "pureza": 0.2
     },
     {
       "id": "openpack-disc-15",
@@ -157,23 +157,23 @@
     },
     {
       "id": "openpack-cross-02",
-      "pureza": 0.4
+      "pureza": 0.2
     },
     {
       "id": "openpack-cross-03",
-      "pureza": 0.4
+      "pureza": 0.0
     },
     {
       "id": "openpack-cross-04",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-cross-05",
-      "pureza": 0.0
+      "pureza": 0.2
     },
     {
       "id": "openpack-cross-06",
-      "pureza": 0.4
+      "pureza": 0.2
     },
     {
       "id": "openpack-cross-07",
@@ -181,7 +181,7 @@
     },
     {
       "id": "openpack-cross-08",
-      "pureza": 0.4
+      "pureza": 0.0
     },
     {
       "id": "openpack-cross-09",

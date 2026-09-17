@@ -139,11 +139,25 @@ def _discretizar_perfil(feats_completo: dict, limiares_intensidade: tuple, limia
 
 def montar_texto_janela(meta: dict, feats_segmento: dict, segmento: str, perfil: tuple[str, str]) -> str:
     """Template fixo em portugues -- o contrato de texto que entra no RAGHibrido. Uma linha por
-    canal com as 8 features, fechando com a linha 'Perfil:' de discretizacao qualitativa."""
+    canal com as 8 features, fechando com a linha 'Perfil:' de discretizacao qualitativa.
+
+    ACHADO REAL (2026-09-15) -- BUG CRITICO DE AVALIACAO CORRIGIDO: ate esta versao, a primeira
+    linha citava sujeito/sessao/operacao/classe dentro do TEXTO indexado. Isso e correto para a
+    aba de chat (rag_openpack_responder_ou_manual, onde o usuario quer ver a operacao na
+    resposta) mas e um VAZAMENTO DE ROTULO fatal para avaliacao: eval/avaliar_classificacao_
+    openpack.py e eval/avaliar_loso_openpack.py usam o proprio texto da janela de teste como
+    query (montar_texto_pergunta_para_janela()), entao o k-NN casava "operacao X" da query com
+    "operacao X" dos vizinhos por BM25 lexical -- nao pelo sinal de sensor. Sintoma que expos o
+    bug: LOSO deu F1=1,0000 exato em 3 sujeitos seguidos (ver memoria
+    bug_vazamento_rotulo_openpack_2026-09-15). O texto agora descreve so o SINAL (aceleracao,
+    rotacao, inclinacao, perfil qualitativo) -- nenhuma palavra do rotulo de operacao ou do
+    identificador de sujeito/sessao entra no texto embeddado/indexado. Essa identificacao
+    continua disponivel via metadados (ver gerar_corpus_rag(), campo "metadados" de cada
+    documento, e "fonte" ja usado hoje) para a aba de chat compor a resposta ao usuario.
+    """
     linhas = [
         f"Janela de sensores vestiveis de {JANELA_SEGUNDOS_DESCRICAO}s (segmento {segmento}) "
-        f"do sujeito {meta['sujeito']}, sessao {meta['sessao']}, operacao \"{meta['operacao']}\" "
-        f"(classe {meta['operation_label']}) na linha de embalagem."
+        f"na linha de embalagem."
     ]
 
     rotulos_pt = {
@@ -233,6 +247,15 @@ def gerar_corpus_rag(sinais_por_sessao: dict, df_janelas: pd.DataFrame,
                 "id": f"{janela['janela_id']}__{segmento}",
                 "texto": texto,
                 "fonte": janela["janela_id"],
+                # Metadados de identificacao (sujeito/sessao/operacao), FORA do texto indexado
+                # desde a correcao do vazamento de rotulo (2026-09-15) -- ver docstring de
+                # montar_texto_janela(). Usado pela aba de chat (rag_openpack_responder_ou_manual)
+                # para compor a resposta ao usuario com a operacao real; NUNCA usar para montar
+                # a query de avaliacao (isso seria reintroduzir o vazamento).
+                "metadados": {
+                    "sujeito": meta["sujeito"], "sessao": meta["sessao"],
+                    "operacao": meta["operacao"], "operation_label": meta["operation_label"],
+                },
             })
 
     caminho_saida.write_text(json.dumps(documentos, indent=2, ensure_ascii=False), encoding="utf-8")

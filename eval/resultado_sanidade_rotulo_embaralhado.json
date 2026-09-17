@@ -1,0 +1,11 @@
+{
+  "teste": "sanidade_rotulo_embaralhado",
+  "seed": 42,
+  "k": 5,
+  "n_classes": 10,
+  "acaso_esperado": 0.1,
+  "f1_macro_embaralhado": 0.0182,
+  "n_classificadas": 26,
+  "n_sem_vizinho_treino": 0,
+  "duracao_s": 29.3
+}

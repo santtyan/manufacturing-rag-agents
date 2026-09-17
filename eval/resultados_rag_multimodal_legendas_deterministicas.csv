@@ -28,3 +28,7 @@ mm-anomalia-eixo-x-tempo,grafico_anomalia_eixo_x_tempo,1.0,0.333,1.0,grafico_ano
 mm-anomalia-eixo-y-tempo,grafico_anomalia_eixo_y_tempo,1.0,0.333,1.0,grafico_anomalia_eixo_y_tempo;grafico_anomalia_eixo_x_tempo;grafico_anomalia_geral_tempo
 mm-anomalia-eixo-z-tempo,grafico_anomalia_eixo_z_tempo,0.0,0.0,0.0,grafico_anomalia_eixo_y_tempo;grafico_anomalia_geral_tempo;grafico_anomalia_eixo_x_tempo
 mm-anomalia-geral-tempo,grafico_anomalia_geral_tempo,1.0,0.333,1.0,grafico_anomalia_geral_tempo;grafico_anomalia_eixo_x_tempo;grafico_anomalia_eixo_y_tempo
+mm-armadilha-eixo-inexistente,,,,,grafico_anomalia_eixo_y_tempo;grafico_anomalia_eixo_x_tempo;grafico_anomalias_componentes_cnc
+mm-armadilha-cruzamento-inexistente,,,,,grafico_qualidade_oleo_por_classe;grafico_anomalias_cnc_ascendente;grafico_anomalias_componentes_cnc
+mm-armadilha-numero-nao-plotado,grafico_temperatura_por_classe,0.0,0.0,0.0,grafico_anomalia_geral_tempo;grafico_anomalia_eixo_x_tempo;grafico_anomalias_componentes_cnc
+mm-armadilha-dimensao-ausente,,,,,grafico_energia_vs_carga;grafico_consumo_energia_por_classe;grafico_producao_por_classe_ordenado

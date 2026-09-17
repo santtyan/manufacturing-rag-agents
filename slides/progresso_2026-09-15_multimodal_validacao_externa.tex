@@ -1,0 +1,214 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{booktabs}
+\usepackage{xcolor}
+
+% Tema CERISE — mesma identidade visual dos outros slides do projeto.
+\definecolor{cerisemagenta}{HTML}{A6186B}
+\definecolor{ceriserosa}{HTML}{E6186D}
+\definecolor{cerisecoral}{HTML}{F5642D}
+\definecolor{ceriseroxo}{HTML}{5B1A6B}
+
+\setbeamercolor{title}{fg=cerisemagenta}
+\setbeamercolor{frametitle}{fg=white,bg=cerisemagenta}
+\setbeamercolor{structure}{fg=cerisemagenta}
+\setbeamercolor{block title}{fg=white,bg=ceriseroxo}
+\setbeamercolor{block body}{bg=cerisemagenta!5}
+\setbeamercolor{alerted text}{fg=cerisecoral}
+\setbeamercolor{item}{fg=cerisemagenta}
+
+\newenvironment{numerobloco}[1]{\begin{block}{#1}}{\end{block}}
+\newenvironment{decisaobloco}[1]{\begin{alertblock}{#1}}{\end{alertblock}}
+
+\title{Progresso do Harbor}
+\subtitle{RAG multimodal: a geração determinística de legendas confirmada pela literatura 2026}
+\author{Yan Santos Leite}
+\date{15 de setembro de 2026}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\begin{frame}{Resumo}
+  \begin{itemize}
+    \item Em 2026-09-14, o Harbor resolveu o RAG multimodal de gráfico técnico trocando a
+      arquitetura: em vez de um VLM lendo o gráfico como imagem, um template gera a legenda
+      diretamente do \emph{dado tabular de origem} (o mesmo \texttt{DataFrame} que desenhou o
+      gráfico). Resultado: 100\% de fidelidade, sem nenhum VLM aprovado.
+    \item Esta sessão (2026-09-15) não mudou nada em produção — \textbf{validou} a decisão
+      contra três referências publicadas em 2026, buscadas depois da implementação, sem que o
+      Harbor tivesse se apoiado nelas para decidir.
+    \item As três convergem no mesmo ponto: para gráfico com dado de origem conhecido, ler o
+      dado bate ler o pixel — e a literatura mostra isso não é peculiaridade do Harbor, é
+      padrão do campo.
+    \item Achado adicional: a taxonomia 2026 de RAG multimodal nomeia três arquiteturas
+      dominantes, e a variante do Harbor não é nenhuma delas — é candidato a contribuição de
+      método, não só escolha de engenharia.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Por que isso importa: o problema que a arquitetura errada causava}
+  \small
+  \begin{numerobloco}{O custo de não resolver}
+    Um VLM lendo um gráfico técnico (ex.\ dispersão de temperatura por classe Fault/Normal)
+    tem taxa de erro factual estrutural — não é questão de escolher um modelo melhor. O
+    Harbor testou três candidatos (\texttt{moondream}, \texttt{granite3.2-vision:2b},
+    \texttt{qwen3-vl:4b}) ao longo de 2026-09-09 a 14; o melhor deles chegou a 93,6\% de
+    aprovação nos checks de fidelidade — abaixo do critério de promoção de 100\% em
+    ``sem números inventados''.
+  \end{numerobloco}
+
+  \pause
+  \textbf{Exemplo concreto do tipo de falha} (padrão documentado na literatura, não só no
+  Harbor): um VLM recupera a imagem certa de um esquema técnico, mas a pergunta é sobre um
+  componente que não está naquela figura — o modelo lê um número de outro lugar do desenho e
+  devolve com confiança, como se fosse a especificação certa. Fonte:
+  \url{ragaboutit.com/5-object-hallucinations-breaking-multimodal-rag-blind}.
+
+  \pause
+  \textbf{A lacuna real}: nenhuma troca de modelo resolvia isso, porque o problema não estava
+  no modelo — estava em pedir para um VLM \emph{interpretar} um gráfico quando o dado que
+  gerou o gráfico já estava disponível em texto/tabela.
+\end{frame}
+
+\begin{frame}{A decisão: geração determinística a partir do dado de origem}
+  \small
+  \begin{numerobloco}{Como funciona (\texttt{rag/legendas\_deterministicas.py})}
+    Para cada gráfico técnico sintético do Harbor, a legenda é montada por template a partir
+    dos metadados de geração (título, eixos, ranking, \texttt{variáveis\_fonte}) e dos CSVs de
+    origem reais (\texttt{outputs/pipeline2\_legacy\_sensor/},
+    \texttt{outputs/pipeline4\_five\_axis\_cnc/}) — a mesma filosofia já usada em
+    \texttt{rag/rag\_openpack\_texto.py} (features $\to$ texto por template, sem VLM).
+    Nenhuma imagem é lida; o texto vem do mesmo \texttt{DataFrame} que desenhou o gráfico.
+  \end{numerobloco}
+
+  \pause
+  \textbf{Por que essa abordagem e não outra}: não é ad-hoc. Tem precedente revisado por
+  pares — \textbf{MatplotAlt} (\emph{Computer Graphics Forum} 2025, arXiv:2503.20089) gera
+  \emph{alt-text} de figura \texttt{matplotlib} por template sobre os dados de origem, a
+  mesma técnica; \textbf{ChartCap} (ICCV 2025, arXiv:2508.03164) formula o princípio: gráficos
+  ``podem ser gerados deterministicamente a partir de uma modalidade intermediária — o
+  código''.
+
+  \pause
+  \begin{decisaobloco}{Resultado medido (reconfirmado ao vivo em 2026-09-15)}
+    \texttt{python eval/checks\_fidelidade\_caption.py} sobre as 26 legendas do corpus:
+    \textbf{26/26 (100\%) passaram todos os checks, 0 números inventados}, critério de
+    promoção do plano (\textgreater=90\% e 100\% em sem-números-inventados) cumprido.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Custo e qualidade, lado a lado}
+  \small
+  \begin{numerobloco}{Determinístico vs.\ melhor VLM testado (\texttt{qwen3-vl:4b})}
+    \begin{center}
+    \footnotesize
+    \begin{tabular}{lcc}
+      \toprule
+      \textbf{Métrica} & \textbf{qwen3-vl:4b (VLM)} & \textbf{Via determinística} \\
+      \midrule
+      Taxa de aprovação (fidelidade) & 93,6\% & \textbf{100\%} \\
+      Passou todos os checks & 18/26 & \textbf{26/26} \\
+      Sem números inventados & 22/26 & \textbf{26/26} \\
+      Critério de promoção & Reprovado & \textbf{Aprovado} \\
+      Recall@3 / MRR (retrieval) & 93\% / 0,724 & 90\% / 0,747 \\
+      Custo de captioning & 412s/imagem ($\sim$3h/corpus) & segundos (\texttt{pandas} puro) \\
+      Depende de Ollama & Sim & Não \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{O que isso significa}: não é troca de qualidade por custo — a via determinística
+  \emph{vence em qualidade e custa ordens de grandeza menos}. Retrieval empata dentro do
+  ruído (diferença de 3pp / 0,023 em 26 perguntas), então a legenda melhor não custou recall.
+\end{frame}
+
+\begin{frame}{Validação externa: três referências de 2026 confirmam a escolha}
+  \small
+  \begin{numerobloco}{ChartFI — arXiv:2605.23694 (benchmark de faithfulness, 2026)}
+    Conclusão do paper: \emph{``table-grounded methods generally demonstrate higher
+    faithfulness rates''} que a via puramente visual — o mesmo padrão 100\% vs.\ 93,6\%
+    medido acima, agora com um benchmark externo dedicado ao fenômeno.
+  \end{numerobloco}
+
+  \pause
+  \begin{numerobloco}{Chart-to-Text / VisText}
+    \emph{``Image-only models perform[ing] the worst of all chart captioning models,
+    showing high confidence in inaccurate captions''} — confirma que o problema é
+    estrutural (a classe inteira de modelo image-only), não escolha de modelo específico.
+    Coerente com o já citado arXiv:2312.10160 (82,06\% de erro factual em legendas de LVLM,
+    GPT-4V incluído), que fundamentou a decisão original.
+  \end{numerobloco}
+
+  \pause
+  \textbf{Por que isso importa}: nenhuma das três fontes foi consultada antes da decisão de
+  2026-09-14 — a pesquisa desta sessão buscou especificamente contestar a escolha, e as três
+  fontes encontradas a confirmam de forma independente.
+\end{frame}
+
+\begin{frame}{Onde o Harbor fica à frente do padrão descrito na literatura}
+  \small
+  \begin{numerobloco}{A taxonomia 2026 de RAG multimodal (arXiv:2510.15253)}
+    O survey nomeia três arquiteturas dominantes: \emph{caption-and-index} (a mais simples),
+    \emph{unified vision embeddings} (Cohere Embed~4, voyage-multimodal-3.5) e
+    \emph{page-as-image / late interaction} (ColPali/ColQwen3/ColNomic, estado da arte em
+    ViDoRe). O Harbor tem a primeira em produção — mas numa variante que a literatura
+    consultada não nomeia.
+  \end{numerobloco}
+
+  \pause
+  \textbf{A diferença}: \emph{caption-and-index} na literatura pressupõe um VLM lendo a
+  imagem para gerar a legenda. A variante do Harbor gera a legenda do \emph{dado de origem},
+  nunca do pixel. Para gráfico produzido a partir de tabela conhecida, isso torna a
+  fidelidade um \textbf{invariante estrutural} — garantido pela construção do template, não
+  uma métrica que se torce para subir testando mais modelos.
+
+  \pause
+  \begin{decisaobloco}{Contribuição candidata, não só decisão de engenharia}
+    Esse resultado é defensável como contribuição de método em qualquer publicação da linha
+    RAG do projeto (ver meta BRACIS 2027 do grupo PDC) — não apenas como nota de
+    implementação. Próximo passo natural: formalizar a comparação com o vocabulário do
+    survey, se/quando um manuscrito for escrito.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Riscos e pendências}
+  \begin{itemize}
+    \item[\textcolor{green!50!black}{$\bullet$}] \textbf{Via determinística em produção} —
+      concluído desde 2026-09-14, aba ``6. Gráficos Técnicos'' no Streamlit, 100\% de
+      fidelidade reconfirmado ao vivo nesta sessão.
+    \item[\textcolor{green!50!black}{$\bullet$}] \textbf{Validação externa} — concluída;
+      três referências 2026 confirmam a escolha, nenhuma contradiz.
+    \item[\textcolor{orange!80!black}{$\bullet$}] \textbf{RGB do OpenPack} — formulário de
+      acesso enviado (2026-09-14), aprovação assíncrona sem prazo. \textbf{Não bloqueia
+      nada}: é a única trilha onde o determinístico não se aplica (foto real não tem tabela
+      de origem), e o resto do projeto não depende dela.
+    \item[\textcolor{orange!80!black}{$\bullet$}] \textbf{Itens 7/8 do roadmap
+      (ColPali/ColQwen2, GraphRAG-DEXPI)} — fechados nesta sessão com critério de
+      reabertura explícito (não são mais pendência em aberto, ver skill
+      \texttt{rag-multimodal}).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Próximos passos}
+  \begin{itemize}
+    \item Avaliar se os checks de fidelidade devem virar um \emph{gate} no caminho de
+      resposta da aba de Gráficos Técnicos (padrão \texttt{pede\_*} de
+      \texttt{dashboard/roteador.py}) — medir primeiro se há caso real de falha em produção
+      antes de construir; a via determinística pode já tornar o gate redundante por
+      construção.
+    \item Se um manuscrito for escrito para a linha RAG do projeto, formalizar a
+      contribuição de método (caption determinístico vs.\ as três arquiteturas nomeadas na
+      literatura) com o vocabulário do survey arXiv:2510.15253.
+    \item Não investir tempo em achar um VLM aprovado para gráfico técnico — decisão
+      fechada, sem critério de reabertura pendente (diferente do RGB de foto real, que
+      segue em aberto).
+    \item Retomar a trilha RGB apenas quando/se o formulário for aprovado — sem bloquear
+      nenhuma entrega até lá.
+  \end{itemize}
+\end{frame}
+
+\end{document}

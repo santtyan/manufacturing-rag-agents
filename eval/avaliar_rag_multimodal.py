@@ -46,10 +46,29 @@ K = 3  # corpus tem so 4 imagens -- k=5 do texto nao faz sentido aqui, k=3 ja co
 
 def avaliar_pergunta(rag, pergunta_obj, k=K, usar_rerank=False):
     """Mesma logica de eval/avaliar_retrieval.py::avaliar_pergunta, adaptada para "documento"
-    = imagem (campo documento_relevante) em vez de arquivo .md."""
+    = imagem (campo documento_relevante) em vez de arquivo .md.
+
+    Perguntas-armadilha (documento_relevante=None, adicionadas 2026-09-15 -- item 5.1 do plano
+    de teste/benchmark) sao contabilizadas separadamente: aqui o retrieval SEMPRE retorna algo
+    (rag.buscar nunca abstem), entao Recall@k/Precision@k/MRR nao se aplicam -- essas metricas
+    avaliam "achou o documento certo", nao "reconheceu que nao ha documento certo". Essa segunda
+    pergunta e responsabilidade do gerador (LLM) dizer "nao sei"/"nao encontrei", nao do
+    retrieval isolado medido aqui -- mesmo padrao ja usado em
+    eval/avaliar_retrieval_openpack.py::knn_label_purity() para as 5 nao-respondiveis daquele
+    golden set."""
     alvo = pergunta_obj["documento_relevante"]
     candidatos = rag.buscar(pergunta_obj["pergunta"], k=k, usar_rerank=usar_rerank, usar_hybrid=True, k_candidatos=max(k, 4))
     ids = [c.get("id") or c.get("fonte", "").rsplit(".", 1)[0] for c in candidatos]
+
+    if alvo is None:
+        return {
+            "id": pergunta_obj["id"],
+            "documento_esperado": None,
+            "documentos_recuperados": ids,
+            "recall_at_k": None,
+            "precision_at_k": None,
+            "reciprocal_rank": None,
+        }
 
     relevantes_no_topk = sum(1 for i in ids if i == alvo)
     recall_at_k = 1.0 if relevantes_no_topk > 0 else 0.0
@@ -109,6 +128,10 @@ def main():
     tempo_total_busca_s = time.time() - t0_busca
     tempo_medio_busca_s = tempo_total_busca_s / len(perguntas) if perguntas else 0.0
     for r in resultados:
+        if r["recall_at_k"] is None:
+            print(f"[{r['id']:30}] ARM  armadilha (documento_relevante=None) -- "
+                  f"retrieval sempre retorna algo, avaliacao de abstencao e do gerador, nao daqui")
+            continue
         status = "OK " if r["recall_at_k"] == 1.0 else "MISS"
         print(f"[{r['id']:30}] {status} esperado={r['documento_esperado']:35} "
               f"precision@{K}={r['precision_at_k']:.2f} RR={r['reciprocal_rank']:.2f}")
@@ -120,14 +143,19 @@ def main():
             w.writerow([r["id"], r["documento_esperado"], r["recall_at_k"], r["precision_at_k"],
                         r["reciprocal_rank"], ";".join(r["documentos_recuperados"])])
 
-    recall_medio = statistics.mean(r["recall_at_k"] for r in resultados)
-    precision_media = statistics.mean(r["precision_at_k"] for r in resultados)
-    mrr = statistics.mean(r["reciprocal_rank"] for r in resultados)
+    # Perguntas-armadilha (documento_relevante=None) ficam de fora da media de Recall/Precision/
+    # MRR -- essas metricas pressupoem "existe 1 documento certo", o que e falso por definicao
+    # nas armadilhas (ver docstring de avaliar_pergunta()).
+    resultados_respondiveis = [r for r in resultados if r["recall_at_k"] is not None]
+    n_armadilhas = len(resultados) - len(resultados_respondiveis)
+    recall_medio = statistics.mean(r["recall_at_k"] for r in resultados_respondiveis) if resultados_respondiveis else 0.0
+    precision_media = statistics.mean(r["precision_at_k"] for r in resultados_respondiveis) if resultados_respondiveis else 0.0
+    mrr = statistics.mean(r["reciprocal_rank"] for r in resultados_respondiveis) if resultados_respondiveis else 0.0
 
     print("\n" + "=" * 60)
     print(f"Modo               : {modo}")
     print(f"Arquitetura        : caption-then-embed (VLM: ver MODELO_VLM em rag_multimodal_langchain.py)")
-    print(f"Perguntas avaliadas: {len(resultados)}")
+    print(f"Perguntas avaliadas: {len(resultados_respondiveis)} respondiveis + {n_armadilhas} armadilhas (excluidas da media)")
     print(f"Recall@{K} medio    : {recall_medio*100:.0f}%")
     print(f"Precision@{K} media : {precision_media*100:.0f}%")
     print(f"MRR                : {mrr:.3f}")

@@ -5,15 +5,15 @@
   "n_janelas_teste": 26,
   "n_classificadas": 26,
   "n_sem_vizinho_treino": 0,
-  "f1_macro": 0.9217,
+  "f1_macro": 0.075,
   "baselines_oficiais": {
     "UNet": 0.3451,
     "ST-GCN": 0.7024,
     "DeepConvLSTM": 0.7081
   },
   "training_free": true,
-  "tempo_indexacao_s": 31.4,
-  "tempo_medio_busca_s": 0.586,
-  "tempo_total_s": 46.6,
+  "tempo_indexacao_s": 38.4,
+  "tempo_medio_busca_s": 0.888,
+  "tempo_total_s": 61.5,
   "n_documentos_indexados": 4000
 }

@@ -84,7 +84,10 @@ def main():
                          help="tambem roda Adaptive-k (P1b do plano, EMNLP 2025 arXiv:2506.08479) "
                               "-- corta pelo gap de score RRF em vez de k fixo")
     args = parser.parse_args()
-    valores_k = [int(k.strip()) for k in args.k.split(",")]
+    # --k "" permite pular os k fixos e rodar so --adaptive -- util para o item 7.3/8 do plano
+    # de 2026-09-15 (medir variancia do Adaptive-k em N execucoes sem regastar tempo nos k fixos,
+    # que ja tem 1 execucao bem estabelecida e nao sao o alvo da decisao de promocao).
+    valores_k = [int(k.strip()) for k in args.k.split(",") if k.strip()]
 
     dados = json.loads(GOLDEN.read_text(encoding="utf-8"))
     perguntas_rag = [p for p in dados["perguntas"] if p.get("rota_esperada") == "rag"]
@@ -122,7 +125,15 @@ def main():
         print("--- adaptive-k (EMNLP 2025, arXiv:2506.08479) ---")
         resultados = rodar_k(rag, perguntas_rag, k=None, usar_adaptive_k=True)
         agregados = agregar(resultados)
-        agregados["k_efetivo_medio"] = round(sum(r["k"] for r in resultados) / len(resultados), 2)
+        # ARN (Average Retrieval Number) -- nome publicado para "numero medio de documentos
+        # recuperados por query" (survey Abootorabi et al., ACL 2025 Findings, arXiv:2502.08826,
+        # usado por "Self-adaptive Multimodal Retrieval-Augmented Generation"), item 5.6/0c do
+        # plano de 2026-09-15: preferir o termo da literatura a um nome interno inventado.
+        # Mantido tambem como k_efetivo_medio (alias) por compatibilidade com resultados ja
+        # persistidos em eval/resultados_ablacao_k_rag.json de sessoes anteriores.
+        arn = round(sum(r["k"] for r in resultados) / len(resultados), 2)
+        agregados["arn"] = arn
+        agregados["k_efetivo_medio"] = arn  # alias, nao remover -- ver comentario acima
         resultado_final["por_k"]["adaptive"] = {
             "agregados": agregados,
             "por_pergunta": [
@@ -135,7 +146,7 @@ def main():
         ff_str = f"{ff*100:.1f}%" if ff is not None else "-"
         print(f"Faithfulness medio : {ff_str} (sobre {agregados['n_com_faithfulness']} perguntas)")
         print(f"Alucinacoes        : {agregados['alucinacoes']}/{agregados['n_perguntas']}")
-        print(f"k efetivo medio    : {agregados['k_efetivo_medio']}")
+        print(f"ARN (k efetivo medio): {agregados['arn']}")
         print(f"Duracao media      : {agregados['duracao_media_s']:.2f}s/pergunta")
         print(f"Duracao total      : {agregados['duracao_total_s']:.1f}s\n")
 
@@ -156,7 +167,7 @@ def main():
         ag = resultado_final["por_k"]["adaptive"]["agregados"]
         ff = ag["faithfulness_medio"]
         ff_str = f"{ff*100:.1f}%" if ff is not None else "-"
-        rotulo = f"adaptive(~{ag['k_efetivo_medio']})"
+        rotulo = f"adaptive(ARN~{ag['arn']})"
         print(f"{rotulo:>10} | {ff_str:>12} | {ag['alucinacoes']:>4}/{ag['n_perguntas']:<6} | "
               f"{ag['duracao_media_s']:>9.2f}s | {ag['duracao_total_s']:>7.1f}s")
     print(f"\nResultados salvos em {RESULTADOS}")
