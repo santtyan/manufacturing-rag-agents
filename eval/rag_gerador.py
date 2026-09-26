@@ -128,7 +128,7 @@ Responda em portugues, de forma direta (2-4 frases), citando a fonte."""
 # ── 3. Orquestração: busca + prompt + LLM + verificação anti-alucinação ───────────────
 
 def rag_responder(pergunta, rag, call_ollama, k=3, buscar_fallback=None, verbose=False,
-                   usar_adaptive_k=False):
+                   usar_adaptive_k=True):
     """Busca no RAG (com fallback opcional) + gera resposta via LLM + verifica contra o
     contexto. Retorna (resposta, documentos, contexto).
 
@@ -139,11 +139,16 @@ def rag_responder(pergunta, rag, call_ollama, k=3, buscar_fallback=None, verbose
         rag.buscar() nao retornar nada.
     verbose: se True, imprime os chunks recuperados e a resposta final -- util para debug de
         retrieval sem chamar rag.buscar() manualmente fora do fluxo normal.
-    usar_adaptive_k (2026-09-14, P1b do plano "RAG agentico + chunking"): quando True, ignora
-        o k fixo e usa adaptive_k() -- ver docstring dessa funcao para o motivo (ablacao real
-        mostrou que k=10 fixo resolve 2/49 perguntas mas custa 2,2x em TODA pergunta, mesmo nas
-        que ja funcionavam com k=3; Adaptive-k, EMNLP 2025, corta pelo gap real de score sem
-        custo extra). Default False preserva o comportamento de producao ate ser promovido.
+    usar_adaptive_k (2026-09-14, P1b do plano "RAG agentico + chunking"; PROMOVIDO a default
+        True em 2026-09-25): quando True, ignora o k fixo e usa adaptive_k() -- ver docstring
+        dessa funcao para o motivo (ablacao real mostrou que k=10 fixo resolve 2/49 perguntas
+        mas custa 2,2x em TODA pergunta, mesmo nas que ja funcionavam com k=3; Adaptive-k,
+        EMNLP 2025, corta pelo gap real de score sem custo extra). Promocao decidida apos
+        medicao de variancia com N=3 execucoes (nao mais 1): faithfulness medio 0,8077 +/-
+        0,067 (CV=0,0829, acima do alvo estrito <0,05, mas o pior caso das 3 execucoes ainda
+        empata com o melhor k fixo, nunca fica abaixo -- ver
+        eval/resultados_variancia_adaptive_k.json). PROMOVIDO COM RESSALVA: reportar sempre
+        com o intervalo (min/max ou desvio), nunca so a media, dado o CV acima do alvo.
     """
     if usar_adaptive_k and rag is not None:
         documentos = adaptive_k(pergunta, rag)

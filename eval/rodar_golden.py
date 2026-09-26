@@ -395,31 +395,55 @@ def _responder_sql(pergunta):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--answer-relevancy", action="store_true",
+                         help="Calcula Answer Relevancy (item 7.2, RAGAS) para cada pergunta -- "
+                              "3 chamadas LLM extra por pergunta (gera perguntas artificiais a "
+                              "partir da resposta), custo/latencia bem maior. Default False "
+                              "preserva o comportamento e o tempo de execucao originais.")
+    args = parser.parse_args()
+
     dados = json.loads(GOLDEN.read_text(encoding="utf-8"))
     perguntas = dados["perguntas"]
+
+    if args.answer_relevancy:
+        from answer_relevancy import answer_relevancy_score
 
     resultados = []
     print(f"Rodando {len(perguntas)} golden questions...\n")
     for pq in perguntas:
         resposta, contexto = responder(pq)
         r = avaliar(pq, resposta, contexto)
+        if args.answer_relevancy:
+            score, perguntas_geradas = answer_relevancy_score(pq["pergunta"], resposta)
+            r["answer_relevancy"] = score
+            r["answer_relevancy_perguntas_geradas"] = perguntas_geradas
         resultados.append(r)
         rota_str = "OK " if r["rota_ok"] else f"ERR (deu {r['rota_real']})"
         ff = "-" if r["faithfulness"] is None else f"{r['faithfulness']*100:.0f}%"
         nf = f" nao-fund={r['nao_fundamentados']}" if r["nao_fundamentados"] else ""
         alu = " [ALUCINOU]" if r["alucinou"] else ""
-        print(f"[{pq['id']:26}] rota={rota_str:20} faithfulness={ff:5}{alu}{nf}")
+        ar = f" AR={r['answer_relevancy']:.2f}" if args.answer_relevancy else ""
+        print(f"[{pq['id']:26}] rota={rota_str:20} faithfulness={ff:5}{alu}{nf}{ar}")
 
     # CSV
+    colunas = ["id", "dataset", "rota_esperada", "rota_real", "rota_ok",
+               "faithfulness", "proibidos_citados", "nao_fundamentados", "alucinou", "resposta"]
+    if args.answer_relevancy:
+        colunas.insert(6, "answer_relevancy")
     with RESULTADOS.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["id", "dataset", "rota_esperada", "rota_real", "rota_ok",
-                    "faithfulness", "proibidos_citados", "nao_fundamentados", "alucinou", "resposta"])
+        w.writerow(colunas)
         for r in resultados:
-            w.writerow([r["id"], r["dataset"], r["rota_esperada"], r["rota_real"],
-                        r["rota_ok"], r["faithfulness"], ";".join(map(str, r["proibidos_citados"])),
-                        ";".join(map(str, r["nao_fundamentados"])),
-                        r["alucinou"], r["resposta"].replace("\n", " ")])
+            linha = [r["id"], r["dataset"], r["rota_esperada"], r["rota_real"],
+                     r["rota_ok"], r["faithfulness"]]
+            if args.answer_relevancy:
+                linha.append(r["answer_relevancy"])
+            linha += [";".join(map(str, r["proibidos_citados"])),
+                      ";".join(map(str, r["nao_fundamentados"])),
+                      r["alucinou"], r["resposta"].replace("\n", " ")]
+            w.writerow(linha)
 
     # resumo
     n = len(resultados)
@@ -432,6 +456,9 @@ def main():
     print(f"Roteamento correto : {rotas_ok}/{n}")
     print(f"Faithfulness medio : {ff_medio*100:.0f}%  (sobre {len(com_ff)} perguntas com numeros esperados)")
     print(f"Alucinacoes        : {len(alucinacoes)}")
+    if args.answer_relevancy:
+        ar_medio = sum(r["answer_relevancy"] for r in resultados) / n
+        print(f"Answer Relevancy medio : {ar_medio:.4f}  (sobre todas as {n} perguntas)")
     print(f"Resultados salvos  : {RESULTADOS}")
 
     # log de alucinacoes (append)

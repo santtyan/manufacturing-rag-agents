@@ -5,11 +5,11 @@
     "adaptive": {
       "agregados": {
         "n_perguntas": 49,
-        "faithfulness_medio": 0.769,
+        "faithfulness_medio": 0.885,
         "n_com_faithfulness": 13,
         "alucinacoes": 0,
-        "duracao_media_s": 44.35,
-        "duracao_total_s": 2173.0,
+        "duracao_media_s": 24.02,
+        "duracao_total_s": 1177.2,
         "arn": 5.08,
         "k_efetivo_medio": 5.08
       },
@@ -18,343 +18,343 @@
           "id": "rag-temperatura",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 51.46,
+          "duracao_s": 12.39,
           "k_efetivo": 4
         },
         {
           "id": "rag-vibracao",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 23.05,
+          "duracao_s": 22.65,
           "k_efetivo": 3
         },
         {
           "id": "rag-pressao-faixa",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 65.27,
+          "duracao_s": 8.61,
           "k_efetivo": 10
         },
         {
           "id": "rag-arquitetura-camadas",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 59.71,
+          "duracao_s": 25.75,
           "k_efetivo": 6
         },
         {
           "id": "rag-criticidade-inventada",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 29.9,
+          "duracao_s": 5.87,
           "k_efetivo": 4
         },
         {
           "id": "oee-idioma-extratext-armadilha",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 44.41,
+          "duracao_s": 5.85,
           "k_efetivo": 10
         },
         {
           "id": "legacy-origem-dataset",
           "faithfulness": 0.5,
           "alucinou": false,
-          "duracao_s": 25.84,
+          "duracao_s": 29.94,
           "k_efetivo": 5
         },
         {
           "id": "legacy-poder-discriminativo-armadilha",
           "faithfulness": 0.0,
           "alucinou": false,
-          "duracao_s": 32.66,
+          "duracao_s": 13.51,
           "k_efetivo": 5
         },
         {
           "id": "discrete-mfg-status-codes",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 34.34,
+          "duracao_s": 13.72,
           "k_efetivo": 3
         },
         {
           "id": "rag-oee-categoria-maior-consumo",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 33.23,
+          "duracao_s": 13.73,
           "k_efetivo": 4
         },
         {
           "id": "rag-oee-mttr-mtbf-juntos",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 49.8,
+          "duracao_s": 10.58,
           "k_efetivo": 5
         },
         {
           "id": "rag-oee-camadas-armadilha",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 53.48,
+          "duracao_s": 48.13,
           "k_efetivo": 5
         },
         {
           "id": "rag-legacy-poder-discriminativo-manual",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 37.68,
+          "duracao_s": 14.94,
           "k_efetivo": 5
         },
         {
           "id": "rag-legacy-falso-alarme",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 41.88,
+          "duracao_s": 14.14,
           "k_efetivo": 5
         },
         {
           "id": "rag-discrete-transicao-alarme-a",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 23.41,
+          "duracao_s": 4.78,
           "k_efetivo": 3
         },
         {
           "id": "rag-discrete-alarm-consumo-armadilha",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 32.05,
+          "duracao_s": 33.72,
           "k_efetivo": 4
         },
         {
           "id": "rag-discrete-cusum-cobertura-parcial",
-          "faithfulness": 0.5,
+          "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 32.08,
+          "duracao_s": 42.08,
           "k_efetivo": 4
         },
         {
           "id": "rag-cnc-componente-prioritario",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 25.25,
+          "duracao_s": 21.99,
           "k_efetivo": 3
         },
         {
           "id": "rag-cnc-anomalia-vs-limite-armadilha",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 43.84,
+          "duracao_s": 15.8,
           "k_efetivo": 6
         },
         {
           "id": "rag-cnc-cruzamento-produto-componente",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 28.59,
+          "duracao_s": 35.94,
           "k_efetivo": 3
         },
         {
           "id": "rag-sensores-corrente-energia",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 34.37,
+          "duracao_s": 19.61,
           "k_efetivo": 4
         },
         {
           "id": "rag-sensores-nota-isolada-armadilha",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 33.65,
+          "duracao_s": 11.66,
           "k_efetivo": 5
         },
         {
           "id": "rag-sensores-criticidade-temperatura",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 31.68,
+          "duracao_s": 30.32,
           "k_efetivo": 3
         },
         {
           "id": "rag-sensores-alerta-isolation-forest",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 38.99,
+          "duracao_s": 46.06,
           "k_efetivo": 4
         },
         {
           "id": "rag-sensores-objetivo-camadas",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 31.51,
+          "duracao_s": 32.6,
           "k_efetivo": 3
         },
         {
           "id": "rag-oee-unplanned-vs-planned",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 35.77,
+          "duracao_s": 8.11,
           "k_efetivo": 4
         },
         {
           "id": "rag-oee-stoplocation-prioridade",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 57.68,
+          "duracao_s": 8.6,
           "k_efetivo": 10
         },
         {
           "id": "rag-oee-camada3-decisao",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 60.92,
+          "duracao_s": 51.16,
           "k_efetivo": 5
         },
         {
           "id": "rag-oee-criticidade-failure-armadilha",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 44.64,
+          "duracao_s": 11.51,
           "k_efetivo": 5
         },
         {
           "id": "rag-oee-roi-inexistente",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 17.37,
+          "duracao_s": 21.93,
           "k_efetivo": 3
         },
         {
           "id": "rag-oee-alerta-mtbf",
           "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 103.8,
+          "duracao_s": 111.99,
           "k_efetivo": 10
         },
         {
           "id": "rag-legacy-error-message-critico",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 51.36,
+          "duracao_s": 40.71,
           "k_efetivo": 4
         },
         {
           "id": "rag-legacy-camada1-thresholds",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 82.43,
+          "duracao_s": 9.36,
           "k_efetivo": 6
         },
         {
           "id": "rag-legacy-peso-camada3",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 38.71,
+          "duracao_s": 11.8,
           "k_efetivo": 3
         },
         {
           "id": "rag-legacy-alerta-sem-mensagem",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 47.55,
+          "duracao_s": 33.78,
           "k_efetivo": 4
         },
         {
           "id": "rag-legacy-informativo-nota",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 99.63,
+          "duracao_s": 8.6,
           "k_efetivo": 10
         },
         {
           "id": "rag-discrete-nunca-misturar",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 36.95,
+          "duracao_s": 23.26,
           "k_efetivo": 4
         },
         {
           "id": "rag-discrete-camada1-thresholds",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 61.55,
+          "duracao_s": 10.97,
           "k_efetivo": 5
         },
         {
           "id": "rag-discrete-instabilidade-vs-consumo",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 44.13,
+          "duracao_s": 24.92,
           "k_efetivo": 3
         },
         {
           "id": "rag-discrete-alerta-mudanca-regime",
-          "faithfulness": 0.0,
+          "faithfulness": 1.0,
           "alucinou": false,
-          "duracao_s": 46.24,
+          "duracao_s": 52.66,
           "k_efetivo": 4
         },
         {
           "id": "rag-discrete-critico-transicao",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 79.84,
+          "duracao_s": 10.73,
           "k_efetivo": 10
         },
         {
           "id": "rag-discrete-camada3-decisao",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 63.01,
+          "duracao_s": 12.67,
           "k_efetivo": 7
         },
         {
           "id": "rag-discrete-informativo-standby",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 26.71,
+          "duracao_s": 11.83,
           "k_efetivo": 3
         },
         {
           "id": "rag-cnc-limite-armadilha",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 41.85,
+          "duracao_s": 6.81,
           "k_efetivo": 6
         },
         {
           "id": "rag-cnc-camada1-limite-absoluto",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 50.77,
+          "duracao_s": 42.66,
           "k_efetivo": 6
         },
         {
           "id": "rag-cnc-camada3-confere-limite",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 14.45,
+          "duracao_s": 14.73,
           "k_efetivo": 3
         },
         {
           "id": "rag-cnc-alerta-sem-limite",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 42.17,
+          "duracao_s": 35.48,
           "k_efetivo": 3
         },
         {
           "id": "rag-cnc-instrumentacao-necessaria",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 47.48,
+          "duracao_s": 48.92,
           "k_efetivo": 10
         },
         {
           "id": "rag-cnc-componentes-sem-anomalia",
           "faithfulness": null,
           "alucinou": false,
-          "duracao_s": 39.89,
+          "duracao_s": 29.59,
           "k_efetivo": 5
         }
       ]
