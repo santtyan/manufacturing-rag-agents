@@ -38,6 +38,14 @@ experiments/langchain_rag/chroma_db_bm25rrf/
 # estrutural 2026-09-08: prompt de persona para outra ferramenta, nao pertence ao repo)
 docs/prompt_staff_engineer_reference.md
 
+# Copia estagnada de .claude/skills/ (achado real, varredura de residuo 2026-09-25:
+# 53/53 arquivos byte-identicos, 0 exclusivos, subconjunto proprio de .claude/skills/;
+# entrou num unico commit ff356a9 em 2026-09-08 e nunca foi tocado depois; nenhum
+# consumidor real -- as mencoes a .agents/skills/<project>-world/ na skill
+# eval-engineering sao condicionais e a condicao nunca e satisfeita neste repo).
+# O diretorio continua em disco: o Claude Code le skills de .claude/skills/.
+.agents/
+
 # Logs e dados gerados em runtime
 *.log
 *_log.txt
