@@ -122,11 +122,6 @@ def call_ollama(prompt, model=OLLAMA_MODEL, timeout=120):
         return f"[Ollama indisponivel: {exc}]"
 
 
-def salvar_texto_utf8(path, texto):
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(texto)
-
-
 def resumir_motivos_parada(downtime_df, top_n=3):
     top_groups = (
         downtime_df.groupby("StopGroup")["StopDuration(min)"]

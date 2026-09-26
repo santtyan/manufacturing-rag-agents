@@ -26,7 +26,6 @@ Uso: python eval/answer_relevancy.py (roda uma demonstracao standalone sobre 3 e
 Uso como biblioteca: from answer_relevancy import answer_relevancy_score
 """
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -111,12 +110,6 @@ def answer_relevancy_score(pergunta_original, resposta, n_perguntas=N_PERGUNTAS_
     modelo_emb = _carregar_modelo_embedding()
     score = _similaridade_cosseno(modelo_emb, pergunta_original, perguntas_geradas)
     return score, perguntas_geradas
-
-
-def _remover_pensamento(texto):
-    """Remove blocos <think>...</think> que alguns modelos (ex. deepseek-r1) emitem antes
-    da resposta final -- nao deveriam contaminar nem a geracao de perguntas nem o embedding."""
-    return re.sub(r"<think>.*?</think>", "", texto, flags=re.DOTALL).strip()
 
 
 if __name__ == "__main__":

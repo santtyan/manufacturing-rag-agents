@@ -109,21 +109,6 @@ def add_caixa_texto(slide, left, top, width, height):
     return box.text_frame
 
 
-def add_rodape(slide, texto, numero=None):
-    box = slide.shapes.add_textbox(MARGEM, SLIDE_H - Inches(0.45), CONTEUDO_W, Inches(0.35))
-    tf = box.text_frame
-    p = tf.paragraphs[0]
-    run = p.add_run()
-    run.text = texto
-    run.font.size = Pt(10)
-    run.font.italic = True
-    run.font.name = FONTE
-    run.font.color.rgb = CINZA_MEDIO
-    if numero is not None:
-        p2 = tf.add_paragraph()
-        p2.alignment = PP_ALIGN.RIGHT
-
-
 def set_shape_sem_sombra(shape):
     shape.shadow.inherit = False
 
