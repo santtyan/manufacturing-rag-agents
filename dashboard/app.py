@@ -5,6 +5,7 @@ Rodar com: streamlit run app.py
 """
 import json
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -360,10 +361,17 @@ def rag_hibrido_indexado():
 
 def rag_responder(pergunta):
     """Wrapper fino sobre eval/rag_gerador.py::rag_responder (fonte unica compartilhada com
-    o harness). Injeta call_ollama e o fallback TF-IDF compartilhado."""
+    o harness). Injeta call_ollama e o fallback TF-IDF compartilhado.
+
+    usar_adaptive_k=True explicito (2026-09-25): promovido a default em rag_gerador.py apos
+    medicao de variancia N=3 (faithfulness 0,8077 +/- 0,067, ver CLAUDE.md) e validado sem
+    regressao no harness completo (59/69 roteamento, 2 alucinacoes). Deixado explicito aqui
+    -- em vez de depender so do default da funcao compartilhada -- para essa decisao de
+    producao ficar visivel no proprio chamador, nao escondida atras de um parametro omitido."""
     rag = rag_hibrido_indexado()
     resposta, documentos, _contexto = rag_gerador.rag_responder(
         pergunta, rag, call_ollama, k=3, buscar_fallback=rag_gerador.buscar_fallback_tfidf,
+        usar_adaptive_k=True,
     )
     return resposta, documentos
 
@@ -424,8 +432,13 @@ def rag_openpack_responder(pergunta):
     busca sobre texto natural de manual. Ver achado 'instance vs. class-level retrieval' na
     skill rodar-harness."""
     rag = rag_openpack_indexado()
+    # usar_adaptive_k NAO ligado aqui, deliberadamente (2026-09-25): a promocao do Adaptive-k
+    # foi medida e validada só sobre o corpus de manuais tecnicos (rota `rag` do golden set
+    # principal). O corpus OpenPack e retrieval por categoria sobre janelas de sensor, dominio
+    # nunca medido com Adaptive-k -- ligar aqui seria estender a promocao sem medicao, exatamente
+    # o erro que a sessao de 2026-09-25 evitou para o corpus de manuais.
     resposta, documentos, _contexto = rag_gerador.rag_responder(
-        pergunta, rag, call_ollama, k=5, buscar_fallback=None,
+        pergunta, rag, call_ollama, k=5, buscar_fallback=None, usar_adaptive_k=False,
     )
     return resposta, documentos
 
@@ -486,8 +499,11 @@ def rag_multimodal_responder(pergunta):
     """Mesma orquestracao de rag_responder()/rag_openpack_responder() acima, sobre o corpus de
     gráficos -- sem fallback TF-IDF (o fallback indexa so os manuais)."""
     rag = rag_multimodal_indexado()
+    # usar_adaptive_k NAO ligado aqui, mesma razao de rag_openpack_responder: a promocao foi
+    # medida so sobre o corpus de manuais tecnicos, corpus de 26 legendas deterministicas nunca
+    # foi incluido na medicao de variancia de 2026-09-25.
     resposta, documentos, _contexto = rag_gerador.rag_responder(
-        pergunta, rag, call_ollama, k=3, buscar_fallback=None,
+        pergunta, rag, call_ollama, k=3, buscar_fallback=None, usar_adaptive_k=False,
     )
     return resposta, documentos
 
@@ -652,6 +668,9 @@ def chat_especializado(dataset_key, persona, contexto_agregado, readme_resumo, a
     pergunta_digitada = st.chat_input("Pergunte a este especialista...", key=f"input_{dataset_key}")
     pergunta_usuario = pergunta_digitada or st.session_state.pop(pergunta_sugerida_key, None)
     if pergunta_usuario:
+        inicio = time.time()  # latencia fim-a-fim (item 6.3 do roadmap de metricas CERISE,
+        # 2026-09-26): roteamento + retrieval/SQL + geracao LLM, o tempo que o usuario de fato
+        # sente esperando -- nao so a chamada ao Ollama isolada.
         with st.chat_message("user"):
             st.write(pergunta_usuario)
         with st.chat_message("assistant"):
@@ -856,7 +875,9 @@ Regras:
                     dataset_key, persona, contexto_agregado, readme_resumo,
                     amostra_bruta, pergunta_usuario,
                 )
-        st.session_state[hist_key].append((pergunta_usuario, resposta, extra, destino))
+            latencia = time.time() - inicio
+            st.caption(f"{BADGE_ROTA.get(destino, '')} · {latencia:.1f}s")
+        st.session_state[hist_key].append((pergunta_usuario, resposta, extra, destino, latencia))
 
     # Historico das trocas ANTERIORES, mais recente primeiro, abaixo do input/resposta atual.
     # A troca desta execucao (se houve) ja foi renderizada inline acima -- aqui mostramos so
@@ -864,8 +885,8 @@ Regras:
     hist_anterior = st.session_state[hist_key][:-1] if pergunta_usuario else st.session_state[hist_key]
     if hist_anterior:
         with st.expander(f"🕘 Historico da conversa ({len(hist_anterior)} pergunta(s) anterior(es))"):
-            for pergunta, resposta, extra, destino_hist in reversed(hist_anterior):
-                st.markdown(f"{BADGE_ROTA.get(destino_hist, '')}")
+            for pergunta, resposta, extra, destino_hist, latencia_hist in reversed(hist_anterior):
+                st.markdown(f"{BADGE_ROTA.get(destino_hist, '')} · {latencia_hist:.1f}s")
                 with st.chat_message("user"):
                     st.write(pergunta)
                 with st.chat_message("assistant"):
