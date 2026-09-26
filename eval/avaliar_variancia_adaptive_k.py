@@ -19,7 +19,6 @@ Uso: python eval/avaliar_variancia_adaptive_k.py [--n 5]
 """
 import argparse
 import json
-import shutil
 import statistics
 import subprocess
 import sys
