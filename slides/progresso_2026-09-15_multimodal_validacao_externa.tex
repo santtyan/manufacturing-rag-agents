@@ -60,6 +60,20 @@
   \end{numerobloco}
 
   \pause
+  \begin{alertblock}{Nota de 2026-09-25 — discrepância RECONCILIADA: 93,6\% é o número correto}
+    Os slides de 10--11/09 e 13/09 registram \texttt{qwen3-vl:4b} em \textbf{77,5\%}
+    (13/26 passou tudo, 17/26 sem números inventados) — número que parecia
+    ``pós-correção'' de dois bugs de metodologia, mas na verdade ainda estava
+    \textbf{subestimado por um terceiro bug}, achado ao validar a via determinística:
+    \texttt{eval/checks\_fidelidade\_caption.py::checar\_legenda()} capturava
+    \texttt{len(resultados)} \emph{depois} de inserir \texttt{passou\_todos}/
+    \texttt{taxa\_aprovacao} no mesmo dict, dividindo por 7 chaves em vez de 6 e
+    subestimando a taxa mesmo quando os 6 checks reais passavam (6/7=85,7\% em vez de
+    6/6=100\%). Corrigido; \textbf{93,6\%} (18/26, 22/26) é o valor final e definitivo —
+    ver \texttt{CLAUDE.md}, seção da skill \texttt{rag-multimodal}.
+  \end{alertblock}
+
+  \pause
   \textbf{Exemplo concreto do tipo de falha} (padrão documentado na literatura, não só no
   Harbor): um VLM recupera a imagem certa de um esquema técnico, mas a pergunta é sobre um
   componente que não está naquela figura — o modelo lê um número de outro lugar do desenho e

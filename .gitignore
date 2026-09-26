@@ -77,3 +77,7 @@ slides/*.snm
 slides/*.toc
 slides/*.log
 slides/*.pdf
+
+# Deck PPTX consolidado (regeneravel a partir do gerador .py versionado --
+# mesmo padrao dos slides .tex: fonte no git, binario final nao)
+slides/*.pptx

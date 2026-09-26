@@ -45,6 +45,10 @@
       visão. Ao medir esse retrieval, descobrimos que a métrica certa não é ``achar o documento
       exato'' e sim ``achar vizinhos da mesma classe'' — uma distinção formal da literatura de
       retrieval que mudou como avaliamos o resultado.
+    \item \textbf{Nota de 2026-09-25}: o F1-macro apresentado originalmente nesta sessão
+      (0,91--0,92) estava \textbf{inflado por um vazamento de rótulo} no texto indexado,
+      corrigido em 2026-09-15 — ver o slide de fechamento ao final desta apresentação para os
+      números reais e o motivo pelo qual a correção é, em si, a contribuição metodológica.
     \item RGB (fotos da operação) ficou fora do escopo por enquanto: o acesso ao dataset
       completo exige aprovação institucional externa, ainda pendente.
   \end{itemize}
@@ -198,6 +202,9 @@
   comparação direta e justa com o baseline anterior do RAG multimodal (26 imagens sintéticas,
   Recall@3 = 38\%) não é possível — as métricas medem coisas diferentes por desenho —, mas o
   processo de chegar a essa conclusão é, em si, um resultado metodológico que vale registrar.
+  \textbf{Nota de 2026-09-25}: esse poder discriminativo fraco acima do acaso é, em retrospecto,
+  coerente com o F1-macro real pós-correção (0,1664) — ambos abaixo do que o vazamento de
+  rótulo do slide seguinte fazia parecer.
 \end{frame}
 
 \begin{frame}{O número que fecha a validação: benchmark oficial do dataset}
@@ -211,6 +218,16 @@
   \end{numerobloco}
 
   \pause
+  \begin{decisaobloco}{CORRIGIDO em 2026-09-15 — o número abaixo estava inflado}
+    O F1-macro medido nesta sessão (0,91--0,92) vinha de um \textbf{vazamento de rótulo}: o
+    texto indexado citava sujeito/sessão/operação/classe na primeira linha, o que fazia o k-NN
+    casar rótulo com rótulo (BM25 lexical) em vez de sinal de sensor. Corrigido em
+    \texttt{rag/rag\_openpack\_texto.py::montar\_texto\_janela()} (identificação só em
+    metadado, nunca no texto embeddado). Números reais e a validação da correção estão no
+    slide de fechamento desta apresentação.
+  \end{decisaobloco}
+
+  \pause
   \begin{center}
   \begin{tabular}{lrl}
     \toprule
@@ -219,7 +236,7 @@
     UNet (oficial) & 0,3451 & Sim, supervisionado \\
     ST-GCN (oficial) & 0,7024 & Sim, supervisionado \\
     DeepConvLSTM (oficial) & 0,7081 & Sim, supervisionado \\
-    \textbf{RAG-HAR / Harbor} & \textbf{0,91--0,92} & \textbf{Não (\emph{training-free})} \\
+    RAG-HAR / Harbor (\emph{original, com vazamento}) & \emph{0,91--0,92 (inválido)} & Não (\emph{training-free}) \\
     \bottomrule
   \end{tabular}
   \end{center}
@@ -227,16 +244,55 @@
 
 \begin{frame}{O número que fecha a validação: robustez e custo}
   \small
-  Validado em dois protocolos — amostra estratificada (26 janelas de teste, F1=0,9217) e teste
-  completo sem amostragem (2.591 janelas, F1=0,9114) — com diferença de só 1 ponto percentual
-  entre eles, confirmando que o resultado é robusto, não um artefato da amostragem balanceada.
+  \begin{alertblock}{Este slide media robustez do número com vazamento — ver correção}
+    A comparação original (26 janelas: F1=0,9217; 2.591 janelas: F1=0,9114, diferença de só 1pp)
+    usava o texto indexado com vazamento de rótulo, corrigido em 2026-09-15. Os dois protocolos
+    concordarem entre si não provava ausência de vazamento — o vazamento afetava as duas
+    amostras igualmente. Números reais pós-correção no slide de fechamento.
+  \end{alertblock}
 
   \pause
-  \begin{decisaobloco}{Custo, reportado junto (nunca isolado)}
+  \begin{decisaobloco}{Custo, reportado junto (nunca isolado) — isto permanece válido}
     Indexação: ~50--72s. Busca: ~0,5s/janela. Teste completo (2.591 janelas): ~1360s.
     \emph{Multimodal-RAG-Survey} (ACL 2025, arXiv:2502.08826) confirma custo/qualidade juntos
     como prática padrão de literatura, não só regra do Harbor.
   \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Fechamento: números reais pós-correção (2026-09-15)}
+  \small
+  \begin{numerobloco}{F1-macro real, split oficial ``Pilot Challenge''}
+    \begin{center}
+    \begin{tabular}{lrl}
+      \toprule
+      Modelo & F1-macro & Treino necessário \\
+      \midrule
+      \textbf{RAG-HAR / Harbor (amostra, 26 janelas)} & \textbf{0,0750} & Não (\emph{training-free}) \\
+      \textbf{RAG-HAR / Harbor (completo, 2.591 janelas)} & \textbf{0,1664} & Não (\emph{training-free}) \\
+      \textbf{RAG-HAR / Harbor (LOSO, 21 sujeitos)} & \textbf{0,1626 $\pm$ 0,0686} & Não (\emph{training-free}) \\
+      \midrule
+      UNet (oficial) & 0,3451 & Sim, supervisionado \\
+      ST-GCN (oficial) & 0,7024 & Sim, supervisionado \\
+      DeepConvLSTM (oficial) & 0,7081 & Sim, supervisionado \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \begin{decisaobloco}{O método training-free não supera os baselines neste dataset}
+    Resultado honesto, não fracasso: LOSO (protocolo padrão-ouro em HAR, cross-subject) é
+    consistente com o teste completo, confirmando que o número não é artefato de um split
+    favorável. Ver \texttt{eval/resultados\_classificacao\_openpack.json},
+    \texttt{\_completo.json} e \texttt{eval/resultados\_loso\_openpack.json}.
+  \end{decisaobloco}
+
+  \pause
+  \textbf{A contribuição real desta sessão}: 3 controles de sanidade que validam a correção —
+  ausência léxica de identificação no texto (0/4000 documentos), rótulo embaralhado
+  (F1=0,0182, abaixo do acaso de 0,10) e LOSO sem nenhum F1=1,0000 exato (sintoma que motivou
+  a investigação original). É a detecção e correção do vazamento, não o F1-macro em si, que é
+  defensável como contribuição metodológica.
 \end{frame}
 
 \begin{frame}{Riscos e pendências}
@@ -246,14 +302,15 @@
       validadas sem regressão no harness completo.
     \item[\textcolor{green!60!black}{\textbullet}] \textbf{Corpus RAG e métrica de avaliação}
       — fechados, com achado metodológico documentado.
-    \item[\textcolor{green!60!black}{\textbullet}] \textbf{Benchmark acadêmico comparável}
-      (BRACIS 2027) — fechado: F1-macro contra o benchmark oficial \texttt{openpack-torch},
-      superando os 3 baselines supervisionados.
+    \item[\textcolor{red!80!black}{\textbullet}] \textbf{Benchmark acadêmico comparável}
+      (BRACIS 2027) — \textbf{CORRIGIDO em 2026-09-15}: o F1-macro apresentado nesta sessão
+      estava inflado por vazamento de rótulo. Real: 0,0750/0,1664/LOSO 0,1626$\pm$0,0686,
+      \textbf{abaixo} dos 3 baselines supervisionados — ver slide de fechamento.
     \item[\textcolor{green!60!black}{\textbullet}] \textbf{Aba de chat no dashboard} — fechada:
       ``5. OpenPack'', sub-roteador hierárquico entre manuais e corpus IMU, sem regressão.
     \item[\textcolor{orange!90!black}{\textbullet}] \textbf{Poder discriminativo do retrieval
-      por instância (12,9\%)} — fraco mas não bloqueia nada, já que a métrica que importa
-      (F1-macro) supera o benchmark oficial.
+      por instância (12,9\%)} — fraco, e coerente com o F1-macro real (também abaixo do
+      benchmark oficial pós-correção, ver slide de fechamento).
     \item[\textcolor{red!80!black}{\textbullet}] \textbf{Imagens RGB (Fase 5)} — bloqueada por
       aprovação institucional externa, ainda não solicitada. O frame disponível sem essa
       aprovação é insuficiente para o teste planejado (12 imagens, uma por operação); o
@@ -276,9 +333,11 @@
   \end{numerobloco}
 
   \pause
-  \textbf{Por que isso importa:} o F1-macro de 0,91--0,92 já supera os baselines oficiais
-  usando uma fração pequena do sinal disponível — não é o teto do que o dataset permite, é o
-  primeiro resultado honesto sobre um subconjunto.
+  \textbf{Por que isso importa:} o F1-macro real (0,1664, corrigido em 2026-09-15 — ver slide
+  de fechamento) foi medido usando uma fração pequena do sinal disponível — não é o teto do que
+  o dataset permite, é o primeiro resultado honesto sobre um subconjunto. Escalar a amostra
+  (próximos passos) pode mudar esse número em qualquer direção; não há garantia de que mais
+  dado o levaria acima dos baselines.
 \end{frame}
 
 \begin{frame}{Escopo de dado usado — o que o Harbor usa hoje}
@@ -310,8 +369,10 @@
     \item \textbf{Avaliar as modalidades de sensor não usadas} (BVP, EDA, keypoints) — hipótese
       em aberto, não testada: será que agregam sinal discriminativo para as perguntas atuais
       do chat? Medir antes de decidir se vale o custo de integração.
-    \item \textbf{Escalar a amostra} de 1.000 para mais janelas (ou o dataset completo) se o
-      F1-macro precisar de mais robustez estatística para publicação (meta BRACIS 2027).
+    \item \textbf{Escalar a amostra} de 1.000 para mais janelas (ou o dataset completo) — o
+      F1-macro real (0,1664, teste completo já sem amostragem de janela) já usa o dataset
+      inteiro nessa dimensão; a robustez que falta é de \emph{sujeitos} (LOSO já mede isso:
+      0,1626$\pm$0,0686) e de \emph{modalidade} (ver próximo item).
   \end{enumerate}
 \end{frame}
 
@@ -321,8 +382,9 @@
     \setcounter{enumi}{3}
     \item \textbf{Investigar o poder discriminativo fraco do retrieval por instância} — hipótese
       em aberto, não testada nesta sessão, se features de ordem mais alta (ex.\ frequência
-      dominante via FFT) melhorariam a pureza acima de 12,9\%; prioridade baixa, já que a
-      métrica que importa (F1-macro) já supera o benchmark oficial.
+      dominante via FFT) melhorariam a pureza acima de 12,9\%; \textbf{prioridade elevada} após
+      a correção de 2026-09-15 — a métrica que importa (F1-macro real, 0,1664) fica abaixo do
+      benchmark oficial, então esse ganho passa a ser necessário, não apenas desejável.
     \item \textbf{Corrigir a duplicação de \texttt{agregar\_por\_fonte}} — a mesma função existe
       em 3 arquivos de avaliação distintos; dívida técnica documentada, não corrigida.
     \item \textbf{Incorporar o diagrama de arquitetura a um slide} —

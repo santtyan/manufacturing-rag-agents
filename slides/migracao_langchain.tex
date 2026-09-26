@@ -27,7 +27,7 @@
 \title{Migração do Harbor para LangChain/LangGraph}
 \subtitle{Progresso, comparações e decisões}
 \author{Yan Santos Leite}
-\date{\today}
+\date{25 de setembro de 2026}
 
 \begin{document}
 
@@ -45,15 +45,21 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Ordem de migração (por risco crescente) — estado em 2026-09-09}
+\begin{frame}{Ordem de migração (por risco crescente) — estado em 2026-09-25}
   \begin{enumerate}
-    \item \textbf{RAG híbrido} — \alert{migrado} (2026-09-08)
-    \item \textbf{Self-repair / DBA-Agent} — \alert{migrado} (2026-09-09), sem regressão
-    \item \textbf{Roteador + answerability gates} — \alert{migrado} (2026-09-09), 0
-      divergências em 67 perguntas do golden set
+    \item \textbf{RAG híbrido} — \alert{migrado} (2026-09-08), \textbf{EM PRODUÇÃO}
+    \item \textbf{Self-repair / DBA-Agent} — \alert{migrado} (2026-09-09), \textbf{EM
+      PRODUÇÃO} desde então, sem regressão
+    \item \textbf{Roteador + answerability gates} — \alert{migrado} (2026-09-09),
+      \textbf{EM PRODUÇÃO} desde então (confirmado em \texttt{dashboard/app.py:521} e
+      \texttt{eval/rodar\_golden.py:35}), 0 divergências em 67 perguntas do golden set
+      original
     \item Diagnóstico em camadas (regra $\to$ Isolation Forest $\to$ LLM) — não iniciado,
-      baixo retorno esperado
-    \item NL-to-SQL (geração em si) — não iniciado, maior risco (validação determinística
+      suspenso: depende da reimplementação da API removida em 2026-09-12
+      (\texttt{docs/mapeamento\_cronograma.md})
+    \item NL-to-SQL (geração em si) — não iniciado, maior risco (o
+      \texttt{sql\_db\_query\_checker} nativo do LangChain é LLM-assistido, não
+      determinístico como o check \texttt{SELECT}-only atual — validação determinística
       própria precisa ser preservada)
   \end{enumerate}
 \end{frame}
@@ -195,14 +201,63 @@
   \end{decisaobloco}
 \end{frame}
 
+\begin{frame}{Agentic RAG: veredito final (2026-09-25) — ENCERRADO}
+  \small
+  \begin{numerobloco}{Reexecução formal com n=49 (não mais n=15)}
+    \begin{center}
+    \footnotesize
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Métrica} & \textbf{Baseline} & \textbf{Agentic} & \textbf{Delta} \\
+      \midrule
+      Recall@k (documento) & 93,9\% & 91,8\% & $-2,0$pp \\
+      MRR (documento)      & 0,857  & 0,827  & $-0,031$ \\
+      Recall@k (chunk, 40/49) & 90,0\% & 85,0\% & $-5,0$pp \\
+      Duração total (49 perguntas) & 81,6s & 1885,2s & \alert{23,09$\times$ mais caro} \\
+      \bottomrule
+    \end{tabular}
+    \end{center}
+  \end{numerobloco}
+
+  \pause
+  \textbf{Confirma e agrava} o resultado original (n=15: Recall@1 12/15$\to$11/15): regride em
+  \textbf{todas} as métricas e custa 23$\times$ mais (18/49 = 36,7\% das perguntas
+  reformularam query). Causa raiz (investigação 2026-09-14) segue válida: chunk certo às
+  vezes não está no topo do documento certo — reformular a query não resolve isso.
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    \textbf{Não promovido, frente encerrada.} Duas medições independentes (n=15 e n=49)
+    convergem na mesma direção — não reabrir sem hipótese nova. Resultado persistido em
+    \texttt{eval/resultados\_rag\_agentic.json}.
+  \end{decisaobloco}
+\end{frame}
+
+\begin{frame}{Adaptive-k: promovido com ressalva (2026-09-25)}
+  \small
+  \begin{numerobloco}{\texttt{eval/rag\_gerador.py::adaptive\_k()} — variância N=3 execuções}
+    Corta o nº de chunks pelo gap de score RRF em vez de k fixo=3 (EMNLP 2025,
+    arXiv:2506.08479). Ganho original (88,5\% vs.\ 76,9\% do melhor k fixo) vinha de 1
+    execução só — medido de novo com N=3: \textbf{faithfulness médio 0,8077 $\pm$ 0,067}
+    (min 0,769, max 0,885; CV=0,0829, acima do alvo estrito $<$0,05, mas o pior caso ainda
+    empata com o melhor k fixo, nunca fica abaixo).
+  \end{numerobloco}
+
+  \pause
+  \begin{decisaobloco}{Decisão}
+    \textbf{Promovido a default} (\texttt{usar\_adaptive\_k=True} em
+    \texttt{rag\_gerador.py}), explicitado por chamador em \texttt{dashboard/app.py}: ligado
+    só no corpus de manuais técnicos (onde foi medido), \textbf{não} ligado nos corpora
+    OpenPack/multimodal (nunca medidos com Adaptive-k). Validado sem regressão em dois
+    harnesses consecutivos (roteamento 59/69 estável).
+  \end{decisaobloco}
+\end{frame}
+
 \begin{frame}{Próximos passos}
   \begin{itemize}
-    \item Diagnóstico em camadas $\to$ avaliar se vale migrar (baixo retorno esperado).
+    \item Diagnóstico em camadas $\to$ suspenso, depende da reimplementação da API removida.
     \item NL-to-SQL (geração) $\to$ maior risco, validação determinística própria precisa
       ser preservada.
-    \item Agentic RAG (retrieval adaptativo) — protótipo medido, \alert{resultado negativo}
-      (Recall@1 caiu de 12/15 para 11/15), não promovido; causa raiz: chunk certo às vezes
-      não está no topo do documento certo, reformular a query não resolve isso.
     \item Contextual Retrieval — protótipo medido, resultado misto (MRR +0,008,
       Precision@5 $-3,6$pp), não promovido; manuais curtos não se beneficiam tanto quanto
       a literatura original (documentos longos) prevê.
