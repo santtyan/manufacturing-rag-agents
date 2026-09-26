@@ -1,12 +1,13 @@
 ---
 name: revisar-funcoes-orfas
-description: Revisa um arquivo ou pasta (indicado pelo usuário, não o repositório inteiro por padrão) linha por linha em busca de funções/métodos definidos mas nunca chamados em nenhum lugar, e reporta cada candidato com a evidência da busca — nunca remove nada sozinha. Cuida especificamente de três fontes conhecidas de falso positivo: despacho por dicionário (função só referenciada como valor, nunca como chamada direta), métodos homônimos entre classes distintas, e funções com underscore importadas cross-file apesar da convenção de "privado ao módulo". Use quando o usuário pedir para "revisar esse arquivo linha por linha", "achar funções órfãs", "tem função sem uso nesse módulo?", "limpar funções mortas", ou depois de auditar-scripts-orfaos ter marcado um arquivo como útil mas o usuário suspeitar que nem todo o conteúdo interno dele é usado.
+description: Revisa um arquivo, uma pasta, ou o repositório inteiro quando o usuário pedir explicitamente, linha por linha em busca de funções/métodos definidos mas nunca chamados em nenhum lugar, e reporta cada candidato com a evidência da busca — nunca remove nada sozinha. Cuida especificamente de três fontes conhecidas de falso positivo: despacho por dicionário (função só referenciada como valor, nunca como chamada direta), métodos homônimos entre classes distintas, e funções com underscore importadas cross-file apesar da convenção de "privado ao módulo". Use quando o usuário pedir para "revisar esse arquivo linha por linha", "achar funções órfãs", "tem função sem uso nesse módulo?", "limpar funções mortas", ou depois de auditar-scripts-orfaos ter marcado um arquivo como útil mas o usuário suspeitar que nem todo o conteúdo interno dele é usado.
 ---
 
 # Revisar funções órfãs
 
-Esta skill analisa o arquivo ou pasta que o usuário indicar — nunca o repositório inteiro por
-padrão, porque revisão linha por linha é cara e deve ser direcionada. Ela identifica funções e
+Esta skill analisa o arquivo, pasta, ou repositório inteiro que o usuário indicar — o escopo
+nunca é assumido por padrão, porque revisão linha por linha é cara e deve ser direcionada; o
+repositório inteiro é um escopo válido quando pedido explicitamente. Ela identifica funções e
 métodos definidos mas nunca chamados em lugar nenhum, e nunca remove nada sozinha, mesmo com
 alta confiança. Complementa (não substitui) uma skill de auditoria de scripts inteiros: aquela
 decide se um ARQUIVO é útil ou órfão; esta decide, dentro de um arquivo já considerado útil, se
@@ -14,7 +15,8 @@ alguma FUNÇÃO específica dele deixou de ser usada.
 
 ## Passo 1 — Listar todas as definições do escopo
 
-Levante todo `def` de função ou método dentro do arquivo ou pasta indicada, com nome, linha, e
+Levante todo `def` de função ou método dentro do escopo indicado (arquivo, pasta, ou repositório
+inteiro), com nome, linha, e
 se é método de classe (indentado sob `class`) ou função solta de módulo — essa distinção importa
 para o Passo 2.
 
@@ -63,7 +65,8 @@ inteiro sem avisar — isso é fora do escopo desta skill.
 
 ## Não fazer
 
-- Não rode no repositório inteiro sem o usuário ter indicado um escopo (arquivo ou pasta).
+- Não assuma um escopo por conta própria — exija que o usuário indique explicitamente um
+  arquivo, uma pasta, ou o repositório inteiro antes de começar.
 - Não trate ausência de chamada direta como prova suficiente sem checar despacho por dicionário
   primeiro — é a fonte de falso positivo mais comum.
 - Não aceite um match cross-file de método sem confirmar que pertence à mesma classe.
@@ -72,7 +75,8 @@ inteiro sem avisar — isso é fora do escopo desta skill.
 
 ## Checklist final de aceitação
 
-- O escopo foi indicado pelo usuário, não assumido como o repositório inteiro.
+- O escopo (arquivo, pasta, ou repositório inteiro) foi indicado explicitamente pelo usuário,
+  nunca assumido por default.
 - Cada candidato passou pelas 4 camadas de busca do Passo 2 antes de ser reportado como órfão.
 - As exceções do Passo 3 (bloco `__main__`, decorators de framework, API pública) foram checadas.
 - Nenhuma remoção ocorreu sem confirmação explícita, função por função.
