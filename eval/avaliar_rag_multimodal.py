@@ -15,13 +15,19 @@ Mesmo formato de golden set de 1-documento-relevante de eval/avaliar_retrieval.p
 formato multi-relevante do NanoBEIR/BEIR) -- aqui "documento" e uma imagem (identificada pelo
 id/stem do arquivo), nao um chunk de manual .md.
 
-Usa o cache de legendas ja gerado (rag/legendas_cache.json, produzido por
+Usa o cache de legendas ja gerado (rag/legendas_cache.json por default, produzido por
 `python rag/rag_multimodal_langchain.py --captionar`) -- este script NAO chama Ollama, so
 sentence-transformers/ChromaDB via RAGHibrido, entao pode rodar no mesmo processo sem o risco
 de segfault ja documentado (ACHADO REAL #2 em rag_multimodal_langchain.py).
 
-Uso: python eval/avaliar_rag_multimodal.py [--rerank]
-     Pre-requisito: python rag/rag_multimodal_langchain.py --captionar (gera o cache)
+ATUALIZACAO 2026-09-14: producao real usa geracao DETERMINISTICA (rag/legendas_deterministicas.py,
+sem VLM -- ver skill rag-multimodal), nao mais o cache via VLM acima. Aponte para esse cache com
+`--cache-legendas rag/legendas_deterministicas.json` (ver CLAUDE.md, secao "Testes e avaliacao").
+
+Uso: python eval/avaliar_rag_multimodal.py [--rerank] [--cache-legendas <caminho>]
+     Pre-requisito (fluxo em producao): python rag/legendas_deterministicas.py
+     Pre-requisito (fluxo alternativo via VLM, default sem --cache-legendas):
+     python rag/rag_multimodal_langchain.py --captionar
 """
 import csv
 import json
