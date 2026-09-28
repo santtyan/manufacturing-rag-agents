@@ -107,6 +107,16 @@ embaralhado → F1 ≈ acaso) confirmam ausência de vazamento nesse novo caminh
 não mais como prioridade — a migração de modalidade só se justifica se este número novo (índice
 numérico sobre IMU) ficar insuficiente para o objetivo do projeto.
 
+**Índice numérico integrado ao chat de produção (2026-09-29)**: duas vias — resumo agregado
+(rota `contexto`, sem gate novo) e classificação ao vivo de uma janela real via gate novo
+`pede_classificacao_janela_openpack` (replicado em `roteador.py` e `roteador_langgraph.py`,
+resposta 100% em Python sem LLM na predição). Ambas em produção, cobrem perguntas diferentes.
+Também cruzado `annotation/openpack-outliers/` (1792 linhas de irregularidade anotada por
+humano) contra as mesmas 48 features via Mann-Whitney U + Bonferroni — **nenhuma feature
+significativa em nenhuma categoria testável** (Additional/Incident/Struggling, 6-14 janelas
+cada) — resultado negativo honesto, amostra pequena e eventos curtos dentro da janela de 4s
+diluem o sinal. Ver detalhe completo em `docs/openpack_licenca_e_atribuicao.md`.
+
 **Suporte estatístico formal (2026-09-25)**: `eval/avaliar_significancia_openpack.py` roda Wilcoxon signed-rank de uma amostra (H0: mediana do F1-macro por sujeito = valor do baseline; teste one-sided) e bootstrap (10.000 reamostragens) sobre os 21 F1-macro por sujeito do LOSO. **p<0,001 contra os 3 baselines** (UNet, ST-GCN, DeepConvLSTM) — a diferença visual (0,16 vs. 0,70+) tem suporte estatístico, não é só leitura do número bruto. IC 95% da média via bootstrap: [0,1343, 0,1923] — nem o limite superior chega perto do menor baseline. Ver `eval/resultados_significancia_openpack.json`.
 
 ### Golden set e gates

@@ -142,3 +142,39 @@ sobre vetor numérico de 357 features (7 estatísticas × canal) e reporta Macro
 cross-subject do Harbor. Útil como referência de features (inclui RMS e inclinação, que as 8 atuais
 de `rag/rag_openpack_texto.py` não têm) e como confirmação independente de que índice numérico é
 viável nesse domínio — não como número a bater.
+
+## Índice numérico integrado ao chat + cruzamento outlier×IMU (2026-09-29)
+
+**Frente 1 — índice numérico em produção no chat.** Duas vias implementadas e comparadas:
+
+- **1A (resumo agregado)**: `eval/indice_numerico_openpack.py::resumo_para_chat()` lê o JSON já
+  persistido do LOSO e injeta o F1-macro/desvio/comparação com baselines como contexto
+  pré-calculado — mesmo padrão de `interpretacao_recall`/`lss_melhorou_tudo`
+  (`dashboard/app.py`). Sem gate novo no roteador, cai na rota `contexto` já existente.
+- **1B (classificação ao vivo)**: novo gate `pede_classificacao_janela_openpack`
+  (`dashboard/roteador.py` e `dashboard/roteador_langgraph.py`, replicado nos dois roteadores)
+  reconhece "classifique a janela do sujeito {U0XXX} na sessão {S0XXX}", extrai sujeito/sessão
+  por regex, e `eval/indice_numerico_openpack.py::classificar_janela_ao_vivo()` classifica a
+  primeira janela de **teste** daquela sessão (nunca de treino — evitaria vazamento trivial) em
+  tempo real (~ms, cache de treino preparado uma vez via `st.cache_resource`,
+  `indice_numerico_openpack_cacheado()`). Resposta 100% em Python, sem LLM na predição.
+
+**Comparação**: 1A é mais barata (zero código de roteamento novo, reusa padrão existente) e
+responde a pergunta mais natural ("quão bem o classificador acerta"); 1B é mais específica
+("classifique esta janela") mas depende de o usuário saber o ID do sujeito/sessão — caso de uso
+mais raro na prática, mas valida o classificador contra o rótulo real a cada uso (`acertou` no
+retorno), o que 1A não faz. **Ambas ficaram em produção** — não são mutuamente exclusivas, cada
+uma cobre uma pergunta diferente.
+
+**Frente 2 — outliers×IMU: resultado negativo, honesto.** `eval/avaliar_outliers_openpack.py`
+cruzou as 39 janelas com outlier sobreposto (7 categorias, das 6 sessões com vídeo já baixadas)
+contra 191 janelas "normais" (sem outlier), via Mann-Whitney U com correção de Bonferroni (48
+features × 3 categorias com amostra suficiente ≥3: Additional, Incident, Struggling).
+**Nenhuma feature ficou significativa em nenhuma categoria** — o sinal IMU, pelo menos nas 48
+features estatísticas já usadas para classificação de operação, **não detecta** as irregularidades
+anotadas por humano nesta amostra. Resultado honesto, não um bug: a amostra é pequena
+(6-14 janelas por categoria testável) e os eventos são curtos (mediana 1,25s) dentro de janelas de
+4s, o que dilui qualquer sinal — ambas as limitações já eram esperadas e declaradas antes de rodar
+o teste. **Não retomar esta frente sem aumentar a amostra** (mais sujeitos com vídeo) ou reduzir o
+tamanho da janela especificamente para este teste (fora do escopo desta rodada, mudaria o corpus
+de produção). Ver `eval/resultados_outliers_openpack.json`.

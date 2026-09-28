@@ -1,0 +1,67 @@
+{
+  "n_janelas_total": 230,
+  "n_janelas_normais": 191,
+  "categorias_testadas": [
+    "Additional",
+    "Confused",
+    "Incident",
+    "Investigation",
+    "Parallel",
+    "Recovery",
+    "Struggling"
+  ],
+  "alpha_nominal": 0.05,
+  "resultados_por_categoria": {
+    "Additional": {
+      "categoria": "Additional",
+      "n_com_outlier": 12,
+      "n_normal": 191,
+      "alpha_corrigido_bonferroni": 0.0010416666666666667,
+      "n_features_testadas": 48,
+      "n_features_significativas": 0,
+      "features_significativas": []
+    },
+    "Confused": {
+      "categoria": "Confused",
+      "n_com_outlier": 2,
+      "n_normal": 191,
+      "aviso": "amostra insuficiente (< 3 janelas em algum grupo), teste nao aplicado"
+    },
+    "Incident": {
+      "categoria": "Incident",
+      "n_com_outlier": 6,
+      "n_normal": 191,
+      "alpha_corrigido_bonferroni": 0.0010416666666666667,
+      "n_features_testadas": 48,
+      "n_features_significativas": 0,
+      "features_significativas": []
+    },
+    "Investigation": {
+      "categoria": "Investigation",
+      "n_com_outlier": 1,
+      "n_normal": 191,
+      "aviso": "amostra insuficiente (< 3 janelas em algum grupo), teste nao aplicado"
+    },
+    "Parallel": {
+      "categoria": "Parallel",
+      "n_com_outlier": 2,
+      "n_normal": 191,
+      "aviso": "amostra insuficiente (< 3 janelas em algum grupo), teste nao aplicado"
+    },
+    "Recovery": {
+      "categoria": "Recovery",
+      "n_com_outlier": 2,
+      "n_normal": 191,
+      "aviso": "amostra insuficiente (< 3 janelas em algum grupo), teste nao aplicado"
+    },
+    "Struggling": {
+      "categoria": "Struggling",
+      "n_com_outlier": 14,
+      "n_normal": 191,
+      "alpha_corrigido_bonferroni": 0.0010416666666666667,
+      "n_features_testadas": 48,
+      "n_features_significativas": 0,
+      "features_significativas": []
+    }
+  }
+}
