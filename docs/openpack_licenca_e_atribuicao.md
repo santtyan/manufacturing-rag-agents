@@ -94,3 +94,51 @@ testado e **aprovado tecnicamente**:
   validado nas Fases 2-4). O que falta é dado real anotado em escala suficiente (múltiplas
   operações, múltiplos sujeitos) para repetir o desenho de golden set das Fases 2-4 — bloqueado
   pela aprovação de acesso acima, não por limitação técnica do pipeline.
+
+## OpenPack RGB — aprovação chegou (2026-09-28), inventário e novo plano
+
+**STATUS: aprovado.** 30 vídeos MP4 baixados (`C:\Users\USER\Desktop\OpenPack\*\kinect\color-masked\mp4\`,
+16GB, 6 sujeitos U0201/U0206-U0210, 5 sessões cada, 15fps, `color-masked` — rosto já coberto por
+máscara sólida aplicada pelos autores, dispensa `deface`). Licença +RGB (proíbe redistribuição sob
+qualquer forma) continua se aplicando integralmente: nenhum vídeo/frame entra no git.
+
+**Achado que mudou o plano**: baixados também os 6 zips por sujeito do Zenodo
+(`Desktop/OpenPack/zenodo/U*.zip`, ~1,5GB total, licença **CC BY-NC-SA — permissiva, derivados
+versionáveis**, diferente do RGB). Cada zip contém, além do IMU já usado:
+- `annotation/openpack-operations/*.csv` — anotação completa das operações (nome por extenso,
+  start/end), que faltava para 29 das 30 sessões com vídeo.
+- `kinect/3d-kpt/single-ffill-flip-fixed/*.csv` — keypoints 3D (32 juntas × posição XYZ + quaternion
+  + confiança, `unixtime`, 15Hz — mesmo stream/fps do vídeo).
+- `kinect/2d-kpt/.../` (JSON, mmpose), `annotation/openpack-actions` (16 subclasses),
+  `annotation/openpack-outliers` (atividades irregulares com rótulo humano — primeira fonte de
+  anomalia anotada do projeto, ainda não explorada), `ht/` (scanner), `e401/e402/` (BVP/EDA/temp,
+  modalidade fisiológica não usada pelo Harbor).
+
+**Alinhamento temporal validado empiricamente**, não só calculado: extraindo o frame do meio de
+"Scan Label" e "Assemble Box" via `t0` do `3d-kpt` (mesmo stream do Kinect que gera o vídeo, então
+`unixtime` explícito por frame), a imagem mostra exatamente a pessoa com o scanner na mão / montando
+a caixa. O timestamp está queimado no canto do vídeo, então o `t0` é verificável, não inferido.
+
+**Decisão de arquitetura — CONFIRMADA (2026-09-28)**: antes de migrar de modalidade (IMU → pose/RGB),
+testou-se se o gargalo do F1-macro de 0,1664 era a **representação do índice** (texto→embedding,
+hoje) e não o dado em si — `RAG-HAR+` (arXiv:2607.26631) relata que kNN sobre vetor numérico supera
+embedding de texto para casar features de sensor. **Confirmado com resultado real**:
+`eval/indice_numerico_openpack.py`, mesmas features/split/protocolo, só trocando texto→embedding por
+kNN euclidiano — F1-macro LOSO salta de 0,1626±0,0686 para **0,4314±0,0634**, superando o baseline
+UNet (mesma modalidade IMU). Ver detalhe completo e teste de significância em `CLAUDE.md`.
+
+A trilha RGB/pose descrita abaixo (vídeos e keypoints já baixados e inventariados) **deixa de ser a
+prioridade imediata** — o índice numérico resolveu a maior parte do problema sem precisar trocar de
+dado. Fica registrada como próximo passo caso o número atual ainda seja insuficiente para o objetivo
+do projeto. Se retomada, os cuidados já mapeados continuam valendo: normalizar por comprimento ósseo
+(biotipo confunde LOSO), não usar quaternion (bug de SDK + as duas levas de coleta divergem nessa
+modalidade, ver `[[openpack_duas_levas_coleta_quaternion_2026-09-15]]`), e tratar oclusão de punho
+por caixa como fator de primeira ordem — é a causa que o próprio paper PerCom dá para o ST-GCN cair
+no split de submissão (0,7024→0,6106).
+
+**Referência complementar (mesmo grupo CERISE, 25/08/2026)**: apresentação de Carlos Daniel usa kNN
+sobre vetor numérico de 357 features (7 estatísticas × canal) e reporta Macro-F1 67,1% — mas
+**intra-sujeito** (1 sujeito, split por caixa, 49 janelas de teste), não comparável ao LOSO
+cross-subject do Harbor. Útil como referência de features (inclui RMS e inclinação, que as 8 atuais
+de `rag/rag_openpack_texto.py` não têm) e como confirmação independente de que índice numérico é
+viável nesse domínio — não como número a bater.

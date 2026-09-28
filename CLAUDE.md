@@ -85,7 +85,27 @@ O **pipeline8** (`pipeline8_openpack.py`, integrado em 2026-09-13/14) tem a mesm
 
 **CORRIGIDO EM 2026-09-15 — bug de vazamento de rótulo**: até 2026-09-14, o texto indexado citava sujeito/sessão/operação/classe na primeira linha — vazamento que fazia o k-NN de avaliação casar rótulo com rótulo (BM25 lexical) em vez de sinal de sensor, inflando o F1-macro artificialmente. Corrigido em `rag/rag_openpack_texto.py::montar_texto_janela()` (identificação agora só em metadado, nunca no texto embeddado); `tests/test_rag_openpack_texto.py` atualizado para testar a ausência do vazamento, não mais protegê-lo. Validado por 3 checagens (ausência léxica 0/4000, rótulo embaralhado F1=0,0182 < acaso 0,10, LOSO sem F1=1,0000 exato) — ver `[[bug_vazamento_rotulo_openpack_2026-09-15]]`.
 
-**Números REAIS pós-correção** (split oficial "Pilot Challenge", `openpack-torch`): F1-macro = **0,0750** (amostra pequena, 26 janelas de teste, alta variância) e **0,1664** (teste completo, 2.591 janelas, sem amostragem — número de referência) — ambos muito abaixo dos 3 baselines supervisionados (UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081). **LOSO** (Leave-One-Subject-Out, protocolo padrão-ouro em HAR, 21 sujeitos): F1-macro médio = **0,1626 ± 0,0686** (min 0,0311 em U0107, max 0,3270 em U0101) — consistente com o teste completo, também abaixo dos baselines. O método training-free não supera redes supervisionadas neste dataset; isso é resultado honesto, não fracasso. Ver `eval/resultados_classificacao_openpack.json`, `eval/resultados_classificacao_openpack_completo.json` e `eval/resultados_loso_openpack.json`.
+**Números REAIS pós-correção** (split oficial "Pilot Challenge", `openpack-torch`): F1-macro = **0,0750** (amostra pequena, 26 janelas de teste, alta variância) e **0,1664** (teste completo, 2.591 janelas, sem amostragem — número de referência) — ambos muito abaixo dos 3 baselines supervisionados: UNet=0,3451 e DeepConvLSTM=0,7081, **ambos sobre a modalidade IMU** (mesma modalidade do Harbor), e ST-GCN=0,7024 **sobre keypoints/pose** (modalidade diferente — achado da sessão 2026-09-28, corrigindo uma imprecisão anterior deste documento que listava os 3 como se fossem comparáveis sem distinção de modalidade). O ST-GCN é o único que cai no split de submissão oficial (0,7024→0,6106) — o próprio paper PerCom atribui isso a oclusão de punho por caixa, relevante para qualquer futura tentativa de usar pose neste dataset. **LOSO** (Leave-One-Subject-Out, protocolo padrão-ouro em HAR, 21 sujeitos): F1-macro médio = **0,1626 ± 0,0686** (min 0,0311 em U0107, max 0,3270 em U0101) — consistente com o teste completo, também abaixo dos baselines IMU. O método training-free não supera redes supervisionadas neste dataset; isso é resultado honesto, não fracasso. Ver `eval/resultados_classificacao_openpack.json`, `eval/resultados_classificacao_openpack_completo.json` e `eval/resultados_loso_openpack.json`.
+
+**Hipótese confirmada (2026-09-28) — índice numérico substitui índice textual no protocolo de
+avaliação.** `RAG-HAR+` (arXiv:2607.26631, continuação direta do RAG-HAR) reporta que retrieval por
+vetor numérico supera retrieval por embedding de texto para casar features de sensor. Testado sob o
+MESMO split oficial e MESMO protocolo LOSO (`eval/indice_numerico_openpack.py`, kNN euclidiano +
+voto ponderado por 1/distância sobre as mesmas 48 features de `rag/rag_openpack_texto.py`, nada mais
+mudou): F1-macro salta de **0,0750→0,3905** (split "Pilot Challenge", 26 janelas) e de
+**0,1626±0,0686→0,4314±0,0634** (LOSO, 21 sujeitos) — o índice numérico agora **supera o baseline
+UNet (0,3451)**, o único dos 3 na mesma modalidade IMU. Teste de significância (mesmo protocolo de
+`avaliar_significancia_openpack.py`): Wilcoxon vs. UNet **não significativo** (p=0,9999 — o Harbor
+não fica sistematicamente abaixo), vs. ST-GCN/DeepConvLSTM ainda p<0,001 (redes supervisionadas com
+GPU seguem à frente, esperado). IC 95% via bootstrap: [0,4047; 0,4580]. **O gargalo nunca foi a
+modalidade IMU — era a representação textual do índice.** Ver
+`eval/resultados_loso_indice_numerico_openpack.json` e
+`eval/resultados_significancia_indice_numerico_openpack.json`. 4 baterias de sanidade (rótulo
+embaralhado → F1 ≈ acaso) confirmam ausência de vazamento nesse novo caminho
+(`tests/test_sanidade_harnesses.py`). Trilha RGB/pose (planejada em
+`docs/openpack_licenca_e_atribuicao.md`, seção "OpenPack RGB") fica registrada como próximo passo,
+não mais como prioridade — a migração de modalidade só se justifica se este número novo (índice
+numérico sobre IMU) ficar insuficiente para o objetivo do projeto.
 
 **Suporte estatístico formal (2026-09-25)**: `eval/avaliar_significancia_openpack.py` roda Wilcoxon signed-rank de uma amostra (H0: mediana do F1-macro por sujeito = valor do baseline; teste one-sided) e bootstrap (10.000 reamostragens) sobre os 21 F1-macro por sujeito do LOSO. **p<0,001 contra os 3 baselines** (UNet, ST-GCN, DeepConvLSTM) — a diferença visual (0,16 vs. 0,70+) tem suporte estatístico, não é só leitura do número bruto. IC 95% da média via bootstrap: [0,1343, 0,1923] — nem o limite superior chega perto do menor baseline. Ver `eval/resultados_significancia_openpack.json`.
 

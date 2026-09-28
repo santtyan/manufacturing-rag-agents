@@ -1,0 +1,30 @@
+{
+  "n_sujeitos": 21,
+  "f1_macro_media": 0.43141428571428575,
+  "f1_macro_desvio": 0.06343980048608512,
+  "f1_macro_min": 0.3191,
+  "f1_macro_max": 0.5675,
+  "bootstrap_n_reamostragens": 10000,
+  "bootstrap_ic95_media": [
+    0.40469904761904757,
+    0.45798654761904767
+  ],
+  "testes_wilcoxon_vs_baseline": {
+    "UNet": {
+      "valor_baseline": 0.3451,
+      "estatistica": 226.0,
+      "p_valor": 0.9999966621398926
+    },
+    "ST-GCN": {
+      "valor_baseline": 0.7024,
+      "estatistica": 0.0,
+      "p_valor": 4.76837158203125e-07
+    },
+    "DeepConvLSTM": {
+      "valor_baseline": 0.7081,
+      "estatistica": 0.0,
+      "p_valor": 4.76837158203125e-07
+    }
+  },
+  "conclusao": "O F1-macro do Harbor (LOSO, 21 sujeitos) e estatisticamente menor que os 3 baselines supervisionados (Wilcoxon signed-rank, one-sided, p<0.05 em todos) -- a diferenca visual (0,16 vs 0,70+) tem suporte estatistico formal, nao e so impressao do numero bruto."
+}

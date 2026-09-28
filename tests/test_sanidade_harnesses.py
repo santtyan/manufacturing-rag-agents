@@ -135,6 +135,62 @@ def test_classificacao_openpack_com_rotulo_embaralhado_desaba_para_acaso():
     )
 
 
+def test_indice_numerico_openpack_com_rotulo_embaralhado_desaba_para_acaso():
+    """Mesma bateria acima (item 1, rotulo embaralhado), aplicada ao indice numerico
+    (eval/indice_numerico_openpack.py, plano 'OpenPack: corrigir o indice antes de trocar de
+    modalidade', 2026-09-28). Risco de vazamento aqui e conceitualmente diferente do bug de
+    2026-09-15: nao ha texto embeddado citando o rotulo, mas o vetor kNN ainda usa
+    operacoes_treino diretamente da coluna 'operacao' -- se o pareamento janela<->rotulo
+    estivesse errado em algum ponto do pipeline, o F1 embaralhado exporia isso do mesmo jeito
+    (o F1 real desabaria se o rotulo fosse aleatorio, entao o teste so faz sentido comparando
+    o F1 com rotulo real vs. embaralhado)."""
+    sys.path.insert(0, str(HARBOR_ROOT / "eval"))
+    from indice_numerico_openpack import (
+        JANELAS_AMOSTRADAS, SPLIT_TREINO, SPLIT_TESTE, carregar_sinais,
+        construir_matriz, classificar_knn,
+    )
+    from sklearn.metrics import f1_score
+    import numpy as np
+
+    if not JANELAS_AMOSTRADAS.exists():
+        print("SKIP: janelas_amostradas.csv nao existe, rodar pipeline8_openpack.py primeiro")
+        return
+
+    df_janelas = pd.read_csv(JANELAS_AMOSTRADAS)
+    n_classes = df_janelas["operacao"].nunique()
+    acaso_esperado = 1.0 / n_classes
+
+    janelas_treino = df_janelas[df_janelas[["sujeito", "sessao"]].apply(tuple, axis=1).isin(SPLIT_TREINO)]
+    janelas_teste = df_janelas[df_janelas[["sujeito", "sessao"]].apply(tuple, axis=1).isin(SPLIT_TESTE)]
+    sinais = carregar_sinais(pd.concat([janelas_treino, janelas_teste]))
+
+    X_treino, y_treino, _ = construir_matriz(janelas_treino, sinais)
+    X_teste, y_teste, _ = construir_matriz(janelas_teste, sinais)
+
+    random.seed(42)
+    y_treino_embaralhado = y_treino.copy()
+    random.shuffle(y_treino_embaralhado)
+
+    media_treino = X_treino.mean(axis=0)
+    desvio_treino = X_treino.std(axis=0)
+    desvio_treino[desvio_treino == 0] = 1.0
+    X_treino_norm = (X_treino - media_treino) / desvio_treino
+    X_teste_norm = (X_teste - media_treino) / desvio_treino
+
+    y_pred = classificar_knn(X_treino_norm, y_treino_embaralhado, X_teste_norm, k=5)
+    y_true_validos = [yt for yt, yp in zip(y_teste, y_pred) if yp is not None]
+    y_pred_validos = [yp for yp in y_pred if yp is not None]
+
+    assert y_true_validos, "nenhuma janela classificada -- verificar split/features"
+    f1_embaralhado = f1_score(y_true_validos, y_pred_validos, average="macro", zero_division=0)
+
+    assert f1_embaralhado <= acaso_esperado * 2, (
+        f"F1 (indice numerico) com rotulo de TREINO embaralhado = {f1_embaralhado:.4f}, muito "
+        f"acima do acaso (~{acaso_esperado:.4f}) -- indica vazamento no pareamento janela<->"
+        f"rotulo. Nao promover o indice numerico ate investigar."
+    )
+
+
 # ---------------------------------------------------------------------------------------------
 # Bateria 2: corpus embaralhado -- Recall@k deve cair para k/N quando nao ha documento certo
 # ---------------------------------------------------------------------------------------------
@@ -219,6 +275,7 @@ if __name__ == "__main__":
     testes = [
         test_corpus_openpack_nao_contem_rotulo_de_operacao,
         test_classificacao_openpack_com_rotulo_embaralhado_desaba_para_acaso,
+        test_indice_numerico_openpack_com_rotulo_embaralhado_desaba_para_acaso,
         test_retrieval_multimodal_com_pergunta_desconectada_do_corpus,
         test_retrieval_multimodal_controle_positivo_pergunta_literal,
     ]

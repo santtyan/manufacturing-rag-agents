@@ -1,0 +1,18 @@
+{
+  "k": 5,
+  "split": "pilot-challenge",
+  "metodo": "indice_numerico_knn",
+  "n_janelas_treino": 150,
+  "n_janelas_teste": 26,
+  "n_classificadas": 26,
+  "f1_macro": 0.3905,
+  "baselines_oficiais": {
+    "UNet": 0.3451,
+    "ST-GCN": 0.7024,
+    "DeepConvLSTM": 0.7081
+  },
+  "training_free": true,
+  "tempo_extracao_features_s": 2.1,
+  "tempo_classificacao_s": 0.003,
+  "n_features_por_janela": 48
+}
