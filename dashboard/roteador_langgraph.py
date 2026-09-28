@@ -6,33 +6,37 @@ migracao do self-repair (nl_to_sql_langgraph.py) -- nenhuma migracao e aceita se
 eval/rodar_golden.py, entao a nova implementacao precisa existir lado a lado com a antiga ate
 ser validada pelo harness.
 
-Nenhum gate foi reescrito ou reinterpretado -- todas as 11 funcoes `pede_*` e a logica de
+Nenhum gate foi reescrito ou reinterpretado -- as funcoes `pede_*` e a logica de
 `rotear_por_keyword()`/`rotear_por_llm()` de dashboard/roteador.py sao REUSADAS diretamente,
 so a orquestracao (qual gate roda em que ordem, quando desempatar com o LLM) virou um grafo de
 estados explicito em vez da cadeia de `if` em cascata de `rotear_pergunta()`. A ordem de
 prioridade dos gates e EXATAMENTE a mesma do original (mapeada com precisao lendo
-roteador.py:337-362 e roteador.py:261-293, nao reconstruida de memoria):
+roteador.py, nao reconstruida de memoria; contagem de gates `pede_*` atualizada conforme o
+arquivo original cresce -- ver CLAUDE.md para o numero corrente):
 
 1. pede_identificacao_de_pessoa -> "recusa_identificacao_pessoa" (prioridade maxima, adicionado
    2026-09-12 na integracao do dataset 8/OpenPack -- recusa deterministica a pedido de julgar/
    identificar um sujeito especifico, antes de qualquer outra checagem)
-2. pede_interpretacao_recall -> "interpretacao_recall" (prioridade maxima, ver comentario
+2. pede_classificacao_janela_openpack -> "classificar_janela_openpack" (2026-09-29, Frente 1B do
+   plano de integracao do indice numerico -- precisa vir antes da rota RAG generica, senao
+   "classifique a janela do sujeito X" cairia no retrieval textual do corpus OpenPack)
+3. pede_interpretacao_recall -> "interpretacao_recall" (prioridade maxima, ver comentario
    original sobre a trava que impede o desempate por LLM de reclassificar essa pergunta)
-3. pede_confirmacao_alarme_automatico -> "contexto"
-4. pede_ranking_assets_duas_empresas -> "contexto"
-5. pede_downtime_dataset_errado -> "contexto"
-6. pede_matriz_confusao_precalculada -> "contexto"
-7. rotear_por_keyword() -- que por sua vez checa, nesta ordem interna:
-   7a. pede_cruzamento_categoria_x_periodo_lss -> "nao_respondivel_lss"
-   7b. pede_roi_dado_inexistente -> "nao_respondivel_roi"
-   7c. pede_cruzamento_ciclo_x_anomalia_cnc -> "nao_respondivel_cnc"
-   7d. pede_cruzamento_openpack_x_maquina -> "nao_respondivel_openpack" (2026-09-12)
-   7e. pede_planned_vs_unplanned -> "planned_vs_unplanned"
-   7f. pede_lss_melhorou_tudo -> "lss_melhorou_tudo"
-   7g. palavra-chave SQL ou pede_agregacao_com_filtro ou pede_ranking_categoria -> "sql"
-   7h. palavra-chave RAG (sem sinal de dado calculado) -> "rag"
-   7i. default -> "contexto"
-7. Se o resultado de (6) foi "contexto" E usar_llm=True: desempate via rotear_por_llm()
+4. pede_confirmacao_alarme_automatico -> "contexto"
+5. pede_ranking_assets_duas_empresas -> "contexto"
+6. pede_downtime_dataset_errado -> "contexto"
+7. pede_matriz_confusao_precalculada -> "contexto"
+8. rotear_por_keyword() -- que por sua vez checa, nesta ordem interna:
+   8a. pede_cruzamento_categoria_x_periodo_lss -> "nao_respondivel_lss"
+   8b. pede_roi_dado_inexistente -> "nao_respondivel_roi"
+   8c. pede_cruzamento_ciclo_x_anomalia_cnc -> "nao_respondivel_cnc"
+   8d. pede_cruzamento_openpack_x_maquina -> "nao_respondivel_openpack" (2026-09-12)
+   8e. pede_planned_vs_unplanned -> "planned_vs_unplanned"
+   8f. pede_lss_melhorou_tudo -> "lss_melhorou_tudo"
+   8g. palavra-chave SQL ou pede_agregacao_com_filtro ou pede_ranking_categoria -> "sql"
+   8h. palavra-chave RAG (sem sinal de dado calculado) -> "rag"
+   8i. default -> "contexto"
+9. Se o resultado de (8) foi "contexto" E usar_llm=True: desempate via rotear_por_llm()
    (JSON-schema do Ollama) -- se o LLM discordar do keyword, o LLM decide; se falhar, mantem
    o keyword.
 
@@ -70,6 +74,7 @@ _spec.loader.exec_module(_roteador_impl)
 
 pede_interpretacao_recall = _roteador_impl.pede_interpretacao_recall
 pede_identificacao_de_pessoa = _roteador_impl.pede_identificacao_de_pessoa
+pede_classificacao_janela_openpack = _roteador_impl.pede_classificacao_janela_openpack
 pede_confirmacao_alarme_automatico = _roteador_impl.pede_confirmacao_alarme_automatico
 pede_ranking_assets_duas_empresas = _roteador_impl.pede_ranking_assets_duas_empresas
 pede_downtime_dataset_errado = _roteador_impl.pede_downtime_dataset_errado
@@ -93,6 +98,8 @@ def _no_gates_deterministicos(estado: EstadoRoteador) -> dict:
     pergunta = estado["pergunta"]
     if pede_identificacao_de_pessoa(pergunta):
         return {"rota": "recusa_identificacao_pessoa"}
+    if pede_classificacao_janela_openpack(pergunta):
+        return {"rota": "classificar_janela_openpack"}
     if pede_interpretacao_recall(pergunta):
         return {"rota": "interpretacao_recall"}
     if pede_confirmacao_alarme_automatico(pergunta):

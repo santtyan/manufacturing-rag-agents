@@ -19,6 +19,7 @@ config sem precisar duplicar a funcao -- mesmo principio de parametrizacao usado
 rag/rag_hibrido.py (chroma_dir/colecao) e nl_to_sql/nl_to_sql.py (gerar_sql_com_schema).
 """
 import json
+import re
 import sys as _sys
 from pathlib import Path as _Path
 
@@ -302,6 +303,39 @@ def pede_identificacao_de_pessoa(pergunta):
     return tem_sinal_openpack and tem_julgamento_pessoa
 
 
+PALAVRAS_CHAVE_CLASSIFICAR_JANELA = ("classifique", "classificar", "qual operacao e a janela",
+                                      "qual operação é a janela", "preveja a operacao", "preveja a operação")
+_PADRAO_SUJEITO = re.compile(r"\bU0\d{3}\b", re.IGNORECASE)
+_PADRAO_SESSAO = re.compile(r"\bS0\d{3}\b", re.IGNORECASE)
+
+
+def extrair_sujeito_sessao_openpack(pergunta):
+    """Extrai o par (sujeito, sessao) de uma pergunta do tipo 'classifique a janela do sujeito
+    U0106 na sessao S0100' -- regex simples sobre o padrao Uxxxx/Sxxxx que ja aparece em todo o
+    dataset (mesma convencao de nomenclatura dos arquivos/CSVs). Retorna (None, None) se um dos
+    dois nao aparecer -- o chamador decide o que fazer (ex. pedir para o usuario especificar)."""
+    m_sujeito = _PADRAO_SUJEITO.search(pergunta)
+    m_sessao = _PADRAO_SESSAO.search(pergunta)
+    sujeito = m_sujeito.group(0).upper() if m_sujeito else None
+    sessao = m_sessao.group(0).upper() if m_sessao else None
+    return sujeito, sessao
+
+
+def pede_classificacao_janela_openpack(pergunta):
+    """Frente 1B do plano 'OpenPack: integrar indice numerico ao chat' (2026-09-29): detecta
+    pedido de CLASSIFICAR uma janela especifica (nao uma pergunta agregada sobre o corpus, que ja
+    cai em 'rag' via PALAVRAS_CHAVE_OPENPACK). Precisa de sinal de classificacao E de sujeito+
+    sessao explicitos na pergunta -- sem os dois, nao ha janela para classificar (nao inventa
+    qual sujeito o usuario quis dizer). Intercepta ANTES da rota RAG generica, senao a pergunta
+    cairia no corpus textual/retrieval, que nao classifica nada, so busca documento parecido."""
+    p = pergunta.lower()
+    tem_sinal_classificacao = any(kw in p for kw in PALAVRAS_CHAVE_CLASSIFICAR_JANELA)
+    if not tem_sinal_classificacao:
+        return False
+    sujeito, sessao = extrair_sujeito_sessao_openpack(pergunta)
+    return sujeito is not None and sessao is not None
+
+
 def rotear_por_keyword(pergunta):
     """Roteamento por palavra-chave: rapido, 0 latencia, mas fragil a sinonimos.
     'nao_respondivel' tem prioridade maxima: e um "answerability gate" deterministico (padrao-
@@ -392,6 +426,13 @@ def rotear_pergunta(pergunta, usar_llm=True, ollama_url="http://localhost:11434/
     # desempate por LLM reclassifique essa pergunta como sql, o que levava a tabela errada.
     if pede_identificacao_de_pessoa(pergunta):
         return "recusa_identificacao_pessoa"
+    # Checado logo depois -- "classifique a janela do sujeito U0106" nao bate em
+    # PALAVRAS_CHAVE_JULGAMENTO_PESSOA (nao julga desempenho, so classifica uma operacao), mas
+    # precisa vir antes da rota RAG generica: sem isso, a pergunta cairia no corpus textual/
+    # retrieval (PALAVRAS_CHAVE_OPENPACK), que busca documento parecido em vez de classificar a
+    # janela pedida.
+    if pede_classificacao_janela_openpack(pergunta):
+        return "classificar_janela_openpack"
     if pede_interpretacao_recall(pergunta):
         return "interpretacao_recall"
     if pede_confirmacao_alarme_automatico(pergunta):

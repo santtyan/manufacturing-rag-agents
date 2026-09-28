@@ -404,6 +404,21 @@ def rag_openpack_indexado():
         return None
 
 
+@st.cache_resource
+def indice_numerico_openpack_cacheado():
+    """Frente 1B do plano 'OpenPack: integrar indice numerico ao chat' (2026-09-29) -- mesmo
+    padrao de cache_resource de rag_openpack_indexado() acima, mas para o indice numerico kNN
+    (eval/indice_numerico_openpack.py) em vez do RAGHibrido textual: prepara a matriz de treino
+    normalizada UMA VEZ por sessao do Streamlit (~5s), nao a cada pergunta do chat. Retorna
+    None se indisponivel (ex. janelas_amostradas.csv ainda nao existe)."""
+    try:
+        from indice_numerico_openpack import preparar_treino_cache
+        return preparar_treino_cache(k=5)
+    except Exception as exc:
+        print(f"[Indice numerico OpenPack indisponivel: {exc}]")
+        return None
+
+
 def rag_openpack_responder_ou_manual(pergunta):
     """Sub-roteador hierarquico DENTRO da rota `rag` (Fase 7f do plano OpenPack, 2026-09-14):
     quando dashboard/roteador.py ja decidiu `rag`, esta funcao decide qual CORPUS usar --
@@ -549,6 +564,7 @@ BADGE_ROTA = {
     "lss_melhorou_tudo": "🧮 **Calculo pre-processado** — direcao de cada metrica (melhorou/piorou) calculada em Python",
     "interpretacao_recall": "🧮 **Calculo pre-processado** — direcao de recall/precision (acerta/erra) calculada em Python",
     "recusa_identificacao_pessoa": "🔒 **Recusa deterministica** — dado anonimizado por licenca, nao identifica sujeitos",
+    "classificar_janela_openpack": "🧮 **Classificacao ao vivo** — indice numerico kNN classifica uma janela real, sem LLM na predicao",
 }
 
 
@@ -626,7 +642,7 @@ Responda em portugues, de forma direta e curta (2-4 frases)."""
 
 def chat_especializado(dataset_key, persona, contexto_agregado, readme_resumo, amostra_bruta, exemplos,
                         planned_vs_unplanned_min=None, linhas_rotuladas_lss=None, recall_precision=None,
-                        rag_responder_fn=None):
+                        rag_responder_fn=None, cache_indice_numerico_openpack=None):
     """Renderiza um chat com historico proprio, contexto e system prompt especificos de um dataset.
     Roteia automaticamente para RAG (manual tecnico) ou NL-to-SQL (banco) quando a pergunta pedir.
     planned_vs_unplanned_min: tupla opcional (total_planned, total_unplanned) ja pre-calculada --
@@ -642,7 +658,11 @@ def chat_especializado(dataset_key, persona, contexto_agregado, readme_resumo, a
     -- default None usa rag_responder() (corpus de manuais tecnicos); a aba OpenPack passa
     rag_openpack_responder para rotear para o corpus de janelas IMU em vez disso (Fase 7f,
     2026-09-14 -- roteamento hierarquico corpus-aware, ver comentario em
-    eval/rag_gerador.py::carregar_rag_hibrido)."""
+    eval/rag_gerador.py::carregar_rag_hibrido).
+    cache_indice_numerico_openpack: dict opcional retornado por
+    indice_numerico_openpack.preparar_treino_cache() -- so a aba OpenPack; usado pela rota
+    'classificar_janela_openpack' (Frente 1B, 2026-09-29) para classificar uma janela real sem
+    recarregar/renormalizar a matriz de treino a cada pergunta."""
     _rag_responder = rag_responder_fn or rag_responder
     st.markdown('<div class="cerise-chat-destaque">', unsafe_allow_html=True)
     st.markdown(
@@ -679,6 +699,8 @@ def chat_especializado(dataset_key, persona, contexto_agregado, readme_resumo, a
                 destino = "sql"  # rota so existe onde a dimensao StopType foi pre-calculada
             if destino == "lss_melhorou_tudo" and linhas_rotuladas_lss is None:
                 destino = "contexto"  # rota so existe na aba OEE (unica com comparativo LSS)
+            if destino == "classificar_janela_openpack" and cache_indice_numerico_openpack is None:
+                destino = "rag"  # rota so existe na aba OpenPack (unica com o indice numerico)
             st.caption(BADGE_ROTA.get(destino, ""))
             extra = None
 
@@ -820,6 +842,42 @@ Regras:
                     f"10' -- e o oposto: o modelo so pega cerca de {round(recall*10)} em cada "
                     f"10 falhas reais, e erra (nao detecta) as demais."
                 )
+                st.write(resposta)
+
+            elif destino == "classificar_janela_openpack" and cache_indice_numerico_openpack is not None:
+                # Frente 1B do plano "OpenPack: integrar indice numerico ao chat" (2026-09-29):
+                # classificacao 100% em Python (kNN euclidiano, sem LLM na predicao em si) --
+                # mesma disciplina anti-alucinacao das rotas de calculo pre-processado acima. O
+                # LLM so narraria um numero que o Python ja calculou; aqui nem isso, porque o
+                # resultado ja vem em portugues formatado, reduzindo ainda mais a superficie de
+                # erro (nao ha "numero certo, direcao errada" possivel se nao ha LLM no caminho).
+                from indice_numerico_openpack import classificar_janela_ao_vivo
+                from roteador import extrair_sujeito_sessao_openpack
+                sujeito, sessao = extrair_sujeito_sessao_openpack(pergunta_usuario)
+                resultado = classificar_janela_ao_vivo(sujeito, sessao, cache_indice_numerico_openpack)
+                if resultado is None:
+                    resposta = (
+                        f"Nao encontrei uma janela de TESTE para o sujeito {sujeito}, sessao "
+                        f"{sessao} -- ou o sujeito nao existe na amostra, ou pertence ao "
+                        f"conjunto de TREINO do indice (classificar uma janela de treino contra "
+                        f"o proprio treino nao seria uma medida honesta). Sujeitos de teste "
+                        f"disponiveis: U0106, U0107, U0108, U0109, U0110, U0111 (split oficial "
+                        f"'Pilot Challenge')."
+                    )
+                else:
+                    concordancia = (
+                        "e essa E de fato a operacao anotada" if resultado["acertou"]
+                        else f"mas a operacao anotada e '{resultado['operacao_real']}' -- o classificador errou nesta janela"
+                    )
+                    resposta = (
+                        f"Para a primeira janela de teste do sujeito {resultado['sujeito']} na "
+                        f"sessao {resultado['sessao']} (id `{resultado['janela_id']}`), o indice "
+                        f"numerico kNN prevê a operacao **'{resultado['operacao_prevista']}'**, "
+                        f"{concordancia}. Esta e uma classificacao ao vivo (nao um agregado "
+                        f"historico) -- o classificador acerta em media 43% das janelas sob o "
+                        f"protocolo LOSO (F1-macro 0,4314), entao um erro pontual isolado e "
+                        f"esperado, nao um sinal de bug."
+                    )
                 st.write(resposta)
 
             elif destino == "planned_vs_unplanned" and planned_vs_unplanned_min is not None:
@@ -1430,6 +1488,17 @@ with tab_openpack:
     _transicoes_diferentes = transicoes[transicoes["operacao_anterior"] != transicoes["operacao_seguinte"]]
     _par_transicao_top = _transicoes_diferentes.iloc[0] if len(_transicoes_diferentes) else None
 
+    # Frente 1A do plano "OpenPack: integrar indice numerico ao chat" (2026-09-29): resumo
+    # pre-calculado do desempenho do classificador kNN numerico, mesmo padrao "Python calcula,
+    # LLM so narra" das outras RESPOSTA JA CALCULADA acima -- so LE o JSON persistido por
+    # eval/indice_numerico_openpack.py::avaliar_loso(), nunca reclassifica a cada pergunta (o
+    # LOSO completo leva minutos). None se o LOSO nunca rodou -- injeta string vazia nesse caso.
+    from indice_numerico_openpack import resumo_para_chat as _resumo_indice_numerico
+    _contexto_indice_numerico = _resumo_indice_numerico() or (
+        "Indice numerico do classificador OpenPack ainda nao foi avaliado nesta maquina -- "
+        "rode eval/indice_numerico_openpack.py --loso antes de responder perguntas sobre F1-macro."
+    )
+
     contexto_transicao_txt = (
         f"RESPOSTA JA CALCULADA -- par de transicao mais frequente ENTRE OPERACOES DIFERENTES "
         f"(excluindo repeticao da mesma operacao, que domina a tabela bruta por ser mais comum "
@@ -1472,7 +1541,8 @@ with tab_openpack:
             f"toda linha, artefato do tamanho fixo de janela) -- se perguntado sobre "
             f"'variabilidade entre sujeitos', responda usando as features de movimento acima "
             f"(que variam por operacao), nao invente uma variabilidade de tempo que os dados "
-            f"neste formato nao contem."
+            f"neste formato nao contem.\n\n"
+            f"{_contexto_indice_numerico}"
         ),
         readme_resumo=(
             "OpenPack (Yoshimura et al., PerCom 2024): dataset de reconhecimento de atividade "
@@ -1484,10 +1554,11 @@ with tab_openpack:
             "nao-comercial, exige atribuicao, dados anonimizados por design (ver "
             "docs/openpack_licenca_e_atribuicao.md). Integrado ao Harbor em 2026-09-13/14 via "
             "arquitetura RAG-HAR (arXiv:2512.08984): features estatisticas do sinal convertidas "
-            "em texto por template determinístico, sem VLM. F1-macro de classificacao (k-NN "
-            "training-free) validado contra o benchmark oficial openpack-torch/split 'Pilot "
-            "Challenge': 0,91-0,92, superando os baselines supervisionados (UNet, ST-GCN, "
-            "DeepConvLSTM)."
+            "em texto por template determinístico, sem VLM. Classificacao de operacao (k-NN "
+            "training-free) validada contra o benchmark oficial openpack-torch/split 'Pilot "
+            "Challenge' e protocolo LOSO -- indice NUMERICO (2026-09-28, ver contexto abaixo) "
+            "supera o baseline UNet (mesma modalidade IMU), mas fica abaixo de ST-GCN e "
+            "DeepConvLSTM (redes supervisionadas com GPU)."
         ),
         amostra_bruta=amostra_janelas.head(8).to_string(index=False),
         exemplos=[
@@ -1506,8 +1577,12 @@ with tab_openpack:
             "picking.",
             # Pergunta de contexto pre-calculado.
             "Qual operacao tem a maior duracao total acumulada no dataset?",
+            # Exercita o gate pede_classificacao_janela_openpack (Frente 1B, 2026-09-29) --
+            # classificacao ao vivo de uma janela real via indice numerico kNN.
+            "Classifique a janela do sujeito U0106 na sessao S0100.",
         ],
         rag_responder_fn=rag_openpack_responder_ou_manual,
+        cache_indice_numerico_openpack=indice_numerico_openpack_cacheado(),
     )
 
 with tab_multimodal:

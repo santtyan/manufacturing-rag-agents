@@ -240,6 +240,116 @@ def avaliar_loso(k: int) -> dict:
     return resultado
 
 
+def preparar_treino_cache(k: int = 5) -> dict:
+    """Frente 1B do plano 'OpenPack: integrar indice numerico ao chat' (2026-09-29): monta a
+    matriz de treino UMA VEZ (janelas dos sujeitos U0102/U0103/U0105, mesmo split oficial 'Pilot
+    Challenge' ja usado em avaliar_split_oficial()) e devolve tudo que
+    classificar_janela_ao_vivo() precisa para classificar sob demanda sem recarregar dados de
+    sensor nem reextrair features a cada pergunta do chat -- caro (segundos por sessao). O
+    chamador (dashboard/app.py) e responsavel por cachear o RESULTADO deste dict via
+    st.cache_resource, exatamente como ja faz com rag_openpack_indexado()."""
+    df_janelas = pd.read_csv(JANELAS_AMOSTRADAS)
+    janelas_treino = df_janelas[df_janelas[["sujeito", "sessao"]].apply(tuple, axis=1).isin(SPLIT_TREINO)]
+    sinais_treino = carregar_sinais(janelas_treino)
+
+    X_treino, y_treino, _ = construir_matriz(janelas_treino, sinais_treino)
+    media_treino = X_treino.mean(axis=0)
+    desvio_treino = X_treino.std(axis=0)
+    desvio_treino[desvio_treino == 0] = 1.0
+    X_treino_norm = (X_treino - media_treino) / desvio_treino
+
+    return {
+        "X_treino_norm": X_treino_norm, "y_treino": y_treino,
+        "media_treino": media_treino, "desvio_treino": desvio_treino, "k": k,
+    }
+
+
+def classificar_janela_ao_vivo(sujeito: str, sessao: str, cache_treino: dict, indice_janela: int = 0) -> dict | None:
+    """Classifica UMA janela real de uma sessao de TESTE (nunca de treino -- evitaria vazamento
+    trivial de usar a propria janela como seu vizinho), usando o cache de preparar_treino_cache().
+    indice_janela=0 escolhe deterministicamente a PRIMEIRA janela daquela sessao (ordem de
+    janelas_amostradas.csv) -- nao ha hoje, no chat, forma do usuario indicar um timestamp exato
+    (ver exploracao do plano), entao "a primeira janela da sessao X" e a unidade de referencia
+    reconhecivel em linguagem natural mais simples e reprodutivel.
+
+    Retorna None se sujeito/sessao nao existir na amostra, ou se sujeito estiver no proprio
+    conjunto de treino (SPLIT_TREINO) -- classificar uma janela de treino contra o proprio
+    treino inflaria artificialmente a confianca, mesma logica de janelas_treino_ids em
+    avaliar_classificacao_openpack.py::classificar_por_vizinhos()."""
+    if (sujeito, sessao) in SPLIT_TREINO:
+        return None
+
+    df_janelas = pd.read_csv(JANELAS_AMOSTRADAS)
+    janelas_sessao = df_janelas[(df_janelas["sujeito"] == sujeito) & (df_janelas["sessao"] == sessao)]
+    if len(janelas_sessao) == 0 or indice_janela >= len(janelas_sessao):
+        return None
+
+    janela = janelas_sessao.iloc[indice_janela]
+    sinais = carregar_sinais(janelas_sessao.iloc[[indice_janela]])
+    df_sinais = sinais[(sujeito, sessao)]
+    bloco = df_sinais.iloc[janela["indice_inicio"]: janela["indice_fim"]].reset_index(drop=True)
+
+    v = vetor_da_janela(bloco)
+    v_norm = (v - cache_treino["media_treino"]) / cache_treino["desvio_treino"]
+
+    predicao = classificar_knn(
+        cache_treino["X_treino_norm"], cache_treino["y_treino"],
+        v_norm.reshape(1, -1), k=cache_treino["k"],
+    )[0]
+
+    return {
+        "janela_id": janela["janela_id"],
+        "sujeito": sujeito, "sessao": sessao,
+        "operacao_prevista": predicao,
+        "operacao_real": janela["operacao"],  # so para quem consome saber se acertou -- NUNCA
+        # passar isso para o prompt do LLM antes da predicao (vazamento trivial).
+        "acertou": predicao == janela["operacao"],
+    }
+
+
+def resumo_para_chat() -> str:
+    """Frente 1A do plano 'OpenPack: integrar indice numerico ao chat' (2026-09-29): resumo em
+    portugues, pronto para injetar como contexto pre-calculado no chat (mesmo padrao de
+    planned_vs_unplanned/lss_melhorou_tudo/interpretacao_recall em dashboard/app.py -- Python
+    calcula, LLM so narra, nunca deixa o LLM comparar numeros sozinho). SO LE o JSON ja
+    persistido por avaliar_loso() -- nao reclassifica nada a cada pergunta do chat, ja que o LOSO
+    completo leva minutos.
+
+    Se o JSON nao existir ainda (avaliar_loso() nunca rodou), retorna None em vez de lancar
+    excecao -- o chamador decide o que fazer (ex. nao injetar esse trecho no contexto)."""
+    caminho = EVAL_DIR / "resultados_loso_indice_numerico_openpack.json"
+    if not caminho.exists():
+        return None
+
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    f1_medio = dados["f1_macro_medio"]
+    f1_desvio = dados["f1_macro_desvio"]
+    n_sujeitos = dados["n_sujeitos"]
+    baselines = dados["baselines_oficiais"]
+
+    por_sujeito = dados["f1_macro_por_sujeito"]
+    sujeito_min = min(por_sujeito, key=por_sujeito.get)
+    sujeito_max = max(por_sujeito, key=por_sujeito.get)
+
+    comparacoes = []
+    for nome, valor in baselines.items():
+        diff = f1_medio - valor
+        verbo = "supera" if diff > 0 else "fica abaixo de"
+        comparacoes.append(f"{verbo} {nome} ({valor:.4f}) em {abs(diff):.4f}")
+
+    return (
+        f"CLASSIFICADOR DE OPERACAO OPENPACK POR INDICE NUMERICO (kNN sobre features de sensor, "
+        f"protocolo LOSO cross-subject, {n_sujeitos} sujeitos):\n"
+        f"F1-macro medio: {f1_medio:.4f} +/- {f1_desvio:.4f} (desvio padrao entre sujeitos).\n"
+        f"Sujeito com pior desempenho: {sujeito_min} (F1={por_sujeito[sujeito_min]:.4f}). "
+        f"Sujeito com melhor desempenho: {sujeito_max} (F1={por_sujeito[sujeito_max]:.4f}).\n"
+        f"Comparacao com baselines oficiais supervisionados (mesmo split, treinados com GPU): "
+        + "; ".join(comparacoes) + ".\n"
+        f"Este metodo e training-free (sem nenhum treino de modelo) -- substituiu em 2026-09-28 "
+        f"um indice textual mais lento e menos preciso (F1-macro subiu de 0,1626 para {f1_medio:.4f})."
+    )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--k", type=int, default=5,
