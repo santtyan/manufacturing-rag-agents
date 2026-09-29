@@ -168,15 +168,17 @@
   \end{numerobloco}
 
   \pause
-  \textbf{O que isso significou:} os 11 \emph{answerability gates} determinísticos e o
-  desempate por LLM foram reusados sem reescrever nenhuma regra — só a orquestração virou
-  um \texttt{StateGraph} de 2 nós (gates em cascata + desempate condicional) em vez da
-  cadeia de \texttt{if} original.
+  \textbf{O que isso significou:} os \emph{answerability gates} determinísticos (11 na
+  migração original, 15 hoje — 4 novos vieram depois com o OpenPack, sempre replicados no
+  grafo) e o desempate por LLM foram reusados sem reescrever nenhuma regra — só a
+  orquestração virou um \texttt{StateGraph} de 2 nós (gates em cascata + desempate
+  condicional) em vez da cadeia de \texttt{if} original.
 
   \pause
   \begin{decisaobloco}{O que decidimos}
     Promovido para produção. Item de maior risco/esforço do roadmap (9+ gates a portar sem
-    perder cobertura) fechado sem nenhuma regressão medida.
+    perder cobertura) fechado sem nenhuma regressão medida. Todo gate novo desde então
+    (OpenPack) continua entrando nos dois arquivos juntos, sem exceção.
   \end{decisaobloco}
 \end{frame}
 

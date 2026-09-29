@@ -162,8 +162,10 @@ seguindo o padrão de `roadmap-slm-multiagente`.
 - [x] **3. Roteador + gates → LangGraph conditional edges, gates portados 1:1** — promovido
       para produção em 2026-09-09 como `dashboard/roteador_langgraph.py`
       (`rotear_pergunta_langgraph`), `StateGraph` de 2 nós (gates determinísticos em cascata +
-      desempate condicional por LLM) reusando as 11 funções `pede_*` e `rotear_por_llm`
-      originais sem reescrever nenhuma regra. **0 divergências em 67/67 perguntas do golden
+      desempate condicional por LLM) reusando as funções `pede_*` (11 na migração original,
+      15 hoje — 2026-09-29, os novos vieram do OpenPack e continuam replicados 1:1 no grafo)
+      e `rotear_por_llm` originais sem reescrever nenhuma regra. **0 divergências em 67/67
+      perguntas do golden
       set**, tanto com `usar_llm=False` (caminho determinístico) quanto com `usar_llm=True`
       (desempate por Ollama real, 10 tentativas intercaladas por pergunta de fronteira). Era o
       item de maior risco/esforço da tabela (9+ gates a portar sem perder cobertura) — fechado
