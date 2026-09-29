@@ -178,3 +178,47 @@ anotadas por humano nesta amostra. Resultado honesto, não um bug: a amostra é 
 o teste. **Não retomar esta frente sem aumentar a amostra** (mais sujeitos com vídeo) ou reduzir o
 tamanho da janela especificamente para este teste (fora do escopo desta rodada, mudaria o corpus
 de produção). Ver `eval/resultados_outliers_openpack.json`.
+
+## Fase 2 (pose) medida e fechada — não superou o índice IMU (2026-09-29)
+
+**Status: reaberta por decisão explícita, medida, fechada.** Diferente das outras frentes desta
+sessão, não havia motivo técnico novo para retomar — o índice numérico de IMU já superava o UNet.
+Decisão foi medir mesmo assim, com o mesmo rigor já aplicado às outras frentes.
+
+`eval/indice_pose_openpack.py`: keypoints 3D do Kinect (32 juntas, esquema oficial Azure Kinect
+Body Tracking `K4ABT_JOINT_*` — fonte:
+[learn.microsoft.com/previous-versions/azure/kinect-dk/body-joints](https://learn.microsoft.com/en-us/previous-versions/azure/kinect-dk/body-joints)),
+normalizados por quadril (origem, ponto médio `HIP_LEFT`/`HIP_RIGHT`) + comprimento ósseo
+ombro-quadril (escala) antes de qualquer feature — sem isso, sob LOSO, a posição absoluta mediria
+onde a pessoa estava na cena (variável por sessão) e a amplitude mediria biotipo do sujeito, não
+ação. Quaternion não usado (decisão já registrada acima: bug de SDK + as duas levas de coleta
+divergem nessa modalidade). Features via `features_estatisticas_janela()` de
+`rag_openpack_texto.py`, **reusada literalmente sem modificação** (já confirmada 100% genérica
+sobre qualquer série 1D), aplicada ao deslocamento normalizado de 10 juntas relevantes para
+embalagem (punhos, cotovelos, ombros, quadris, joelhos) — vetor de 80 dimensões, análogo em
+espírito às 48 do IMU.
+
+**Limitação estrutural da comparação**: o split oficial "Pilot Challenge" não tem overlap com os
+6 sujeitos que têm keypoints. Comparação só é possível sob o mesmo protocolo (LOSO), com N=6
+sujeitos — bem menor que o N=21 do índice IMU. Essa diferença de N limita a força de qualquer
+conclusão e é declarada sempre que os dois números aparecem juntos.
+
+**Resultado**: F1-macro LOSO = **0,3347 ± 0,0359** (N=6) — **abaixo** do índice numérico de IMU
+(0,4314 ± 0,0634, N=21). Bateria de sanidade (rótulo de treino embaralhado → F1 ≈ acaso) confirma
+ausência de vazamento — 6/6 testes de `tests/test_sanidade_harnesses.py` passam, incluindo o novo
+`test_indice_pose_openpack_com_rotulo_embaralhado_desaba_para_acaso`.
+
+**Achado colateral sobre os dados**: a variante `single-ffill-flip-fixed` dos keypoints nunca tem
+confiança "none" (`CONF=0`) em nenhuma sessão verificada — o nome do arquivo sugere que já recebeu
+forward-fill de frames perdidos pelos próprios autores do dataset. A oclusão real se manifesta
+como confiança baixa (`CONF=1`, não 0) e varia por categoria de forma coerente com a causa
+documentada da queda do ST-GCN oficial: "Assemble Box" (mãos escondidas dentro/atrás da caixa) tem
+a maior taxa de baixa confiança de punho (26,9%), "Fill out Order" (mãos visíveis sobre a mesa) a
+menor (0,7%).
+
+**Conclusão**: com engenharia equivalente à do índice IMU (normalização correta, features
+análogas, mesmo protocolo), pose não superou IMU neste dataset. Resultado honesto, não fracasso —
+mesma disciplina de todos os outros negativos desta sessão (outliers×IMU acima, e o F1-macro real
+pós-correção do bug de vazamento). Reforça, sem provar definitivamente dado o N menor, que o
+índice numérico de IMU é a modalidade correta de produção. Ver
+`eval/resultados_loso_indice_pose_openpack.json`.

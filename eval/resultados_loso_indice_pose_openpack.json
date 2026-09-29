@@ -1,0 +1,47 @@
+{
+  "k": 5,
+  "metodo": "indice_pose_knn_loso",
+  "sujeitos_avaliados": [
+    "U0201",
+    "U0206",
+    "U0207",
+    "U0208",
+    "U0209",
+    "U0210"
+  ],
+  "f1_macro_por_sujeito": {
+    "U0201": 0.3864,
+    "U0206": 0.3713,
+    "U0207": 0.2844,
+    "U0208": 0.3352,
+    "U0209": 0.3303,
+    "U0210": 0.3008
+  },
+  "f1_macro_medio": 0.3347,
+  "f1_macro_desvio": 0.0359,
+  "n_sujeitos": 6,
+  "oclusao_media_punho_por_categoria": {
+    "Assemble Box": 0.2688,
+    "Attach Box Label": 0.0257,
+    "Attach Shipping Label": 0.0288,
+    "Close Box": 0.0843,
+    "Fill out Order": 0.0073,
+    "Insert Items": 0.2417,
+    "Picking": 0.1053,
+    "Put on Back Table": 0.221,
+    "Relocate Item Label": 0.0215,
+    "Scan Label": 0.0223
+  },
+  "baselines_oficiais": {
+    "UNet": 0.3451,
+    "ST-GCN": 0.7024,
+    "DeepConvLSTM": 0.7081
+  },
+  "comparacao_indice_imu": {
+    "f1_macro_medio": 0.4314,
+    "f1_macro_desvio": 0.0634,
+    "n_sujeitos": 21,
+    "nota": "protocolo LOSO igual, N de sujeitos diferente -- nao comparavel como se fosse o mesmo experimento"
+  },
+  "ressalva_metodologica": "Training-free (kNN), sem GPU, sem treino de modelo -- nao comparavel diretamente ao ST-GCN oficial (rede supervisionada com GPU, F1=0,7024 test / 0,6106 submission)."
+}

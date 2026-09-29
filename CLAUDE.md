@@ -117,6 +117,37 @@ significativa em nenhuma categoria testável** (Additional/Incident/Struggling, 
 cada) — resultado negativo honesto, amostra pequena e eventos curtos dentro da janela de 4s
 diluem o sinal. Ver detalhe completo em `docs/openpack_licenca_e_atribuicao.md`.
 
+**Fase 2 (pose) medida e fechada (2026-09-29)** — decisão explícita do usuário de reabrir mesmo
+com o índice IMU já superando o UNet (não houve motivo técnico novo, só a decisão de medir).
+`eval/indice_pose_openpack.py`: keypoints 3D do Kinect (32 juntas Azure Kinect Body Tracking,
+`K4ABT_JOINT_*`), normalizados por quadril (origem) + comprimento ósseo ombro-quadril (escala) —
+sem isso, sob LOSO, a posição absoluta mediria onde a pessoa estava na cena, e a amplitude
+mediria biotipo, não ação. Quaternion não usado (decisão já tomada: bug de SDK + as duas levas de
+coleta divergem nessa modalidade). Features: mesma função `features_estatisticas_janela()` de
+`rag_openpack_texto.py`, reusada sem modificação, sobre 10 juntas relevantes para embalagem
+(punhos, cotovelos, ombros, quadris, joelhos) → vetor de 80 dimensões.
+
+**Achado que limita a comparação**: o split oficial "Pilot Challenge" não tem overlap com os 6
+sujeitos que têm keypoints — não dá para comparar sob o mesmo split, só sob o mesmo protocolo
+(LOSO), com **N=6 sujeitos, não 21**. Resultado: F1-macro LOSO = **0,3347 ± 0,0359** — **abaixo**
+do índice numérico de IMU (0,4314 ± 0,0634, N=21). A diferença de N por si só já limita a força da
+comparação; reportar sempre os dois números com a ressalva do N diferente, nunca lado a lado como
+se fossem o mesmo experimento. Bateria de sanidade (rótulo de treino embaralhado → F1 ≈ acaso)
+confirma ausência de vazamento (`tests/test_sanidade_harnesses.py`, 6/6 testes passam).
+
+**Achado colateral de dados**: a variante `single-ffill-flip-fixed` dos keypoints nunca tem
+confiança "none" (`CONF=0`) em nenhuma sessão verificada — provavelmente já faz forward-fill de
+frames perdidos. A oclusão real se manifesta como confiança baixa (`CONF=1`, não 0), e varia por
+categoria de forma coerente com a causa documentada da queda do ST-GCN oficial: "Assemble Box"
+(mãos escondidas na caixa) tem a maior taxa de baixa confiança de punho (26,9%), "Fill out Order"
+(mãos visíveis sobre a mesa) a menor (0,7%). Ver `eval/resultados_loso_indice_pose_openpack.json`.
+
+**Conclusão**: com o mesmo esforço de engenharia (normalização correta, features análogas,
+mesmo protocolo de avaliação), pose **não superou** IMU neste dataset — resultado honesto, não
+fracasso, mesma disciplina já aplicada a todos os outros negativos do projeto. Reforça (sem provar
+definitivamente, dado o N menor) que o índice numérico de IMU é a modalidade de produção
+adequada; pose fica registrada como experimento medido e fechado, não como pendência.
+
 **Suporte estatístico formal (2026-09-25)**: `eval/avaliar_significancia_openpack.py` roda Wilcoxon signed-rank de uma amostra (H0: mediana do F1-macro por sujeito = valor do baseline; teste one-sided) e bootstrap (10.000 reamostragens) sobre os 21 F1-macro por sujeito do LOSO. **p<0,001 contra os 3 baselines** (UNet, ST-GCN, DeepConvLSTM) — a diferença visual (0,16 vs. 0,70+) tem suporte estatístico, não é só leitura do número bruto. IC 95% da média via bootstrap: [0,1343, 0,1923] — nem o limite superior chega perto do menor baseline. Ver `eval/resultados_significancia_openpack.json`.
 
 ### Golden set e gates

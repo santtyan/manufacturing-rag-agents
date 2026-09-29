@@ -191,6 +191,75 @@ def test_indice_numerico_openpack_com_rotulo_embaralhado_desaba_para_acaso():
     )
 
 
+def test_indice_pose_openpack_com_rotulo_embaralhado_desaba_para_acaso():
+    """Mesma bateria acima (item 1, rotulo embaralhado), aplicada ao indice de pose
+    (eval/indice_pose_openpack.py, plano 'OpenPack Fase 2: classificador de pose sobre keypoints
+    3D', 2026-09-29). Risco de vazamento aqui e o mesmo do indice numerico de IMU (rotulo vem
+    direto da coluna 'operacao' de janelas_amostradas.csv, nao de texto embeddado) -- mas o
+    RISCO DE ENGANO na extracao de features e maior: se normalizar_pose() esquecesse de
+    centralizar no quadril ou escalar por osso, a posicao absoluta na cena vazaria identidade/
+    sessao para o kNN de forma sutil, sem aparecer como vazamento textual obvio. Split e LOSO
+    restrito aos 6 sujeitos com video (nao o SPLIT_TREINO/SPLIT_TESTE oficial do indice de
+    IMU, que nao tem overlap com esses sujeitos -- ver docstring do modulo avaliado)."""
+    sys.path.insert(0, str(HARBOR_ROOT / "eval"))
+    from indice_pose_openpack import (
+        JANELAS_AMOSTRADAS, SUJEITOS_COM_VIDEO, carregar_keypoints_dos_sujeitos,
+        construir_matriz,
+    )
+    from indice_numerico_openpack import classificar_knn
+    from sklearn.metrics import f1_score
+    import numpy as np
+
+    if not JANELAS_AMOSTRADAS.exists():
+        print("SKIP: janelas_amostradas.csv nao existe, rodar pipeline8_openpack.py primeiro")
+        return
+
+    df_janelas = pd.read_csv(JANELAS_AMOSTRADAS)
+    df_janelas = df_janelas[df_janelas["sujeito"].isin(SUJEITOS_COM_VIDEO)]
+    n_classes = df_janelas["operacao"].nunique()
+    acaso_esperado = 1.0 / n_classes
+
+    keypoints_por_sessao = carregar_keypoints_dos_sujeitos(df_janelas)
+    if not keypoints_por_sessao:
+        print("SKIP: nenhum keypoint carregado -- verificar zips em Desktop/OpenPack/zenodo")
+        return
+
+    sujeito_teste = SUJEITOS_COM_VIDEO[0]
+    janelas_treino = df_janelas[df_janelas["sujeito"] != sujeito_teste]
+    janelas_teste = df_janelas[df_janelas["sujeito"] == sujeito_teste]
+
+    X_treino, y_treino, _, _ = construir_matriz(janelas_treino, keypoints_por_sessao)
+    X_teste, y_teste, _, _ = construir_matriz(janelas_teste, keypoints_por_sessao)
+
+    if len(X_treino) == 0 or len(X_teste) == 0:
+        print(f"SKIP: sem janelas classificaveis para {sujeito_teste} apos filtro de keypoints")
+        return
+
+    random.seed(42)
+    y_treino_embaralhado = y_treino.copy()
+    random.shuffle(y_treino_embaralhado)
+
+    media_treino = X_treino.mean(axis=0)
+    desvio_treino = X_treino.std(axis=0)
+    desvio_treino[desvio_treino == 0] = 1.0
+    X_treino_norm = (X_treino - media_treino) / desvio_treino
+    X_teste_norm = (X_teste - media_treino) / desvio_treino
+
+    y_pred = classificar_knn(X_treino_norm, y_treino_embaralhado, X_teste_norm, k=5)
+    y_true_validos = [yt for yt, yp in zip(y_teste, y_pred) if yp is not None]
+    y_pred_validos = [yp for yp in y_pred if yp is not None]
+
+    assert y_true_validos, "nenhuma janela classificada -- verificar split/features de pose"
+    f1_embaralhado = f1_score(y_true_validos, y_pred_validos, average="macro", zero_division=0)
+
+    assert f1_embaralhado <= acaso_esperado * 2, (
+        f"F1 (indice de pose) com rotulo de TREINO embaralhado = {f1_embaralhado:.4f}, muito "
+        f"acima do acaso (~{acaso_esperado:.4f}) -- indica vazamento no pareamento janela<->"
+        f"rotulo, ou normalizacao de pose deixando passar posicao absoluta/identidade. Nao "
+        f"promover o indice de pose ate investigar."
+    )
+
+
 # ---------------------------------------------------------------------------------------------
 # Bateria 2: corpus embaralhado -- Recall@k deve cair para k/N quando nao ha documento certo
 # ---------------------------------------------------------------------------------------------
@@ -276,6 +345,7 @@ if __name__ == "__main__":
         test_corpus_openpack_nao_contem_rotulo_de_operacao,
         test_classificacao_openpack_com_rotulo_embaralhado_desaba_para_acaso,
         test_indice_numerico_openpack_com_rotulo_embaralhado_desaba_para_acaso,
+        test_indice_pose_openpack_com_rotulo_embaralhado_desaba_para_acaso,
         test_retrieval_multimodal_com_pergunta_desconectada_do_corpus,
         test_retrieval_multimodal_controle_positivo_pergunta_literal,
     ]
