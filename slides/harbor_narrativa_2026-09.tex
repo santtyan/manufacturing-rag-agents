@@ -400,15 +400,30 @@
     k-NN label purity é um proxy. A pergunta certa é: classifica a operação
     melhor que os modelos supervisionados publicados no benchmark oficial do
     dataset (\emph{openpack-torch}, split ``Pilot Challenge'')?
-    \textbf{F1-macro = 0,91--0,92} (dois protocolos, amostra e teste completo
-    de 2.591 janelas) contra UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081
-    --- superando os três, \textbf{sem treinar nenhum modelo}.
+    Número real, pós-correção de um bug de vazamento de rótulo (2026-09-15)
+    que havia inflado essa métrica para 0,91--0,92: \textbf{F1-macro = 0,1664}
+    (teste completo, 2.591 janelas) e \textbf{0,1626 $\pm$ 0,0686} sob LOSO
+    (21 sujeitos) --- contra UNet=0,3451, ST-GCN=0,7024 (pose),
+    DeepConvLSTM=0,7081, ambos IMU exceto ST-GCN --- \textbf{abaixo dos três,
+    sem treinar nenhum modelo}. Resultado honesto, não fracasso.
   \end{numerobloco}
 
   \pause
-  Custo, reportado junto: indexação ~50--72s, busca ~0,5s/janela
-  (\emph{Multimodal-RAG-Survey}, ACL 2025, arXiv:2502.08826, confirma que isso
-  é padrão de literatura, não só regra do Harbor).
+  \begin{numerobloco}{Índice numérico corrige o gargalo (2026-09-28)}
+    A hipótese de \emph{RAG-HAR+} (arXiv:2607.26631) --- retrieval por vetor
+    numérico supera embedding de texto para casar features de sensor ---
+    confirmada: trocando \emph{só} a representação do índice (texto$\to$
+    embedding $\to$ kNN numérico), o F1-macro LOSO salta para
+    \textbf{0,4314 $\pm$ 0,0634}, \textbf{superando o UNet} (mesma modalidade
+    IMU; Wilcoxon $p=0{,}9999$, não significativamente abaixo). O gargalo
+    nunca foi a modalidade IMU --- era a representação textual do índice.
+  \end{numerobloco}
+
+  \pause
+  Custo, reportado junto: indexação ~50--72s, busca ~0,5s/janela (índice
+  textual original) $\to$ kNN numérico: extração de features ~2s, classificação
+  ~0,003s/janela (\emph{Multimodal-RAG-Survey}, ACL 2025, arXiv:2502.08826,
+  confirma que reportar custo é padrão de literatura, não só regra do Harbor).
 \end{frame}
 
 % ─────────────────────────────────────────────────────────────────────
@@ -420,7 +435,9 @@
       \item \textbf{Sim:} migração do self-repair e do roteador para LangGraph;
         top-p=0,7 como limiar de rerank multimodal (depois de consertada a régua);
         OpenPack como 8º dataset no chat e no Streamlit, sem regressão
-        (roteamento 55/67 $\to$ 59/69), F1-macro 0,91--0,92 acima do benchmark oficial.
+        (roteamento 55/67 $\to$ 59/69); índice numérico kNN (2026-09-28) supera o
+        baseline UNet (F1-macro LOSO 0,4314 vs. 0,3451) após corrigir o
+        gargalo real (representação textual do índice, não a modalidade IMU).
       \item \textbf{Não:} Agentic RAG, Contextual Retrieval, e o rerank multimodal como
         forma de compensar captioning ruim --- todos medidos, documentados, não
         promovidos.

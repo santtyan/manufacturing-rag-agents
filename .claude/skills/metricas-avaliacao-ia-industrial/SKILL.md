@@ -95,6 +95,21 @@ Legenda: ✅ medido | 🔶 parcial | ❌ lacuna
   formalizado em Sanity Checks for Saliency Maps, NeurIPS 2018) teria pego este bug no primeiro
   dia. **Regra nova**: todo harness de classificação/retrieval deve ter os dois controles, não
   só o positivo. Ver `[[bug_vazamento_rotulo_openpack_2026-09-15]]` para evidência completa.
+- ✅ **Gargalo real identificado e corrigido em 2026-09-28 — índice numérico substitui índice
+  textual do OpenPack**: os números honestos pós-correção do bug acima (F1-macro 0,0750/0,1664/
+  LOSO 0,1626±0,0686, muito abaixo dos baselines supervisionados) motivaram a hipótese de
+  `RAG-HAR+` (arXiv:2607.26631) de que kNN sobre vetor numérico supera embedding de texto para
+  casar features de sensor. Testado trocando *só* essa etapa (mesmas 48 features, mesmo split):
+  F1-macro LOSO salta para **0,4314±0,0634**, superando o baseline UNet (mesma modalidade IMU).
+  O gargalo nunca foi a modalidade IMU, era a representação textual do índice — achado só
+  possível porque os números anteriores eram honestos o suficiente para revelar o gargalo real,
+  não mascarados como no bug de vazamento. Ver skill `rodar-harness` para o detalhe.
+- ⚠️ **Resultado negativo honesto, sem promoção forçada — outliers×IMU (2026-09-28)**: testado se
+  o sinal IMU detecta irregularidades anotadas por humano (`annotation/openpack-outliers/`, 7
+  categorias) via Mann-Whitney U + Bonferroni sobre as mesmas 48 features. Nenhuma feature
+  significativa em nenhuma categoria com amostra suficiente. Reportado como está, sem forçar
+  interpretação positiva — mesma disciplina já aplicada ao encerramento do `rag_agentic` e ao
+  próprio F1-macro real do OpenPack. Ver `eval/resultados_outliers_openpack.json`.
 
 ### LLM
 - ✅ Faithfulness: métrica central de `eval/rodar_golden.py` (números esperados citados na resposta).

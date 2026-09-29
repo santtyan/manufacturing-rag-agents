@@ -51,7 +51,11 @@ python eval/avaliar_spider_sql.py [N_PERGUNTAS] [OLLAMA_MODEL]
 python eval/avaliar_retrieval_openpack.py
 
 # Classificacao F1-macro vs. benchmark oficial openpack-torch (split "Pilot Challenge")
-python eval/avaliar_classificacao_openpack.py [--k 5]
+# -- indice de PRODUCAO desde 2026-09-28, ver achado abaixo
+python eval/indice_numerico_openpack.py [--k 5] [--loso]
+
+# Cruzamento outlier anotado x sinal IMU (Mann-Whitney U + Bonferroni, 2026-09-28)
+python eval/avaliar_outliers_openpack.py
 ```
 
 **Achado real (2026-09-13), aplica-se a qualquer corpus de instância quase-única (sensor/série
@@ -63,13 +67,32 @@ Recall@k aqui mede a métrica errada (deu 0% mesmo com retrieval funcionando) �
 é **k-NN label purity** (fração dos k vizinhos que compartilham o rótulo da janela de origem;
 acaso esperado = 1/n_classes). Resultado medido: pureza=12,9% (acaso=10%, corpus de 4.000 docs).
 
-`avaliar_classificacao_openpack.py` aplica o protocolo de classificação real do RAG-HAR
-(vizinhos → votação majoritária, sem treino) sobre o split oficial "Pilot Challenge" do
-`openpack-torch` — é o número comparável ao benchmark do dataset, não um proxy. F1-macro
-validado em dois protocolos: 0,9217 (amostra estratificada, 26 janelas de teste) e 0,9114
-(teste completo sem amostragem, 2.591 janelas) — ambos superam os 3 baselines supervisionados
-(UNet=0,3451, ST-GCN=0,7024, DeepConvLSTM=0,7081). Trace da run instrumentado em
+**CORRIGIDO EM 2026-09-15 — bug de vazamento de rótulo**: os números 0,9217/0,9114 citados numa
+versão anterior desta seção eram inflados por vazamento de rótulo no texto indexado (ver
+`[[bug_vazamento_rotulo_openpack_2026-09-15]]`). Números reais pós-correção:
+`eval/avaliar_classificacao_openpack.py` (índice textual, mantido só para comparação histórica,
+não é mais o de produção) dá F1-macro = 0,0750 (amostra pequena) / 0,1664 (teste completo) /
+0,1626±0,0686 (LOSO) — abaixo dos 3 baselines.
+
+**Índice numérico é a produção real desde 2026-09-28**: `RAG-HAR+` (arXiv:2607.26631) relata que
+kNN sobre vetor numérico supera embedding de texto para casar features de sensor — confirmado no
+Harbor trocando *só* essa etapa (mesmas 48 features, mesmo split/protocolo):
+`eval/indice_numerico_openpack.py` dá F1-macro = 0,3905 (split "Pilot Challenge") e
+**0,4314±0,0634 (LOSO)** — **supera o baseline UNet** (0,3451, mesma modalidade IMU; Wilcoxon
+p=0,9999, não significativamente abaixo), fica abaixo de ST-GCN (0,7024, modalidade pose, não
+IMU) e DeepConvLSTM (0,7081). O gargalo nunca foi a modalidade IMU, era a representação textual
+do índice. Também integrado ao chat de produção (`dashboard/app.py`, resumo agregado + gate
+`pede_classificacao_janela_openpack` para classificação ao vivo de uma janela real) — ver
+CLAUDE.md para o detalhe. Trace da run instrumentado em
 `eval/traces/openpack_classificacao.jsonl` via `shared.trace`.
+
+**Cruzamento outlier×IMU (2026-09-28)**: `eval/avaliar_outliers_openpack.py` testa se o sinal IMU
+detecta as irregularidades anotadas por humano em `annotation/openpack-outliers/` (Mann-Whitney U
++ Bonferroni sobre as mesmas 48 features). Resultado negativo honesto: nenhuma feature
+significativa em nenhuma categoria com amostra suficiente (Additional/Incident/Struggling) —
+amostra pequena e eventos curtos (mediana 1,25s) diluídos em janela de 4s. Não retomar sem
+aumentar a amostra (mais sujeitos com vídeo já baixado) ou redesenhar o tamanho da janela
+especificamente para este teste.
 
 **Aba de chat no Streamlit** (Fase 7f, 2026-09-14): `dashboard/app.py` tem a aba "5. OpenPack
 (Operações de Embalagem)", com sub-roteador hierárquico corpus-aware dentro da rota `rag`
