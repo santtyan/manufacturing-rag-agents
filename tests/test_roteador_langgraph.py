@@ -64,3 +64,22 @@ def test_equivalencia_completa_golden_set_sem_llm():
             divergencias.append((pq["id"], r_original, r_novo))
 
     assert divergencias == [], f"Divergencias entre roteador original e LangGraph: {divergencias}"
+
+
+def test_gate_grafico_forca_rag_mesmo_com_palavra_de_sql():
+    """Regressao do achado real de 2026-10-02 (teste manual da aba 6): "qual o boxplot de
+    temperatura?" ia para sql porque "temperatura" esta em PALAVRAS_CHAVE_SQL -- o sub-roteador
+    de graficos vive DENTRO da rota rag e nunca era alcancado. pede_grafico_tecnico forca rag
+    antes do SQL, nos DOIS roteadores."""
+    for pergunta in (
+        "qual o boxplot de temperatura?",
+        "Mostre o gráfico de vibração por classe Fault/Normal",
+    ):
+        assert rotear_pergunta(pergunta, usar_llm=False) == "rag"
+        assert rotear_pergunta_langgraph(pergunta, usar_llm=False) == "rag"
+
+
+def test_gate_grafico_nao_captura_pergunta_sem_palavra_de_grafico():
+    """O gate so dispara com palavra de PALAVRAS_CHAVE_GRAFICO -- pergunta comum de sensor
+    continua pelo caminho de antes (nao vira rag so por citar temperatura/vibracao)."""
+    assert rotear_pergunta_langgraph("o MTTR caiu, isso e bom ou ruim?", usar_llm=False) == "contexto"

@@ -40,7 +40,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from metadados_imagens_ground_truth import GROUND_TRUTH
 
 RAIZ = Path(r"C:\Projetos\Harbor")
-CSV_PIPELINE2 = RAIZ / "outputs" / "pipeline2_legacy_sensor" / "separacao_features_por_classe.csv"
+# Mesma fonte de rag/gerar_imagens_sinteticas.py (ver o ACHADO REAL de 2026-10-02 la): leituras
+# individuais (2.500), nao o CSV agregado de 2 linhas.
+DATASET_BRUTO_PIPELINE2 = Path(
+    r"C:\Users\USER\Downloads\Projeto_HarboR-20260707T002634Z-3-001\Projeto_HarboR"
+    r"\Dataset\Legacy Industrial\archive\industrial_dataset.csv"
+)
+CSV_PIPELINE2 = DATASET_BRUTO_PIPELINE2
 CSV_PIPELINE4 = RAIZ / "outputs" / "pipeline4_five_axis_cnc" / "anomalias_temperatura.csv"
 CORPUS_SAIDA = RAIZ / "rag" / "legendas_deterministicas.json"
 
@@ -84,38 +90,45 @@ def _fmt(valor: float) -> str:
     return f"{valor:.{casas}f}".replace(".", ",")
 
 
+def _resumo_da_serie(serie: pd.Series) -> dict:
+    """Resumo de 5 numeros + media/desvio/n + outliers pela regra de Tukey (1,5 x IQR, a mesma
+    que o matplotlib usa para desenhar os pontos fora dos bigodes do boxplot -- o numero da
+    legenda e o numero de pontos que aparecem no grafico). Nivel L2 (resumo estatistico) da
+    taxonomia de ChartFI/VisText: uma legenda de boxplot que so cita a media nao descreve o
+    que o boxplot mostra (mediana, quartis, dispersao)."""
+    q1, mediana, q3 = (float(v) for v in serie.quantile([0.25, 0.5, 0.75]))
+    iqr = q3 - q1
+    fora = (serie < q1 - 1.5 * iqr) | (serie > q3 + 1.5 * iqr)
+    return {
+        "media": float(serie.mean()),
+        "mediana": mediana,
+        "q1": q1,
+        "q3": q3,
+        "minimo": float(serie.min()),
+        "maximo": float(serie.max()),
+        "desvio_padrao": float(serie.std(ddof=0)) if len(serie) > 1 else None,
+        "n_outliers": int(fora.sum()),
+        "n": len(serie),
+    }
+
+
 def estatisticas_da_variavel(df: pd.DataFrame, coluna: str, por_classe: bool = True) -> dict:
     """Media/minimo/maximo/desvio da coluna, direto do DataFrame -- sem nenhuma interpretacao,
     so agregacao. Quando por_classe=True (boxplot/barra), agrupa por 'Target' (Fault/Normal);
     quando False (scatter/linha temporal), calcula sobre a serie inteira.
 
-    ACHADO REAL (2026-09-14): separacao_features_por_classe.csv tem SO 2 LINHAS (1 media ja
-    pre-calculada por classe, nao dado bruto por leitura) -- min/max/desvio com n=1 dao
-    resultado degenerado (min=max=media, desvio=NaN). std(ddof=0) evita o NaN do ddof=1 padrao
-    do pandas com 1 amostra, mas o numero ainda seria sempre 0 -- entao min/max/desvio so
-    aparecem no texto quando n>1 de fato (ver _texto_boxplot_ou_barra)."""
+    ACHADO REAL (2026-09-14): com uma fonte de n=1 por classe (era o caso do CSV agregado
+    separacao_features_por_classe.csv, 2 linhas, ate 2026-10-02), min/max/desvio dao resultado
+    degenerado (min=max=media, desvio=NaN). std(ddof=0) evita o NaN do ddof=1 padrao do pandas
+    com 1 amostra, e o texto so cita min/max/desvio quando n>1 (ver _texto_boxplot_ou_barra) --
+    a salvaguarda continua valendo para qualquer fonte futura com n pequeno."""
     if por_classe and "Target" in df.columns:
         resultado = {}
         for classe, grupo in df.groupby("Target"):
             serie = grupo[coluna]
-            resultado[classe] = {
-                "media": float(serie.mean()),
-                "minimo": float(serie.min()),
-                "maximo": float(serie.max()),
-                "desvio_padrao": float(serie.std(ddof=0)) if len(serie) > 1 else None,
-                "n": len(serie),
-            }
+            resultado[classe] = _resumo_da_serie(serie)
         return resultado
-    serie = df[coluna]
-    return {
-        "geral": {
-            "media": float(serie.mean()),
-            "minimo": float(serie.min()),
-            "maximo": float(serie.max()),
-            "desvio_padrao": float(serie.std(ddof=0)) if len(serie) > 1 else None,
-            "n": len(serie),
-        }
-    }
+    return {"geral": _resumo_da_serie(df[coluna])}
 
 
 def _texto_barra_contagem_por_componente(gt: dict, df: pd.DataFrame) -> str:
@@ -157,9 +170,18 @@ def _texto_boxplot_ou_barra(gt: dict, df: pd.DataFrame) -> str:
               f'Tipo de gráfico: {gt["tipo"]}.',
               f'Eixo X: {gt["eixo_x"]}. Eixo Y: {gt["eixo_y"]}.']
     for classe, s in stats.items():
-        if s["n"] > 1:
+        if s["n"] > 1 and gt["tipo"] == "boxplot":
+            # Resumo de 5 numeros + outliers: e o que um boxplot de fato desenha (nivel L2).
             linhas.append(
-                f"Classe {classe}: média {_fmt(s['media'])}, "
+                f"Classe {classe} ({s['n']} leituras): mediana {_fmt(s['mediana'])}, "
+                f"quartis {_fmt(s['q1'])} a {_fmt(s['q3'])}, "
+                f"mínimo {_fmt(s['minimo'])} e máximo {_fmt(s['maximo'])}, "
+                f"média {_fmt(s['media'])}, desvio padrão {_fmt(s['desvio_padrao'])}, "
+                f"{s['n_outliers']} outliers."
+            )
+        elif s["n"] > 1:
+            linhas.append(
+                f"Classe {classe} ({s['n']} leituras): média {_fmt(s['media'])}, "
                 f"variando de {_fmt(s['minimo'])} a {_fmt(s['maximo'])}, "
                 f"desvio padrão {_fmt(s['desvio_padrao'])}."
             )

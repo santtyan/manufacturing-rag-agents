@@ -471,14 +471,15 @@ def rag_openpack_responder(pergunta):
 # MatplotAlt (Computer Graphics Forum 2025, arXiv:2503.20089) como precedente da via.
 
 CHROMA_DIR_MULTIMODAL = Path(r"C:\Projetos\Harbor\rag\chroma_db_multimodal_deterministico")
-COLECAO_MULTIMODAL = "graficos_harbor_deterministico_v1"
+# v2 (2026-10-02): legendas regeneradas sobre as leituras brutas (n, mediana, quartis, outliers).
+# indexar(forcar=False) reaproveita colecao existente, entao o nome muda para forcar reindexacao.
+COLECAO_MULTIMODAL = "graficos_harbor_deterministico_v2"
 CORPUS_MULTIMODAL_JSON = Path(r"C:\Projetos\Harbor\rag\legendas_deterministicas.json")
 IMAGENS_DIR = Path(r"C:\Projetos\Harbor\rag\manuais_imagens")
 
-PALAVRAS_CHAVE_GRAFICO = (
-    "gráfico", "grafico", "boxplot", "scatter", "dispersão", "dispersao", "diagrama de caixa",
-    "imagem", "figura", "plot", "visualização", "visualizacao",
-)
+# Fonte unica em roteador.py (gate pede_grafico_tecnico, 2026-10-02): o roteador principal precisa
+# conhecer as mesmas palavras para mandar a pergunta para `rag` antes deste sub-roteador agir.
+from roteador import PALAVRAS_CHAVE_GRAFICO  # noqa: E402
 
 
 @st.cache_resource
@@ -510,6 +511,19 @@ def rag_multimodal_responder_ou_manual(pergunta):
     return rag_responder(pergunta)
 
 
+def exibir_grafico_do_top1(docs):
+    """Mostra o PNG do trecho de maior score quando a fonte e um grafico do corpus multimodal
+    (fonte == nome do arquivo em rag/manuais_imagens/, sem extensao). So o top-1: os demais
+    trechos recuperados costumam ser distratores (ex. boxplot de temperatura traz o grafico de
+    anomalias do CNC em 2o lugar, com score negativo). Para fonte de manual nao existe PNG
+    homonimo, entao nao faz nada -- seguro de chamar em qualquer aba."""
+    if not docs:
+        return
+    caminho = IMAGENS_DIR / f"{docs[0]['fonte']}.png"
+    if caminho.is_file():
+        st.image(str(caminho), caption=f"Gráfico recuperado: {docs[0]['fonte']}")
+
+
 def rag_multimodal_responder(pergunta):
     """Mesma orquestracao de rag_responder()/rag_openpack_responder() acima, sobre o corpus de
     gráficos -- sem fallback TF-IDF (o fallback indexa so os manuais)."""
@@ -517,9 +531,19 @@ def rag_multimodal_responder(pergunta):
     # usar_adaptive_k NAO ligado aqui, mesma razao de rag_openpack_responder: a promocao foi
     # medida so sobre o corpus de manuais tecnicos, corpus de 26 legendas deterministicas nunca
     # foi incluido na medicao de variancia de 2026-09-25.
-    resposta, documentos, _contexto = rag_gerador.rag_responder(
+    resposta, documentos, contexto = rag_gerador.rag_responder(
         pergunta, rag, call_ollama, k=3, buscar_fallback=None, usar_adaptive_k=False,
     )
+    # Gate de fidelidade na resposta (item 5.4 da skill rag-multimodal, 2026-10-02): a legenda e
+    # fiel por construcao, mas o LLM que a parafraseia nao -- na aba 6 ele ja afirmou "mostrando a
+    # distribuicao de temperaturas" sobre um grafico sem distribuicao. Mesma checagem numerica
+    # do chat `contexto` (eval/verificacao.py, fonte unica com o harness): numero citado na
+    # resposta que nao existe nas legendas recuperadas vira aviso visivel, nunca silencio.
+    if verificar_resposta is not None and resposta and documentos:
+        v = verificar_resposta(resposta, contexto or "\n".join(d["texto"] for d in documentos),
+                               pergunta=pergunta)
+        if v.get("aviso"):
+            resposta = f"{resposta}\n\n⚠️ {v['aviso']}"
     return resposta, documentos
 
 
@@ -922,6 +946,7 @@ Regras:
                     resposta, docs = _rag_responder(pergunta_usuario)
                     extra = docs
                 st.write(resposta)
+                exibir_grafico_do_top1(docs)
                 if docs:
                     with st.expander(f"Trechos do manual usados ({len(docs)})"):
                         for d in docs:
@@ -953,6 +978,7 @@ Regras:
                         if isinstance(extra, pd.DataFrame):
                             st.dataframe(extra, width="stretch")
                         elif isinstance(extra, list):
+                            exibir_grafico_do_top1(extra)
                             with st.expander(f"Trechos do manual usados ({len(extra)})"):
                                 for d in extra:
                                     st.caption(f"{d['fonte']} — score {d['score']}")

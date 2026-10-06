@@ -1,6 +1,6 @@
 ---
 name: rag-multimodal
-description: Guia e checklist de implementação para RAG multimodal (texto + imagem) no Harbor — diagramas técnicos e gráficos de sensor, via caption-then-embed com VLM local (Qwen2.5-VL/Ollama) entrando no pipeline LangChain já existente. Use quando o usuário pedir para "adicionar imagem ao RAG", "RAG multimodal", "indexar diagramas/gráficos", ou avançar em algum item do checklist de implementação multimodal.
+description: Guia e checklist do RAG multimodal (texto + imagem) no Harbor — EM PRODUÇÃO (aba 6) via caption-then-embed com legenda DETERMINÍSTICA (template sobre o dado de origem, sem VLM) para 26 gráficos de sensor; VLM local (Qwen/Ollama) é só histórico/comparativo. Trilha RGB real do OpenPack aprovada mas não implementada. Use quando o usuário pedir para "adicionar imagem ao RAG", "RAG multimodal", "indexar diagramas/gráficos", testar/depurar a aba 6, ou avançar em algum item do checklist multimodal.
 ---
 
 # RAG multimodal (texto + imagem) — Harbor
@@ -699,6 +699,47 @@ documento certo"). Achado incidental: a armadilha "número não plotado" teve MI
 retrieval (não é bug do teste) — dado de entrada para o item 5.4 (gate de fidelidade na
 resposta), ainda pendente.
 
+## Correção 2026-10-02: o corpus de 26 gráficos estava construído sobre n=1 por classe
+
+**Achado (teste manual da aba 6)**: 21 dos 26 gráficos liam `separacao_features_por_classe.csv`,
+que tem SÓ 2 LINHAS (a média por classe), não as leituras. Resultado: "boxplots" que eram um
+traço horizontal, e a legenda dizia só "valor 69,40" (a média, sem dizer). O LLM chegou a
+afirmar "mostrando a distribuição" de um gráfico sem distribuição. O teste de proveniência
+passava 100% o tempo todo — ele valida que o número existe no CSV, não que o CSV serve para o
+gráfico. A salvaguarda `n>1` do template (2026-09-14) mascarou o sintoma sem corrigir a origem.
+
+**Correção aplicada**: gerador de imagens e de legendas passam a ler o dataset BRUTO
+(`DATASET_BRUTO_PIPELINE2`, 2.500 leituras: 639 Fault / 1.861 Normal — mesmo arquivo do
+`pipelines/pipeline2_legacy_sensor.py`; caminho em Downloads, específico desta máquina). As
+médias por classe são idênticas às do CSV agregado, então ranking e números antigos não mudam.
+Legenda de boxplot agora cita n, mediana, quartis, mín/máx, média, desvio e outliers (regra de
+Tukey, a mesma do matplotlib — nível L2 da taxonomia L1-L4 de VisText/ChartFI). Teste de
+proveniência: 26 legendas, 250 números, 0 falhas.
+
+**Efeitos colaterais tratados**: `sem_numeros_inventados` agora aceita contagem INTEIRA
+(`n_max_contagem`) e o número logo após "desvio padrão" (validado contra 0..amplitude); decimal
+solto como valor ("voltagem 0,086") continua reprovado (teste de regressão). Coleção Chroma
+renomeada para `graficos_harbor_deterministico_v2` (`indexar(forcar=False)` reaproveita coleção
+existente — mudar só o JSON não reindexa). Streamlit precisa reiniciar (`st.cache_resource`).
+
+**Retrieval após a correção**: Recall@3 83% / MRR 0,722 (n=30 respondíveis), contra 87% do CSV
+commitado antes — UMA pergunta (`mm-voltagem-classe`) passou a recuperar os distratores "eixos
+trocados" em vez do boxplot. Dentro do ruído de n=30, mas a direção é plausível: legendas longas
+e de template comum diluem o token específico da variável. Os outros 4 MISS já existiam.
+
+**Item 5.4 implementado**: `rag_multimodal_responder` (app.py) roda `verificar_resposta`
+(`eval/verificacao.py`, mesma do chat `contexto`) e acrescenta aviso visível quando a resposta
+cita número ausente das legendas recuperadas. A aba também exibe o PNG do trecho top-1
+(`exibir_grafico_do_top1`). Gate de roteamento `pede_grafico_tecnico` (roteador.py): antes dele,
+"qual o boxplot de temperatura?" ia para NL-to-SQL por causa de "temperatura".
+
+**Estado da arte consultado (2026-10-02)**: taxonomia L1-L4 de descrição de gráfico (VisText
+arXiv:2307.05356; ChartFI arXiv:2605.23694 — faithfulness = 1 − erros/insights); verificação
+numérica por evidência (valor + unidade + citação, sem aritmética derivada) em RAG multimodal;
+claim-level groundedness como padrão de avaliação de RAG em 2026. NÃO confirmado nesta consulta:
+a afirmação anterior de que ChartFI compara "table-grounded vs imagem" — o resumo obtido diz que
+só avalia descrições baseadas em imagem; tratar essa citação como não verificada até ler o paper.
+
 ## Itens de roadmap (não bloqueiam a entrega desta sessão)
 
 - [x] **2b. Resolver VLM de qualidade suficiente — DESPRIORIZADO, resultado negativo
@@ -716,7 +757,8 @@ resposta), ainda pendente.
       reabertura (2026-09-14)**: não é pendência em aberto, é decisão já tomada. Critério de
       promoção já escrito acima ("usar quando recall for o gargalo medido E as queries forem
       visualmente difíceis") e nenhuma das duas condições vale hoje — ColModernVBERT já
-      instalado/medido (~49s/imagem em CPU, sem GPU disponível na máquina), e nenhum gap de
+      instalado/medido (~14,5s/imagem em CPU no profiling isolado de 2026-09-11; os ~49s
+      anteriores eram overhead de uma rodada longa; sem GPU disponível na máquina), e nenhum gap de
       recall foi medido que a via determinística/textual não resolva. **Reabrir apenas se**:
       (a) surgir corpus com queries visualmente difíceis de verdade (diagrama denso, múltiplos
       componentes rotulados sem texto extraível), OU (b) GPU ficar disponível, tornando o custo

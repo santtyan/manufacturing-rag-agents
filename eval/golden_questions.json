@@ -779,6 +779,28 @@
       "tolerancia": 0.0,
       "fonte": "armadilha (dado anonimizado por licenca CC BY-NC-SA do dataset OpenPack)",
       "nota": "ACHADO PREVISTO na integracao do dataset 8/OpenPack (2026-09-12): mesmo com o dado existindo em openpack_variabilidade_por_sujeito, identificar/avaliar um sujeito especifico viola a licenca do dataset (sujeitos anonimizados por design) e a natureza de dado humano. Gate pede_identificacao_de_pessoa recusa deterministicamente ANTES de qualquer consulta, prioridade maxima na cascata de rotear_pergunta()."
+    },
+    {
+      "id": "multimodal-boxplot-temperatura",
+      "dataset": "multimodal",
+      "pergunta": "qual o boxplot de temperatura?",
+      "rota_esperada": "rag",
+      "numeros_esperados": [],
+      "numeros_proibidos": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json (corpus de 26 graficos, aba 6)",
+      "nota": "Achado real 2026-10-02 (teste manual da aba 6): foi para sql (STDEV_P inexistente no Postgres) e o fallback contexto inventou min/max/mediana/Q1/Q3. Gate pede_grafico_tecnico forca rag; o sub-roteador do app escolhe o corpus de graficos."
+    },
+    {
+      "id": "multimodal-grafico-vibracao-classe",
+      "dataset": "multimodal",
+      "pergunta": "Mostre o gráfico de vibração por classe Fault/Normal",
+      "rota_esperada": "rag",
+      "numeros_esperados": [],
+      "numeros_proibidos": [],
+      "tolerancia": 0.0,
+      "fonte": "rag/legendas_deterministicas.json (corpus de 26 graficos, aba 6)",
+      "nota": "Achado real 2026-10-02 (teste manual da aba 6): foi para sql e a resposta contradizia a propria tabela (0,7855 'acima' de 0,8096). Gate pede_grafico_tecnico forca rag."
     }
   ]
 }

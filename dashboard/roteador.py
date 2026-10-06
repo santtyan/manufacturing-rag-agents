@@ -336,6 +336,28 @@ def pede_classificacao_janela_openpack(pergunta):
     return sujeito is not None and sessao is not None
 
 
+PALAVRAS_CHAVE_GRAFICO = (
+    "gráfico", "grafico", "boxplot", "scatter", "dispersão", "dispersao", "diagrama de caixa",
+    "imagem", "figura", "plot", "visualização", "visualizacao",
+)
+
+
+def pede_grafico_tecnico(pergunta):
+    """Deteta pergunta sobre um GRAFICO do corpus do RAG multimodal (aba 6, 26 graficos tecnicos
+    com legenda deterministica). Achado real, 2026-10-02 (teste manual da aba 6): "qual o boxplot
+    de temperatura?" e "Mostre o grafico de vibracao por classe Fault/Normal" NUNCA chegaram ao
+    corpus de graficos -- o sub-roteador de rag_multimodal_responder_ou_manual() (app.py) vive
+    DENTRO da rota `rag`, mas o roteador principal nao conhecia "grafico"/"boxplot": "temperatura"
+    e "vibracao" bateram em PALAVRAS_CHAVE_SQL, a pergunta foi para NL-to-SQL (SQL falhou com
+    STDEV_P inexistente no Postgres, fallback `contexto` inventou min/max/mediana/Q1/Q3 sem
+    fonte; no outro caso o texto contradizia a propria tabela). Os exemplos da aba so
+    funcionavam por acidente, porque continham "seguranca"/"arquitetura"/"retrieval"
+    (PALAVRAS_CHAVE_RAG). Forca a rota `rag` ANTES do SQL; o sub-roteador do app escolhe o
+    corpus de graficos pelas mesmas palavras-chave."""
+    p = pergunta.lower()
+    return any(kw in p for kw in PALAVRAS_CHAVE_GRAFICO)
+
+
 def rotear_por_keyword(pergunta):
     """Roteamento por palavra-chave: rapido, 0 latencia, mas fragil a sinonimos.
     'nao_respondivel' tem prioridade maxima: e um "answerability gate" deterministico (padrao-
@@ -357,6 +379,8 @@ def rotear_por_keyword(pergunta):
         return "planned_vs_unplanned"
     if pede_lss_melhorou_tudo(pergunta):
         return "lss_melhorou_tudo"
+    if pede_grafico_tecnico(pergunta):
+        return "rag"
     p = pergunta.lower()
     if any(kw in p for kw in PALAVRAS_CHAVE_SQL) or pede_agregacao_com_filtro(pergunta) or pede_ranking_categoria(pergunta):
         return "sql"

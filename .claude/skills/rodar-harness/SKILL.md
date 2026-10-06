@@ -155,3 +155,10 @@ estava lenta" sem profiling (ver `feedback_confirmar_cpu_antes_matar_processo`).
 - Resuma: roteamento (N/total), faithfulness (%), e qualquer pergunta que mudou de resultado em relação à última run conhecida.
 - Se encontrar uma alucinação nova (resposta errada não coberta por gate existente), isso é candidato a virar um gate novo — ver skill `adicionar-gate-roteamento`.
 - Não publique números novos em slides/documentação sem confirmar que vieram de uma run com os módulos sincronizados (roteador.py e rag_gerador.py atualizados, não cópias antigas).
+
+## Rodar o harness completo (aviso prático, 2026-10-02)
+
+- `python eval/rodar_golden.py` com 71 perguntas leva ~55 min em CPU (Ollama sem GPU) e **trava a máquina** se o Streamlit/chat estiver em uso ao mesmo tempo — rodar sozinho, em background (`nohup python -u ... > log`), sem outro uso pesado.
+- O log só mostra a linha de cada pergunta conforme ela termina e o **resumo + gravação de `eval/resultados_golden.csv` e `eval/alucinacoes.md` só no FINAL**. Log parcial não é prova de que travou nem de que não terminou: conferir o `LastWriteTime` do CSV e se o processo `rodar_golden` ainda existe antes de concluir qualquer coisa (erro real desta data: dei o harness como interrompido em 46/71 quando já tinha terminado e gravado os 71).
+- Ao comparar com o baseline, usar `git show HEAD:eval/resultados_golden.csv`; o desempate por LLM e o faithfulness têm variância entre rodadas (ex. 2026-10-02: 1 pergunta piorou e 1 melhorou sem mudança de código nelas) — distinguir variância de regressão olhando se o gate/código tocou naquela pergunta.
+- Baseline de 2026-10-02 (71 perguntas, após o gate `pede_grafico_tecnico`): roteamento 61/71, faithfulness médio 68,2% (22 perguntas com números esperados), 3 alucinações.

@@ -148,3 +148,15 @@ def test_avaliar_legenda_restringe_limites_plausiveis_as_variaveis_da_propria_im
     )
     r = avaliar_legenda("grafico_voltagem_por_classe", legenda_com_alucinacao, limites_globais)
     assert r["sem_numeros_inventados"] is False
+
+
+def test_contagem_e_desvio_aceitos_mas_voltagem_alucinada_continua_reprovada():
+    """Regressao de 2026-10-02: ao aceitar contagens inteiras ("639 leituras") e dispersao
+    ("desvio padrao 4,65") nas legendas de boxplot com leituras individuais, a brecha de
+    2026-09-14 NAO pode reabrir -- decimal solto como valor ("voltagem 0,086 V") segue
+    reprovado."""
+    from checks_fidelidade_caption import sem_numeros_inventados
+    limites = {"Voltage_V": (203.2, 237.6)}
+    ok = "Classe Fault (639 leituras): mediana 220,20, desvio padrão 4,65, 2 outliers."
+    assert sem_numeros_inventados(ok, limites, n_max_contagem=2500) is True
+    assert sem_numeros_inventados("A voltagem média é 0,086 V.", limites, n_max_contagem=2500) is False

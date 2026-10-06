@@ -44,7 +44,16 @@ RAIZ = Path(r"C:\Projetos\Harbor")
 SAIDA = RAIZ / "rag" / "manuais_imagens"
 SAIDA.mkdir(parents=True, exist_ok=True)
 
-CSV_PIPELINE2 = RAIZ / "outputs" / "pipeline2_legacy_sensor" / "separacao_features_por_classe.csv"
+# ACHADO REAL (2026-10-02, teste manual da aba 6): ate aqui os 21 graficos do pipeline 2 liam
+# separacao_features_por_classe.csv, que tem SO 2 LINHAS (1 media por classe) -- um boxplot sobre
+# n=1 desenha um traco horizontal, sem caixa nem distribuicao. A fonte correta e o dataset bruto
+# (2.500 leituras: 639 Fault, 1.861 Normal), o mesmo que pipelines/pipeline2_legacy_sensor.py le.
+# As medias por classe sao IDENTICAS nas duas fontes, entao ranking e numeros ja citados nao mudam.
+DATASET_BRUTO_PIPELINE2 = Path(
+    r"C:\Users\USER\Downloads\Projeto_HarboR-20260707T002634Z-3-001\Projeto_HarboR"
+    r"\Dataset\Legacy Industrial\archive\industrial_dataset.csv"
+)
+CSV_PIPELINE2 = DATASET_BRUTO_PIPELINE2
 CSV_PIPELINE4 = RAIZ / "outputs" / "pipeline4_five_axis_cnc" / "anomalias_temperatura.csv"
 
 CORES_CLASSE = {"Fault": "#F5642D", "Normal": "#A6186B"}

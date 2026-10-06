@@ -33,6 +33,8 @@ arquivo original cresce -- ver CLAUDE.md para o numero corrente):
    8d. pede_cruzamento_openpack_x_maquina -> "nao_respondivel_openpack" (2026-09-12)
    8e. pede_planned_vs_unplanned -> "planned_vs_unplanned"
    8f. pede_lss_melhorou_tudo -> "lss_melhorou_tudo"
+   8f2. pede_grafico_tecnico -> "rag" (2026-10-02, aba 6/RAG multimodal -- antes do SQL, senao
+        "boxplot de temperatura" batia em PALAVRAS_CHAVE_SQL e nunca chegava ao corpus de graficos)
    8g. palavra-chave SQL ou pede_agregacao_com_filtro ou pede_ranking_categoria -> "sql"
    8h. palavra-chave RAG (sem sinal de dado calculado) -> "rag"
    8i. default -> "contexto"

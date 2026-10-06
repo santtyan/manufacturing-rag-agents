@@ -280,7 +280,7 @@ def test_retrieval_multimodal_com_pergunta_desconectada_do_corpus():
     docs = json.loads(CORPUS_MULTIMODAL.read_text(encoding="utf-8"))
     rag = RAGHibrido(
         chroma_dir=HARBOR_ROOT / "rag" / "chroma_db_multimodal_deterministico",
-        colecao="graficos_harbor_deterministico_v1",
+        colecao="graficos_harbor_deterministico_v2",
     )
     rag.indexar(forcar=False, documentos_customizados=docs)
 
@@ -323,7 +323,7 @@ def test_retrieval_multimodal_controle_positivo_pergunta_literal():
 
     rag = RAGHibrido(
         chroma_dir=HARBOR_ROOT / "rag" / "chroma_db_multimodal_deterministico",
-        colecao="graficos_harbor_deterministico_v1",
+        colecao="graficos_harbor_deterministico_v2",
     )
     rag.indexar(forcar=False, documentos_customizados=docs)
 

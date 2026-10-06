@@ -1,11 +1,11 @@
 [
   {
     "id": "grafico_temperatura_por_classe",
-    "texto": "Título: \"Temperatura do sensor por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Temperatura (°C). Classe Fault: valor 69,40. Classe Normal: valor 70,11."
+    "texto": "Título: \"Temperatura do sensor por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Temperatura (°C). Classe Fault (639 leituras): mediana 69,52, quartis 64,31 a 74,60, mínimo 45,56 e máximo 94,63, média 69,40, desvio padrão 8,1138, 8 outliers. Classe Normal (1861 leituras): mediana 70,35, quartis 64,83 a 75,36, mínimo 35,68 e máximo 103,61, média 70,11, desvio padrão 7,9289, 13 outliers."
   },
   {
     "id": "grafico_vibracao_por_classe",
-    "texto": "Título: \"Nível de vibração por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Vibração (nível). Classe Fault: valor 0,8096. Classe Normal: valor 0,7855."
+    "texto": "Título: \"Nível de vibração por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Vibração (nível). Classe Fault (639 leituras): mediana 0,8080, quartis 0,6135 a 1,0070, mínimo -0,2640 e máximo 1,7720, média 0,8096, desvio padrão 0,2880, 4 outliers. Classe Normal (1861 leituras): mediana 0,7830, quartis 0,5740 a 0,9920, mínimo -0,2990 e máximo 1,7940, média 0,7855, desvio padrão 0,3094, 14 outliers."
   },
   {
     "id": "grafico_pressao_vazao",
@@ -17,15 +17,15 @@
   },
   {
     "id": "grafico_temperatura_barras",
-    "texto": "Título: \"Temperatura média do sensor por classe de operação\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Temperatura média (°C). Classe Fault: valor 69,40. Classe Normal: valor 70,11."
+    "texto": "Título: \"Temperatura média do sensor por classe de operação\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Temperatura média (°C). Classe Fault (639 leituras): média 69,40, variando de 45,56 a 94,63, desvio padrão 8,1138. Classe Normal (1861 leituras): média 70,11, variando de 35,68 a 103,61, desvio padrão 7,9289."
   },
   {
     "id": "grafico_temperatura_scatter_tempo",
-    "texto": "Título: \"Temperatura do sensor ao longo das leituras, por classe\". Tipo de gráfico: dispersão (scatter) ao longo do índice das leituras. Eixo X: Índice da leitura. Eixo Y: Temperatura (°C). Classe Fault: valor 69,40. Classe Normal: valor 70,11."
+    "texto": "Título: \"Temperatura do sensor ao longo das leituras, por classe\". Tipo de gráfico: dispersão (scatter) ao longo do índice das leituras. Eixo X: Índice da leitura. Eixo Y: Temperatura (°C). Classe Fault: média 69,40, variando de 45,56 a 94,63. Classe Normal: média 70,11, variando de 35,68 a 103,61."
   },
   {
     "id": "grafico_vibracao_barras",
-    "texto": "Título: \"Vibração média por classe de operação\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Vibração média (nível). Classe Fault: valor 0,8096. Classe Normal: valor 0,7855."
+    "texto": "Título: \"Vibração média por classe de operação\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Vibração média (nível). Classe Fault (639 leituras): média 0,8096, variando de -0,2640 a 1,7720, desvio padrão 0,2880. Classe Normal (1861 leituras): média 0,7855, variando de -0,2990 a 1,7940, desvio padrão 0,3094."
   },
   {
     "id": "grafico_pressao_vazao_eixos_trocados",
@@ -45,35 +45,35 @@
   },
   {
     "id": "grafico_producao_por_classe_ordenado",
-    "texto": "Título: \"Taxa de produção média por classe, do maior para o menor\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Taxa de produção média. Classe Fault: valor 39,88. Classe Normal: valor 39,96. A classe com maior média é Normal (39,96), acima de Fault (39,88)."
+    "texto": "Título: \"Taxa de produção média por classe, do maior para o menor\". Tipo de gráfico: barra. Eixo X: Classe. Eixo Y: Taxa de produção média. Classe Fault (639 leituras): média 39,88, variando de 20,75 a 59,62, desvio padrão 6,2144. Classe Normal (1861 leituras): média 39,96, variando de 20,77 a 62,64, desvio padrão 6,0716. A classe com maior média é Normal (39,96), acima de Fault (39,88)."
   },
   {
     "id": "grafico_voltagem_por_classe",
-    "texto": "Título: \"Voltagem por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Voltagem (V). Classe Fault: valor 220,19. Classe Normal: valor 220,20."
+    "texto": "Título: \"Voltagem por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Voltagem (V). Classe Fault (639 leituras): mediana 220,20, quartis 217,05 a 223,40, mínimo 207,30 e máximo 233,70, média 220,19, desvio padrão 4,6546, 2 outliers. Classe Normal (1861 leituras): mediana 220,30, quartis 216,80 a 223,50, mínimo 203,20 e máximo 237,60, média 220,20, desvio padrão 5,0084, 14 outliers."
   },
   {
     "id": "grafico_corrente_por_classe",
-    "texto": "Título: \"Corrente por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Corrente (A). Classe Fault: valor 5,5607. Classe Normal: valor 5,5015."
+    "texto": "Título: \"Corrente por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Corrente (A). Classe Fault (639 leituras): mediana 5,5800, quartis 4,7750 a 6,3950, mínimo 1,9100 e máximo 9,3000, média 5,5607, desvio padrão 1,2309, 5 outliers. Classe Normal (1861 leituras): mediana 5,5100, quartis 4,7600 a 6,2700, mínimo 0,4300 e máximo 9,4400, média 5,5015, desvio padrão 1,1754, 18 outliers."
   },
   {
     "id": "grafico_som_por_classe",
-    "texto": "Título: \"Nível de som por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Som (dB). Classe Fault: valor 64,74. Classe Normal: valor 64,82."
+    "texto": "Título: \"Nível de som por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Som (dB). Classe Fault (639 leituras): mediana 64,90, quartis 57,50 a 71,55, mínimo 32,70 e máximo 95,00, média 64,74, desvio padrão 10,10, 2 outliers. Classe Normal (1861 leituras): mediana 65,00, quartis 58,20 a 71,90, mínimo 33,70 e máximo 100,30, média 64,82, desvio padrão 9,9729, 8 outliers."
   },
   {
     "id": "grafico_umidade_por_classe",
-    "texto": "Título: \"Umidade por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Umidade (%). Classe Fault: valor 55,03. Classe Normal: valor 55,07."
+    "texto": "Título: \"Umidade por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Umidade (%). Classe Fault (639 leituras): mediana 54,90, quartis 50,00 a 59,85, mínimo 32,60 e máximo 80,80, média 55,03, desvio padrão 7,1420, 7 outliers. Classe Normal (1861 leituras): mediana 55,20, quartis 50,30 a 59,80, mínimo 29,20 e máximo 85,20, média 55,07, desvio padrão 7,1243, 11 outliers."
   },
   {
     "id": "grafico_qualidade_oleo_por_classe",
-    "texto": "Título: \"Índice de qualidade do óleo por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Índice de qualidade do óleo. Classe Fault: valor 0,8550. Classe Normal: valor 0,8508."
+    "texto": "Título: \"Índice de qualidade do óleo por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Índice de qualidade do óleo. Classe Fault (639 leituras): mediana 0,8550, quartis 0,7940 a 0,9105, mínimo 0,5200 e máximo 1,1190, média 0,8550, desvio padrão 0,0955, 10 outliers. Classe Normal (1861 leituras): mediana 0,8520, quartis 0,7840 a 0,9180, mínimo 0,5230 e máximo 1,2350, média 0,8508, desvio padrão 0,1027, 16 outliers."
   },
   {
     "id": "grafico_consumo_energia_por_classe",
-    "texto": "Título: \"Consumo de energia por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Consumo de energia (kWh). Classe Fault: valor 1,4990. Classe Normal: valor 1,4917."
+    "texto": "Título: \"Consumo de energia por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Consumo de energia (kWh). Classe Fault (639 leituras): mediana 1,4810, quartis 1,2395 a 1,7615, mínimo 0,0510 e máximo 2,5060, média 1,4990, desvio padrão 0,4079, 3 outliers. Classe Normal (1861 leituras): mediana 1,4920, quartis 1,2210 a 1,7560, mínimo 0,2490 e máximo 2,6620, média 1,4917, desvio padrão 0,3952, 10 outliers."
   },
   {
     "id": "grafico_carga_por_classe",
-    "texto": "Título: \"Percentual de carga por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Carga (%). Classe Fault: valor 69,96. Classe Normal: valor 69,65."
+    "texto": "Título: \"Percentual de carga por classe de operação\". Tipo de gráfico: boxplot. Eixo X: Classe. Eixo Y: Carga (%). Classe Fault (639 leituras): mediana 69,00, quartis 54,00 a 86,00, mínimo 40,00 e máximo 99,00, média 69,96, desvio padrão 17,71, 0 outliers. Classe Normal (1861 leituras): mediana 69,00, quartis 55,00 a 84,00, mínimo 40,00 e máximo 99,00, média 69,65, desvio padrão 17,21, 0 outliers."
   },
   {
     "id": "grafico_energia_vs_carga",

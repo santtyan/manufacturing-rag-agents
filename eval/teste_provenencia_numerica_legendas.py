@@ -109,7 +109,8 @@ def _valores_de_referencia(gt: dict, dfs: dict) -> set[float]:
             for por_classe in (True, False):
                 stats = estatisticas_da_variavel(df, coluna, por_classe=por_classe)
                 for grupo_stats in stats.values():
-                    for chave in ("media", "minimo", "maximo", "desvio_padrao"):
+                    for chave in ("media", "mediana", "q1", "q3", "minimo", "maximo",
+                                  "desvio_padrao", "n", "n_outliers"):
                         v = grupo_stats.get(chave)
                         if v is not None:
                             valores.add(round(v, 2))

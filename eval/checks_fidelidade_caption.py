@@ -112,11 +112,19 @@ def contem_ranking(legenda: str, ranking_esperado) -> bool:
     return any(m in texto_lower for m in marcadores)
 
 
-def sem_numeros_inventados(legenda: str, limites_plausiveis: dict) -> bool:
+CHAVE_N_LINHAS = "__n_linhas__"
+
+
+def sem_numeros_inventados(legenda: str, limites_plausiveis: dict, n_max_contagem: int = None) -> bool:
     """Nenhum numero na legenda pode estar claramente fora da faixa plausivel das variaveis de
     origem. `limites_plausiveis`: dict var -> (min, max) ja calculado a partir do CSV real.
     Heuristica conservadora: só reprova se o numero for claramente fora de QUALQUER faixa
-    conhecida (evita falso positivo em numeros de contexto, ex: "classe 1")."""
+    conhecida (evita falso positivo em numeros de contexto, ex: "classe 1").
+
+    n_max_contagem (2026-10-02): as legendas de boxplot citam CONTAGENS ("639 leituras", "12
+    outliers"), que nao cabem na faixa de nenhuma variavel. Numero INTEIRO entre 0 e
+    n_max_contagem passa; decimal nunca -- manter assim e o que impede reabrir a brecha de
+    2026-09-14 (0,086 V aceito por caber numa faixa de contagem emprestada)."""
     # Achado real (2026-09-10): o VLM escreve decimais em pt-BR (virgula), ex. "0,099 V" -- um
     # regex so com ponto decimal quebra "0,099" em dois numeros falsos ("0" e "099"), inflando
     # falsos positivos de "numero inventado" quando o numero na verdade estava correto.
@@ -126,7 +134,15 @@ def sem_numeros_inventados(legenda: str, limites_plausiveis: dict) -> bool:
     ]
     if not numeros or not limites_plausiveis:
         return True  # sem numero para checar, ou sem faixa conhecida -- nao reprova
-    todas_faixas = list(limites_plausiveis.values())
+    todas_faixas = [f for f in limites_plausiveis.values() if isinstance(f, tuple)]
+    # Numero citado como "desvio padrao X" e uma medida de DISPERSAO: seu intervalo plausivel e
+    # (0, amplitude da variavel), nao a faixa do valor (ex. voltagem 203-237 V, desvio 4,65 V).
+    # Aceitar so quando precedido da expressao evita reabrir a brecha de 2026-09-14: "voltagem
+    # 0,086" continua reprovada, so "desvio padrao 0,086" e lido como dispersao.
+    desvios_citados = {
+        float(m.replace(",", "."))
+        for m in re.findall(r"desvio padr[aã]o\s+(-?\d+(?:[.,]\d+)?)", legenda, flags=re.IGNORECASE)
+    }
     margem = 0.5  # 50% de folga sobre a AMPLITUDE da faixa (max-min), nao sobre o valor
     # absoluto -- folga proporcional ao valor absoluto (ex: +-1 fixo) explode para variaveis
     # com faixa real pequena perto de zero (achado real ao testar: Vibration_Level varia so
@@ -140,6 +156,10 @@ def sem_numeros_inventados(legenda: str, limites_plausiveis: dict) -> bool:
             # Achado real (2026-09-10): "5" tambem aparece sempre no titulo "CNC 5 eixos" do
             # corpus deste dataset -- sem isso, 5 imagens reprovavam por citar o nome do
             # equipamento, nao um dado inventado.
+        if n_max_contagem is not None and n == int(n) and 0 <= n <= n_max_contagem:
+            continue  # contagem de leituras/outliers
+        if n in desvios_citados and any(0 <= n <= (mx - mn) for mn, mx in todas_faixas):
+            continue  # dispersao: vive em (0, amplitude), nao na faixa do valor
         dentro_de_alguma_faixa = any(
             (mn - (mx - mn) * margem) <= n <= (mx + (mx - mn) * margem)
             for mn, mx in todas_faixas
@@ -177,7 +197,8 @@ def avaliar_legenda(doc_id: str, legenda: str, limites_plausiveis: dict = None) 
         "tipo_grafico_correto": tipo_grafico_correto(legenda, gt["tipo"]),
         "menciona_eixos_corretos": menciona_eixos_corretos(legenda, gt["eixo_x"], gt["eixo_y"]),
         "contem_ranking": contem_ranking(legenda, gt["ranking"]),
-        "sem_numeros_inventados": sem_numeros_inventados(legenda, limites_da_imagem),
+        "sem_numeros_inventados": sem_numeros_inventados(
+            legenda, limites_da_imagem, n_max_contagem=(limites_plausiveis or {}).get(CHAVE_N_LINHAS)),
     }
     n_checks = len(resultados)
     n_passou = sum(resultados.values())
@@ -205,13 +226,19 @@ def _calcular_limites_plausiveis():
     uma CONTAGEM sobre coluna booleana e (0, len(df)), nao (0, 1) do valor bruto."""
     import pandas as pd
     raiz = Path(r"C:\Projetos\Harbor")
-    csv2 = raiz / "outputs" / "pipeline2_legacy_sensor" / "separacao_features_por_classe.csv"
+    # Dataset BRUTO (2.500 leituras), nao o CSV agregado de 2 linhas: as legendas passaram a citar
+    # mediana/quartis/min/max das leituras individuais (2026-10-02), que ficariam fora de uma
+    # faixa calculada so sobre as 2 medias por classe.
+    from legendas_deterministicas import DATASET_BRUTO_PIPELINE2 as csv2
     csv4 = raiz / "outputs" / "pipeline4_five_axis_cnc" / "anomalias_temperatura.csv"
     limites = {}
     if csv2.exists():
         df2 = pd.read_csv(csv2)
         for col in df2.select_dtypes("number").columns:
             limites[col] = (float(df2[col].min()), float(df2[col].max()))
+        # Teto de CONTAGEM (n de leituras, n de outliers) -- chave reservada, nunca e variavel
+        # de imagem; avaliar_legenda() a repassa so como teto para numeros INTEIROS.
+        limites[CHAVE_N_LINHAS] = len(df2)
     if csv4.exists():
         df4 = pd.read_csv(csv4)
         for col in df4.select_dtypes(["number", "bool"]).columns:

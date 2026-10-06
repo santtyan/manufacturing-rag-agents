@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "rag"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "eval"))
 
 from legendas_deterministicas import (
+    DATASET_BRUTO_PIPELINE2,
     _mapear_eixos_para_colunas,
     _texto_barra_contagem_por_componente,
     _texto_boxplot_ou_barra,
@@ -33,9 +34,9 @@ def _df_classe(valores_fault, valores_normal, coluna="Variavel"):
 
 
 def test_estatisticas_da_variavel_com_1_amostra_por_classe_nao_gera_nan():
-    """Regressao direta do bug real (2026-09-14): separacao_features_por_classe.csv tem SO 2
-    LINHAS (1 media ja pre-calculada por classe, nao dado bruto) -- desvio_padrao com n=1 dava
-    NaN com o ddof=1 padrao do pandas. Corrigido para None quando n<=1, nunca NaN."""
+    """Regressao direta do bug real (2026-09-14): com n=1 por classe (era o caso do CSV agregado
+    de 2 linhas), desvio_padrao dava NaN com o ddof=1 padrao do pandas. Corrigido para None
+    quando n<=1, nunca NaN -- a salvaguarda segue valendo para qualquer fonte com n pequeno."""
     df = _df_classe([69.4], [70.1])
     stats = estatisticas_da_variavel(df, "Variavel", por_classe=True)
     assert stats["Fault"]["n"] == 1
@@ -61,6 +62,36 @@ def test_texto_boxplot_com_1_amostra_nao_inventa_faixa():
     texto = _texto_boxplot_ou_barra(gt, df)
     assert "variando de" not in texto
     assert "valor" in texto
+
+
+def test_texto_boxplot_com_varias_leituras_cita_resumo_de_5_numeros_e_outliers():
+    """Regressao do achado real de 2026-10-02 (teste manual da aba 6): boxplot desenhado sobre
+    n=1 por classe (CSV agregado) virava um traco sem caixa, e a legenda so dizia 'valor X'.
+    Com leituras individuais, a legenda de boxplot deve descrever o que o boxplot mostra:
+    n, mediana, quartis, min/max e outliers (nivel L2 de ChartFI/VisText)."""
+    df = _df_classe([10.0, 11.0, 12.0, 13.0, 14.0, 100.0], [20.0, 21.0, 22.0, 23.0])
+    gt = {"titulo": "T", "tipo": "boxplot", "eixo_x": "Classe", "eixo_y": "Var (u)",
+          "ranking": None, "variaveis_fonte": ["Variavel"]}
+    texto = _texto_boxplot_ou_barra(gt, df)
+    assert "6 leituras" in texto and "4 leituras" in texto
+    assert "mediana" in texto and "quartis" in texto
+    assert "1 outliers" in texto  # o 100,0 da classe Fault (regra de Tukey, como o matplotlib)
+    assert "0 outliers" in texto
+
+
+def test_estatisticas_contam_outliers_pela_regra_de_tukey():
+    df = _df_classe([10.0, 11.0, 12.0, 13.0, 14.0, 100.0], [20.0, 21.0, 22.0, 23.0])
+    stats = estatisticas_da_variavel(df, "Variavel", por_classe=True)
+    assert stats["Fault"]["n_outliers"] == 1
+    assert stats["Normal"]["n_outliers"] == 0
+    assert stats["Fault"]["mediana"] == 12.5
+
+
+def test_dataset_bruto_tem_leituras_individuais_nao_so_a_media():
+    """Trava a causa raiz de 2026-10-02: a fonte do pipeline 2 nos graficos precisa ter varias
+    leituras por classe, senao todo boxplot do corpus volta a ser um traco horizontal."""
+    df = pd.read_csv(DATASET_BRUTO_PIPELINE2)
+    assert df.groupby("Target").size().min() > 100
 
 
 def test_texto_barra_contagem_por_componente_usa_todas_variaveis_fonte():
@@ -147,9 +178,7 @@ def test_gerador_produz_legenda_100_por_cento_fiel_para_todas_as_26_imagens():
     from checks_fidelidade_caption import _calcular_limites_plausiveis
 
     dfs = {
-        "pipeline2": pd.read_csv(
-            Path(r"C:\Projetos\Harbor\outputs\pipeline2_legacy_sensor\separacao_features_por_classe.csv")
-        ),
+        "pipeline2": pd.read_csv(DATASET_BRUTO_PIPELINE2),
         "pipeline4": pd.read_csv(
             Path(r"C:\Projetos\Harbor\outputs\pipeline4_five_axis_cnc\anomalias_temperatura.csv")
         ),
